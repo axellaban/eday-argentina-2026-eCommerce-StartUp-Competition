@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Demo Day – Agentes de AI | eCommerce Institute</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    :root {
+      --bg:        #070810;
+      --surface:   #0f1119;
+      --surface2:  #131623;
+      --ui:        #171a27;
+      --ui-2:      #1b1e2c;
+      --border:    #242838;
+      --border2:   #2e3244;
+      --text:      #f4f4f5;
+      --text2:     #a1a1aa;
+      --muted:     #6b7280;
+      --brand:     #ff6b35;
+      --brand-glow:rgba(255, 107, 53, 0.3);
+      --purple:    #a78bfa;
+      --purple-glow:rgba(167, 139, 250, 0.2);
+      --gold:      #facc15;
+      --gold-glow: rgba(250, 204, 21, 0.25);
+      --silver:    #94a3b8;
+      --bronze:    #fb923c;
+      --green:     #22c55e;
+      --green-glow:rgba(34, 197, 94, 0.2);
+      --red:       #ef4444;
+      --radius:    16px;
+      --radius-sm: 10px;
+      --shadow:    0 2px 10px rgba(0,0,0,.5);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,.6);
+      --glow-blue: 0 0 30px rgba(255, 107, 53, 0.08);
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 64px;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+      opacity: 0.025;
+      pointer-events: none;
+      z-index: 100;
+      mix-blend-mode: overlay;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(900px at 15% 5%, rgba(255, 107, 53, 0.06), transparent 60%),
+        radial-gradient(700px at 85% 80%, rgba(96, 165, 250, 0.05), transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    .wrapper { max-width: 1400px; margin: 0 auto; position: relative; z-index: 2; }
+    .grid-2   { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3   { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    .grid-7-5 { display: grid; grid-template-columns: 7fr 5fr; gap: 20px; }
+    .space-y > * + * { margin-top: 20px; }
+
+    @media (max-width: 960px) {
+      .grid-2, .grid-7-5, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Card (glassmorphism dark) ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+    }
+    .card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,.02) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .card:hover {
+      border-color: var(--border2);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px -10px rgba(255, 107, 53, 0.12);
+    }
+    .card-title {
+      font-family: 'Inter', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .card-sub {
+      font-size: .78rem;
+      font-weight: 500;
+      color: var(--text2);
+      margin-bottom: 20px;
+    }
+
+    /* ── Accent line on cards ── */
+    .card-accent {
+      position: absolute; top: 0; left: 28px; right: 28px; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 107, 53, 0.4), transparent);
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: rgba(15, 17, 25, 0.85);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 28px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow), var(--glow-blue);
+      position: sticky; top: 12px; z-index: 50;
+      overflow: hidden;
+    }
+    .header::after {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--brand), var(--purple), transparent);
+      opacity: .5;
+    }
+    .header-brand { display: flex; align-items: center; gap: 16px; }
+    .header-icon {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--brand), var(--purple));
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 20px var(--brand-glow);
+    }
+    .header-icon svg { width: 26px; height: 26px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .header-title {
+      font-family: 'Inter', sans-serif;
+      font-size: 1.75rem; font-weight: 900; letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--purple), #ffb787, var(--brand));
+      background-size: 200% 100%;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmerText 5s linear infinite;
+    }
+    .header-title span {
+      background: linear-gradient(135deg, var(--brand), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-sub { font-size: .8rem; color: var(--text2); font-weight: 500; margin-top: 3px; letter-spacing: .02em; }
+    .live-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.25);
+      padding: 7px 16px; border-radius: 999px;
+      font-size: .75rem; font-weight: 700; color: var(--green);
+      letter-spacing: .06em; text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green); position: relative; flex-shrink: 0;
+    }
+    .live-dot::after {
+      content: '';
+      position: absolute; inset: -3px;
+      border-radius: 50%; background: var(--green);
+      animation: ping 1.5s ease-in-out infinite;
+      opacity: 0;
+    }
+    @keyframes ping { 0%{transform:scale(.8);opacity:.6} 100%{transform:scale(2);opacity:0} }
+    .sync-info { font-size: .74rem; color: var(--text2); font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── KPI Cards ── */
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 26px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+      transition: transform .25s, box-shadow .25s, border-color .25s;
+    }
+    .kpi-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--border2);
+      box-shadow: 0 12px 32px -10px rgba(255, 107, 53, 0.12);
+    }
+    .kpi-card .kpi-glow {
+      position: absolute; top: -30px; right: -20px;
+      width: 120px; height: 120px; border-radius: 50%;
+      opacity: .12; filter: blur(30px);
+    }
+    .kpi-card.blue  .kpi-glow { background: var(--purple); }
+    .kpi-card.green .kpi-glow { background: var(--green); }
+    .kpi-card.gold  .kpi-glow { background: var(--gold); }
+    .kpi-card::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .kpi-card.blue::after  { background: linear-gradient(90deg, var(--brand), var(--purple)); }
+    .kpi-card.green::after { background: linear-gradient(90deg, var(--green), #60a5fa); }
+    .kpi-card.gold::after  { background: linear-gradient(90deg, var(--gold), var(--bronze)); }
+    .kpi-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+    }
+    .kpi-card.blue  .kpi-icon { background: rgba(167,139,250,.15); }
+    .kpi-card.green .kpi-icon { background: rgba(34,197,94,.15); }
+    .kpi-card.gold  .kpi-icon { background: rgba(250,204,21,.15); }
+    .kpi-icon svg { width: 18px; height: 18px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .kpi-card.blue  .kpi-icon svg { stroke: var(--purple); }
+    .kpi-card.green .kpi-icon svg { stroke: var(--green); }
+    .kpi-card.gold  .kpi-icon svg { stroke: var(--gold); }
+    .kpi-label {
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .12em; color: var(--text2); margin-bottom: 8px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .kpi-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.5rem; font-weight: 800; letter-spacing: -.04em;
+      line-height: 1; color: var(--text);
+    }
+    .kpi-value.green { color: var(--green); }
+    .kpi-value.blue  { color: var(--purple); }
+    .kpi-value.gold  { color: var(--gold); }
+    .kpi-sub { font-size: .75rem; color: var(--text2); font-weight: 500; margin-top: 8px; }
+
+    /* ── Connection Status Banner ── */
+    .conn-banner {
+      border-radius: var(--radius-sm);
+      padding: 12px 18px;
+      display: flex; align-items: center; gap: 12px;
+      font-size: .82rem; font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .conn-banner.success { background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.2); color: var(--green); }
+    .conn-banner.warning { background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.2); color: var(--gold); }
+    .conn-banner.error   { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2); color: var(--red); }
+    .conn-banner .conn-icon { flex-shrink: 0; }
+    .conn-detail { font-size: .74rem; font-weight: 500; opacity: .75; margin-top: 2px; }
+    .conn-meta { margin-left: auto; text-align: right; font-size: .72rem; opacity: .7; white-space: nowrap; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 9px 18px; border-radius: 10px;
+      font-family: 'Inter', inherit; font-size: .84rem; font-weight: 700;
+      cursor: pointer; border: none; transition: all .18s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--brand), #e0531b);
+      color: #fff; box-shadow: 0 4px 16px var(--brand-glow);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 24px var(--brand-glow); transform: translateY(-1px); }
+    .btn-ghost {
+      background: rgba(255,255,255,.04); color: var(--text2);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,.08); border-color: var(--border2); color: var(--text); }
+    .btn-active {
+      background: rgba(255, 107, 53, 0.15); color: var(--brand);
+      border: 1px solid rgba(255, 107, 53, 0.35);
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+    /* ── Radar section ── */
+    .radar-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .chip {
+      padding: 5px 14px; border-radius: 999px; font-size: .76rem;
+      font-weight: 700; cursor: pointer; border: 1.5px solid transparent;
+      transition: all .15s;
+    }
+    .radar-canvas-wrap { position: relative; height: 400px; }
+
+    /* ── Bar chart ── */
+    .bar-canvas-wrap { position: relative; height: 280px; }
+
+    /* ── Podium ── */
+    .podium-wrap {
+      display: flex; align-items: flex-end; justify-content: center;
+      gap: 12px; height: 260px; padding: 0 8px;
+    }
+    .podium-col { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 110px; }
+    .podium-info { text-align: center; margin-bottom: 8px; }
+    .podium-medal {
+      font-size: 1.6rem; line-height: 1;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
+    }
+    .podium-team {
+      font-family: 'Inter', sans-serif;
+      font-size: .85rem; font-weight: 800; color: var(--text); margin-top: 5px;
+    }
+    .podium-score {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.5rem; font-weight: 800;
+    }
+    .podium-block {
+      width: 100%; border-radius: 10px 10px 0 0;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding-top: 14px;
+    }
+    .podium-num {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .9rem; font-weight: 800;
+    }
+    .p1 {
+      background: linear-gradient(145deg, rgba(250, 204, 21, .15), rgba(250, 204, 21, .04));
+      border: 1px solid rgba(250, 204, 21, .3);
+      box-shadow: 0 0 30px rgba(250, 204, 21, .1);
+    }
+    .p2 {
+      background: linear-gradient(145deg, rgba(148, 163, 184, .12), rgba(148, 163, 184, .03));
+      border: 1px solid rgba(148, 163, 184, .2);
+    }
+    .p3 {
+      background: linear-gradient(145deg, rgba(251, 146, 60, .12), rgba(251, 146, 60, .03));
+      border: 1px solid rgba(251, 146, 60, .2);
+    }
+    .n1 { color: var(--gold); border: 2px solid rgba(250, 204, 21, .4); background: rgba(250, 204, 21, .06); }
+    .n2 { color: var(--silver); border: 2px solid rgba(148, 163, 184, .3); background: rgba(148, 163, 184, .04); }
+    .n3 { color: var(--bronze); border: 2px solid rgba(251, 146, 60, .3); background: rgba(251, 146, 60, .04); }
+
+    /* ── Table ── */
+    .tbl-wrap { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    thead th {
+      background: rgba(255,255,255,.02); color: var(--text2);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; padding: 12px 14px; text-align: left;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    thead th:last-child { text-align: center; }
+    tbody td { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.03); font-weight: 600; color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+    tbody td:nth-child(2) { font-family: 'Inter', sans-serif; font-weight: 800; color: var(--text); }
+    tbody td:last-child { text-align: center; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(255,255,255,.02); color: var(--text); }
+    .pill {
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font-size: .78rem; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .pill-avg {
+      background: rgba(255,107,53,.15); color: var(--brand);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem; padding: 4px 14px; border-radius: 999px; font-weight: 800;
+      border: 1px solid rgba(255,107,53,.25);
+    }
+    .rank-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: .78rem; font-weight: 700; color: var(--text2);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .rank-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    /* ── AI Module ── */
+    .editor-wrap { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: rgba(0,0,0,.25); }
+    .editor-bar {
+      background: rgba(255,255,255,.02); border-bottom: 1px solid var(--border);
+      padding: 10px 14px; display: flex; align-items: center; gap: 6px;
+    }
+    .editor-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .editor-label { margin-left: 8px; font-size: .73rem; font-family: 'JetBrains Mono', monospace; color: var(--text2); }
+    .editor-chars { margin-left: auto; font-size: .7rem; font-family: 'JetBrains Mono', monospace; color: var(--muted); }
+    textarea, input[type=password] {
+      width: 100%;
+      background: transparent;
+      color: var(--text);
+      padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: .82rem;
+      border: none; outline: none; resize: none; line-height: 1.65;
+      display: block;
+    }
+    textarea::placeholder, input::placeholder { color: var(--muted); }
+    textarea:focus, input:focus { color: var(--text); }
+    select {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 8px 14px; font-family: inherit; font-size: .85rem; font-weight: 700;
+      color: var(--text); outline: none; cursor: pointer;
+    }
+    select:focus { border-color: var(--brand); }
+    .ai-panel {
+      background: var(--surface2); border-radius: var(--radius);
+      padding: 2px; position: relative; overflow: hidden;
+      display: flex; flex-direction: column; min-height: 420px;
+      border: 1px solid var(--border);
+    }
+    .ai-panel::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,107,53,.08) 0%, rgba(167,139,250,.06) 50%, rgba(34,197,94,.04) 100%);
+      pointer-events: none;
+    }
+    .ai-inner {
+      background: transparent; border-radius: calc(var(--radius) - 2px);
+      flex: 1; padding: 28px; display: flex; flex-direction: column;
+      justify-content: center; position: relative; overflow-y: auto;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes slideIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes shimmerText { 0%{background-position:0% 50%;} 100%{background-position:200% 50%;} }
+
+    /* ── Section Divider ── */
+    .section-divider {
+      display: flex; align-items: center; gap: 20px; margin: 12px 0;
+    }
+    .section-divider-line {
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border2), transparent);
+    }
+    .section-divider-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .12em; color: var(--text2);
+      padding: 5px 14px; border: 1px solid var(--border);
+      border-radius: 999px; background: var(--surface);
+      white-space: nowrap;
+    }
+
+    /* ── Ficha Cards ── */
+    .ficha-card {
+      border-radius: 20px; overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      animation: fichaIn .5s cubic-bezier(.22,.68,0,1.2) both;
+      transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+    }
+    .ficha-card:hover {
+      border-color: color-mix(in oklab, var(--c, var(--brand)) 50%, var(--border-2));
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px -10px color-mix(in oklab, var(--c, var(--brand)) 30%, rgba(0,0,0,0.4));
+    }
+    @keyframes fichaIn {
+      from { opacity: 0; transform: translateY(20px) scale(.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .ficha-header {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: start;
+      gap: 16px;
+      padding: 24px 28px 20px;
+    }
+    .ficha-letter {
+      width: 52px; height: 52px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.4rem; font-weight: 800;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .ficha-letter::after {
+      content: '';
+      position: absolute; inset: 0; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(255,255,255,.1), transparent);
+      pointer-events: none;
+    }
+    .ficha-meta { min-width: 0; }
+    .ficha-group-label {
+      font-size: .68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--text2); margin-bottom: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ficha-project-name {
+      font-family: 'Inter', sans-serif;
+      font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em;
+      color: var(--text); line-height: 1.1; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .ficha-score-block { text-align: right; flex-shrink: 0; }
+    .ficha-score-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.8rem; font-weight: 800; letter-spacing: -.05em;
+      line-height: 1;
+    }
+    .ficha-score-label {
+      font-size: .65rem; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em; margin-top: 2px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ficha-pills {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px;
+      padding: 0 28px 16px;
+    }
+    .ficha-pill {
+      font-size: .68rem; font-weight: 700; padding: 3px 10px;
+      border-radius: 999px; border-width: 1px; border-style: solid;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ficha-body {
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .ficha-body-inner {
+      padding: 24px 28px 28px;
+      font-size: .875rem; line-height: 1.8; color: var(--text2);
+    }
+    .ficha-section-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: .68rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .12em; margin: 22px 0 10px; padding-top: 20px;
+      border-top: 1px solid var(--border); color: var(--text2);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ficha-section-title:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+    .ficha-section-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .ficha-bullet {
+      display: flex; gap: 10px; margin: 7px 0; align-items: flex-start;
+    }
+    .ficha-arrow {
+      font-size: .8rem; font-weight: 800; flex-shrink: 0; margin-top: 2px;
+      width: 18px; text-align: center;
+    }
+    .ficha-veredicto {
+      margin: 24px 0 0;
+      padding: 18px 20px;
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(255,107,53,0.06), var(--surface2));
+      border: 1px solid rgba(255, 107, 53, 0.25);
+    }
+    .ficha-veredicto::before {
+      content: '';
+      position: absolute; inset: 0; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(255,255,255,.02), transparent);
+      pointer-events: none;
+    }
+    .ficha-veredicto-label {
+      font-size: .66rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .12em; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ficha-veredicto-text {
+      font-size: .87rem; line-height: 1.75; font-weight: 500; color: var(--text2);
+    }
+
+    /* ── AI Empty State ── */
+    .ai-empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 16px; padding: 56px 24px;
+      text-align: center;
+    }
+    .ai-empty-icon {
+      width: 64px; height: 64px; border-radius: 20px;
+      background: rgba(255,255,255,.02); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ai-empty-title {
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem; font-weight: 700; color: var(--text2);
+    }
+    .ai-empty-sub {
+      font-size: .82rem; color: var(--muted); line-height: 1.65;
+      max-width: 420px;
+    }
+    .ai-empty-code {
+      font-size: .75rem; background: rgba(255,255,255,.04);
+      border: 1px solid var(--border); padding: 8px 16px;
+      border-radius: 10px; font-family: 'JetBrains Mono', monospace; color: var(--text2);
+    }
+
+    .ai-error { text-align: center; color: var(--red); }
+    .ai-error svg { opacity: .6; margin: 0 auto 12px; display: block; }
+    .ai-error p { font-size: .82rem; }
+    .ai-error .sub { color: var(--muted); font-size: .75rem; margin-top: 6px; }
+
+    /* ── Loading overlay ── */
+    #loadingOverlay {
+      position: fixed; inset: 0;
+      background: rgba(7,8,16,.94);
+      backdrop-filter: blur(8px); z-index: 999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+    }
+    .loading-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 40px 52px; text-align: center; box-shadow: var(--shadow-lg);
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      animation: slideIn .3s ease-out;
+    }
+    .loading-card .sheets-logo {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, #0f9d58, #0d7a47);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .loading-card h3 {
+      font-family: 'Inter', sans-serif;
+      font-size: 1.05rem; font-weight: 700; color: var(--text);
+    }
+    .loading-card p  { font-size: .82rem; color: var(--text2); font-weight: 500; }
+    .spinner {
+      width: 32px; height: 32px; border: 2px solid var(--border);
+      border-top-color: var(--brand); border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    /* ── Misc ── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    .label-sm {
+      font-size: .72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--muted); margin-bottom: 8px;
+    }
+    .podium-legend {
+      display: flex; justify-content: center; gap: 20px;
+      margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+    }
+    .podium-legend span {
+      font-size: .73rem; font-weight: 700; color: var(--muted);
+      display: flex; align-items: center; gap: 5px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .podium-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    .part-connector {
+      width: 2px; height: 32px; margin: 12px auto;
+      background: linear-gradient(180deg, var(--c-from, var(--brand)), var(--c-to, var(--purple)));
+      border-radius: 2px;
+      box-shadow: 0 0 12px color-mix(in oklab, var(--c-from, var(--brand)) 50%, transparent);
+      opacity: 0.55;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+  <div class="loading-card">
+    <div class="sheets-logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    </div>
+    <div class="spinner"></div>
+    <h3>Conectando a Google Sheets…</h3>
+    <p id="loadingMsg">Cargando datos de la hoja "Analisis"</p>
+  </div>
+</div>
+
+<div class="wrapper space-y">
+
+  <!-- ══ HEADER ══ -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-icon">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div>
+        <div class="header-title">Demo Day <span>eCI</span></div>
+        <div class="header-sub">Programa de Agentes de AI · eCommerce Institute · Live Evaluation</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <span class="sync-info" id="syncInfo">–</span>
+      <button class="btn btn-ghost" onclick="loadData()" style="font-size:.78rem;padding:8px 14px;">
+        ↻ Actualizar
+      </button>
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        Algoritmos Activos
+      </div>
+    </div>
+  </header>
+
+  <div class="part-connector" style="--c-from: var(--brand); --c-to: var(--purple);"></div>
+
+  <!-- ══ CONNECTION STATUS BANNER ══ -->
+  <div id="connBanner" class="conn-banner" style="display:none;">
+    <span class="conn-icon" id="connIcon"></span>
+    <div>
+      <div id="connMsg"></div>
+      <div class="conn-detail" id="connDetail"></div>
+    </div>
+    <div class="conn-meta" id="connMeta"></div>
+  </div>
+
+  <!-- ══ KPI CARDS ══ -->
+  <div class="grid-3" id="kpiRow">
+    <div class="kpi-card blue">
+      <div class="kpi-glow"></div>
+      <div class="kpi-icon">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div class="kpi-label">Alumnos evaluados</div>
+      <div class="kpi-value blue" id="kpiGrupos">–</div>
+      <div class="kpi-sub" id="kpiGruposSub">–</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-glow"></div>
+      <div class="kpi-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      </div>
+      <div class="kpi-label">Alumno Líder</div>
+      <div class="kpi-value green" id="kpiLider">–</div>
+      <div class="kpi-sub" id="kpiLiderSub">promedio más alto</div>
+    </div>
+    <div class="kpi-card gold">
+      <div class="kpi-glow"></div>
+      <div class="kpi-icon">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div class="kpi-label">Criterio Más Fuerte</div>
+      <div class="kpi-value gold" id="kpiCriterio" style="font-size:1.4rem;margin-top:6px;">–</div>
+      <div class="kpi-sub" id="kpiCriterioSub">promedio más alto entre todos</div>
+    </div>
+  </div>
+
+  <div class="part-connector" style="--c-from: var(--purple); --c-to: var(--green);"></div>
+
+  <!-- ══ ROW 1: RADAR + PODIO ══ -->
+  <div class="grid-7-5">
+
+    <!-- RADAR -->
+    <div class="card">
+      <div class="card-accent"></div>
+      <div class="radar-controls">
+        <div>
+          <div class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Análisis Multidimensional
+          </div>
+          <div class="card-sub">5 criterios de evaluación por alumno</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-active" id="btnAll"  onclick="setMode('all')">Todos</button>
+          <button class="btn btn-ghost"  id="btnPick" onclick="setMode('pick')">Seleccionar</button>
+        </div>
+      </div>
+      <div class="chip-row" id="chipRow" style="display:none;"></div>
+      <div class="radar-canvas-wrap">
+        <canvas id="radarChart"></canvas>
+      </div>
+    </div>
+
+    <!-- PODIO -->
+    <div class="card" style="display:flex;flex-direction:column;">
+      <div class="card-accent"></div>
+      <div class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        Leaderboard
+      </div>
+      <div class="card-sub">Top 3 alumnos por promedio general</div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;">
+        <div class="podium-wrap" id="podiumWrap"></div>
+        <div class="podium-legend">
+          <span><span class="podium-legend-dot" style="background:var(--silver)"></span> 2do</span>
+          <span><span class="podium-legend-dot" style="background:var(--gold)"></span> 1ro</span>
+          <span><span class="podium-legend-dot" style="background:var(--bronze)"></span> 3ro</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="part-connector" style="--c-from: var(--green); --c-to: var(--gold);"></div>
+
+  <!-- ══ ROW 2: BAR CHART + TABLA ══ -->
+  <div class="grid-2">
+
+    <!-- BAR CHART -->
+    <div class="card">
+      <div class="card-accent"></div>
+      <div class="card-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+        Promedio por Criterio
+      </div>
+      <div class="card-sub">Rendimiento agregado · todos los grupos</div>
+      <div class="bar-canvas-wrap">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+        <div style="background:rgba(79,142,247,.15);border:1px solid rgba(79,142,247,.25);width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        </div>
+        <div>
+          <div class="card-title" style="margin-bottom:0;">Tabla de Puntajes</div>
+          <div class="card-sub" style="margin-bottom:0;">Escala 1–5 · ordenado por promedio</div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Alumno</th>
+              <th>⚡ Vivo</th>
+              <th>🧠 Arq.</th>
+              <th>🎯 Caso</th>
+              <th>📈 Impacto</th>
+              <th>🔥 Robo</th>
+              <th>Prom. ★</th>
+            </tr>
+          </thead>
+          <tbody id="scoreTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="part-connector" style="--c-from: var(--gold); --c-to: var(--brand);"></div>
+
+  <!-- ══ SEPARADOR FICHAS ══ -->
+  <div class="section-divider">
+    <div class="section-divider-line"></div>
+    <div class="section-divider-label">Fichas de Evaluación IA</div>
+    <div class="section-divider-line"></div>
+  </div>
+
+  <!-- ══ MÓDULO AI ══ -->
+  <div class="card" id="aiModule">
+    <div class="card-accent"></div>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:28px;padding-bottom:22px;border-bottom:1px solid var(--border);">
+      <div style="background:linear-gradient(135deg,var(--brand),var(--purple));width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 24px var(--brand-glow);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a8 8 0 0 1 8 8v4a8 8 0 0 1-16 0v-4a8 8 0 0 1 8-8z"/><path d="M8 21h8"/><path d="M12 21v-3"/><path d="M9 9h.01"/><path d="M15 9h.01"/><path d="M10 13a4 4 0 0 0 4 0"/></svg>
+      </div>
+      <div style="flex:1;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:1.2rem;font-weight:800;color:var(--text);letter-spacing:-.02em;">Fichas de Evaluación</div>
+        <div style="font-size:.78rem;color:var(--muted);font-weight:500;margin-top:4px;">Análisis ejecutivo generado por Claude · una ficha por grupo presentado</div>
+      </div>
+      <div id="fichasBadge" style="display:none;font-size:.72rem;font-weight:700;padding:5px 14px;border-radius:999px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);color:var(--green);letter-spacing:.04em;text-transform:uppercase;"></div>
+    </div>
+
+    <!-- Estado: buscando fichas.json -->
+    <div id="aiSetup">
+      <div class="ai-empty-state">
+        <div class="ai-empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" id="fichasIcon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div class="ai-empty-title" id="fichasInfoText">Esperando fichas.json…</div>
+        <div class="ai-empty-sub" id="fichasInfoSub">Cuando terminen los pitches, pedile a Claude en Cowork:<br>
+          <em style="color:var(--text2);">"generá las fichas del transcript"</em><br>
+          El archivo aparece acá automáticamente.
+        </div>
+        <div class="ai-empty-code">fichas.json · carpeta del dashboard</div>
+        <button class="btn btn-ghost" onclick="loadFichas()" style="font-size:.78rem;padding:8px 16px;margin-top:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Verificar ahora
+        </button>
+      </div>
+    </div>
+
+    <!-- Fichas resultado -->
+    <div id="aiFichas" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;color:var(--text);" id="fichasHeader">Fichas generadas</div>
+          <div style="font-size:.74rem;color:var(--muted);margin-top:3px;">Evaluación ejecutiva · Demo Day eCommerce Institute</div>
+        </div>
+        <button class="btn btn-ghost" onclick="resetAI()" style="font-size:.75rem;padding:7px 14px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Recargar
+        </button>
+      </div>
+      <div id="fichasContainer" style="display:flex;flex-direction:column;gap:20px;"></div>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG — Google Sheets
+// ═══════════════════════════════════════════════
+const SHEET_ID  = '1q0RMckS9DcJSzmX6RUmlfdfd-PkH_pvK-rcpIrK-5GY';
+// gviz/tq respeta el nombre de hoja correctamente (export?format=csv trae siempre la primera hoja)
+const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Analisis`;
+
+const CRITERIA = [
+  '⚡ Funciona en Vivo',
+  '🧠 Arquitectura Agéntica',
+  '🎯 Relevancia del Caso',
+  '📈 Impacto Medible',
+  '🔥 ¿Me lo Robo?'
+];
+
+const PALETTE = [
+  { border:'#a78bfa', bg:'rgba(167,139,250,.08)' },
+  { border:'#60a5fa', bg:'rgba(96,165,250,.08)'  },
+  { border:'#22c55e', bg:'rgba(34,197,94,.08)'   },
+  { border:'#ff6b35', bg:'rgba(255,107,53,.08)'  },
+  { border:'#facc15', bg:'rgba(250,204,21,.08)'  },
+  { border:'#f472b6', bg:'rgba(244,114,182,.08)' },
+  { border:'#94a3b8', bg:'rgba(148,163,184,.08)' },
+  { border:'#34d399', bg:'rgba(52,211,153,.08)'  },
+  { border:'#fb923c', bg:'rgba(251,146,60,.08)'  },
+  { border:'#818cf8', bg:'rgba(129,140,248,.08)' },
+  { border:'#e879f9', bg:'rgba(232,121,249,.08)' },
+  { border:'#2dd4bf', bg:'rgba(45,212,191,.08)'  },
+  { border:'#fbbf24', bg:'rgba(251,191,36,.08)'  },
+  { border:'#f87171', bg:'rgba(248,113,113,.08)' },
+  { border:'#4ade80', bg:'rgba(74,222,128,.08)'  },
+  { border:'#c084fc', bg:'rgba(192,132,252,.08)' },
+];
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let DATA        = [];
+let selectedIdx = [];
+let radarMode   = 'all';
+let radarChart  = null;
+let barChart    = null;
+
+// ═══════════════════════════════════════════════
+// CSV PARSER
+// ═══════════════════════════════════════════════
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; continue; }
+    if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; continue; }
+    cur += c;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function parseNum(v) {
+  if (v === undefined || v === null || v === '') return NaN;
+  return parseFloat(String(v).replace(',', '.').trim());
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n').filter(l => l.trim().length > 0);
+  const results = [];
+  // row 0 = header; rows 1..16 = datos
+  // col 0 = número alumno, cols 1-5 = scores, col 6 = media
+  // gviz/tq envuelve valores en comillas y puede agregar columnas vacías extra al final
+  for (let i = 1; i < lines.length; i++) {
+    const cols  = parseCSVLine(lines[i]);
+    const first = (cols[0] || '').trim();
+    // col A debe ser un número entero >= 1
+    const alumnoNum = parseInt(first, 10);
+    if (isNaN(alumnoNum) || alumnoNum < 1) continue;
+    const team = 'Alumno ' + alumnoNum;
+    // Parsear los 5 scores (cols 1-5)
+    // Si alguno está vacío o no es número → skip fila (alumno sin votos aún)
+    const scores = [];
+    let valid = true;
+    for (let j = 1; j <= 5; j++) {
+      const raw = (cols[j] || '').trim();
+      if (raw === '' || raw.startsWith('#')) { valid = false; break; }
+      const n = parseNum(raw);
+      if (isNaN(n)) { valid = false; break; }
+      scores.push(n);
+    }
+    if (!valid) continue;
+    // Media: usar col 6 si es un número válido, sino calcular
+    const mediaRaw = (cols[6] || '').trim();
+    const mediaSheet = (mediaRaw === '' || mediaRaw.startsWith('#')) ? NaN : parseNum(mediaRaw);
+    const media = !isNaN(mediaSheet)
+      ? Math.round(mediaSheet * 100) / 100
+      : Math.round((scores.reduce((a,b) => a+b, 0) / scores.length) * 100) / 100;
+    results.push({ team, scores, media });
+  }
+  return results;
+}
+
+// ═══════════════════════════════════════════════
+// CONNECTION STATUS BANNER
+// ═══════════════════════════════════════════════
+function showBanner(type, msg, detail, meta) {
+  const banner = document.getElementById('connBanner');
+  banner.className = 'conn-banner ' + type;
+  banner.style.display = 'flex';
+  document.getElementById('connIcon').textContent =
+    type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌';
+  document.getElementById('connMsg').textContent    = msg;
+  document.getElementById('connDetail').textContent = detail || '';
+  document.getElementById('connMeta').textContent   = meta || '';
+}
+
+// ═══════════════════════════════════════════════
+// LOAD DATA
+// ═══════════════════════════════════════════════
+async function loadData() {
+  const overlay = document.getElementById('loadingOverlay');
+  overlay.style.display = 'flex';
+
+  if (location.protocol === 'file:') {
+    DATA = DEMO_DATA();
+    document.getElementById('syncInfo').textContent = '⚠ Modo demo';
+    document.getElementById('syncInfo').style.color = 'var(--gold)';
+    showBanner('warning',
+      'Abriste el archivo directo — CORS bloqueará Google Sheets',
+      'Ejecutá servidor.py y abrí http://localhost:8080/dashboard.html para datos reales.',
+      'Mostrando datos demo'
+    );
+    selectedIdx = DATA.map((_,i) => i);
+    renderAll();
+    overlay.style.display = 'none';
+    return;
+  }
+
+  const t0 = Date.now();
+  document.getElementById('loadingMsg').textContent = `Conectando a Google Sheets…`;
+
+  try {
+    const url = CSV_URL + '&cachebust=' + Date.now();
+    const res = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache, no-store' } });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status} — El servidor respondió con error`);
+
+    document.getElementById('loadingMsg').textContent = 'Parseando CSV…';
+    const text   = await res.text();
+    const parsed = parseCSV(text);
+    const ms     = Date.now() - t0;
+
+    if (parsed.length === 0) {
+      DATA = DEMO_DATA();
+      document.getElementById('syncInfo').textContent = '⚠ Sheet vacía';
+      document.getElementById('syncInfo').style.color = 'var(--gold)';
+      showBanner('warning',
+        'Conectado a Sheets · sin datos todavía',
+        `La hoja "Analisis" no tiene filas con puntajes aún. Mostrando datos demo.`,
+        `${ms}ms`
+      );
+    } else {
+      DATA = parsed;
+      const now = new Date().toLocaleTimeString('es-AR');
+      document.getElementById('syncInfo').textContent = `✓ Sync ${now}`;
+      document.getElementById('syncInfo').style.color = 'var(--green)';
+      showBanner('success',
+        `Conectado a Google Sheets · ${parsed.length} alumnos cargados`,
+        `Hoja "Analisis" · ${text.split('\n').filter(l=>l.trim()).length} filas · datos en tiempo real`,
+        `${ms}ms`
+      );
+    }
+
+  } catch (e) {
+    DATA = DEMO_DATA();
+    document.getElementById('syncInfo').textContent = '⚠ Sin conexión';
+    document.getElementById('syncInfo').style.color = 'var(--red)';
+    showBanner('error',
+      'No se pudo conectar a Google Sheets',
+      e.message || 'Error de red o CORS. Verificá que el servidor esté corriendo.',
+      'Modo demo activo'
+    );
+  }
+
+  selectedIdx = DATA.map((_,i) => i);
+  renderAll();
+  overlay.style.display = 'none';
+}
+
+function DEMO_DATA() {
+  return [
+    { team:'Alumno 1',  scores:[4.2,4.4,3.7,4.0,3.0], media:3.86 },
+    { team:'Alumno 2',  scores:[4.9,4.6,4.0,3.0,4.1], media:4.12 },
+    { team:'Alumno 3',  scores:[4.5,4.3,4.3,4.0,4.3], media:4.28 },
+    { team:'Alumno 4',  scores:[4.3,4.0,4.1,5.0,4.1], media:4.30 },
+    { team:'Alumno 5',  scores:[4.0,4.2,4.3,4.5,3.9], media:4.18 },
+    { team:'Alumno 6',  scores:[3.8,4.1,4.5,4.2,4.0], media:4.12 },
+    { team:'Alumno 7',  scores:[4.7,3.9,4.2,3.8,4.4], media:4.20 },
+    { team:'Alumno 8',  scores:[4.1,4.5,3.9,4.3,4.2], media:4.20 },
+    { team:'Alumno 9',  scores:[3.5,3.8,4.0,4.1,3.7], media:3.82 },
+    { team:'Alumno 10', scores:[4.6,4.2,4.8,4.5,4.3], media:4.48 },
+    { team:'Alumno 11', scores:[4.0,3.7,4.1,3.9,4.2], media:3.98 },
+    { team:'Alumno 12', scores:[4.4,4.6,4.3,4.0,4.5], media:4.36 },
+    { team:'Alumno 13', scores:[3.9,4.0,3.8,4.2,3.6], media:3.90 },
+    { team:'Alumno 14', scores:[4.8,4.7,4.5,4.6,4.9], media:4.70 },
+    { team:'Alumno 15', scores:[4.2,4.0,4.3,3.8,4.1], media:4.08 },
+    { team:'Alumno 16', scores:[3.7,4.3,4.0,4.4,3.9], media:4.06 },
+  ];
+}
+
+// ═══════════════════════════════════════════════
+// KPI CARDS
+// ═══════════════════════════════════════════════
+function renderKPIs() {
+  document.getElementById('kpiGrupos').textContent = DATA.length;
+  document.getElementById('kpiGruposSub').textContent =
+    DATA.length > 0 ? `Alumnos 1 – ${DATA.length} · Demo Day eCI` : '–';
+
+  const sorted  = [...DATA].sort((a,b) => b.media - a.media);
+  const leader  = sorted[0];
+  document.getElementById('kpiLider').textContent    = leader?.team || '–';
+  document.getElementById('kpiLiderSub').textContent = leader ? `${leader.media.toFixed(2)} / 5.00` : '–';
+
+  const criterioAvgs = CRITERIA.map((c, ci) => ({
+    name: c,
+    avg:  DATA.reduce((sum, d) => sum + d.scores[ci], 0) / DATA.length
+  }));
+  const best = criterioAvgs.sort((a,b) => b.avg - a.avg)[0];
+  document.getElementById('kpiCriterio').textContent    = best?.name || '–';
+  document.getElementById('kpiCriterioSub').textContent = best ? `${best.avg.toFixed(2)} / 5.00 avg` : '–';
+}
+
+// ═══════════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════════
+function renderAll() {
+  renderKPIs();
+  buildChips();
+  renderRadar();
+  renderBar();
+  renderPodium();
+  renderTable();
+}
+
+// ═══════════════════════════════════════════════
+// RADAR
+// ═══════════════════════════════════════════════
+function buildChips() {
+  const row = document.getElementById('chipRow');
+  row.innerHTML = '';
+  DATA.forEach((d, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.textContent = d.team;
+    btn.style.borderColor = PALETTE[i % PALETTE.length].border;
+    btn.style.color       = selectedIdx.includes(i) ? '#fff' : PALETTE[i % PALETTE.length].border;
+    btn.style.background  = selectedIdx.includes(i) ? PALETTE[i % PALETTE.length].border : 'transparent';
+    btn.onclick = () => toggleTeam(i);
+    row.appendChild(btn);
+  });
+}
+
+function buildDatasets() {
+  return DATA.map((d, i) => ({
+    label: d.team,
+    data: d.scores,
+    backgroundColor: PALETTE[i % PALETTE.length].bg,
+    borderColor:     PALETTE[i % PALETTE.length].border,
+    pointBackgroundColor: '#fff',
+    pointBorderColor:     PALETTE[i % PALETTE.length].border,
+    pointHoverBackgroundColor: PALETTE[i % PALETTE.length].border,
+    borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 7,
+    hidden: !selectedIdx.includes(i),
+  }));
+}
+
+function renderRadar() {
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  if (radarChart) radarChart.destroy();
+  const ctx = document.getElementById('radarChart').getContext('2d');
+  radarChart = new Chart(ctx, {
+    type: 'radar',
+    data: { labels: CRITERIA, datasets: buildDatasets() },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        r: {
+          min: 0, max: 5,
+          angleLines: { color: 'rgba(255,255,255,.05)' },
+          grid: { color: 'rgba(255,255,255,.04)', circular: true },
+          pointLabels: { color: '#a1a1aa', font: { size: 11, weight: '700', family: "'Inter', sans-serif" }, padding: 20 },
+          ticks: { display: false, stepSize: 1 }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { padding: 20, usePointStyle: true, pointStyle: 'circle', font: { size: 11, weight: '600' }, color: '#a1a1aa', boxWidth: 10 }
+        },
+        tooltip: {
+          backgroundColor: '#131623',
+          titleColor: '#f4f4f5',
+          bodyColor: '#a1a1aa',
+          titleFont: { size: 12, weight: '700', family: "'JetBrains Mono', monospace" }, bodyFont: { size: 12, family: "'Inter', sans-serif" },
+          padding: 14, cornerRadius: 10, boxPadding: 6,
+          borderColor: 'rgba(255,255,255,.08)', borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.r.toFixed(1)}` }
+        }
+      }
+    }
+  });
+}
+
+function setMode(mode) {
+  radarMode = mode;
+  const chipRow = document.getElementById('chipRow');
+  if (mode === 'all') {
+    chipRow.style.display = 'none';
+    selectedIdx = DATA.map((_,i) => i);
+    document.getElementById('btnAll').className  = 'btn btn-active';
+    document.getElementById('btnPick').className = 'btn btn-ghost';
+  } else {
+    chipRow.style.display = 'flex';
+    document.getElementById('btnAll').className  = 'btn btn-ghost';
+    document.getElementById('btnPick').className = 'btn btn-active';
+  }
+  buildChips();
+  updateRadar();
+}
+
+function toggleTeam(i) {
+  if (selectedIdx.includes(i)) {
+    if (selectedIdx.length === 1) return;
+    selectedIdx = selectedIdx.filter(x => x !== i);
+  } else {
+    selectedIdx.push(i);
+  }
+  buildChips();
+  updateRadar();
+}
+
+function updateRadar() {
+  if (!radarChart) return;
+  radarChart.data.datasets.forEach((ds, i) => { ds.hidden = !selectedIdx.includes(i); });
+  radarChart.update();
+}
+
+// ═══════════════════════════════════════════════
+// BAR CHART
+// ═══════════════════════════════════════════════
+function renderBar() {
+  if (barChart) barChart.destroy();
+  const ctx = document.getElementById('barChart').getContext('2d');
+
+  const avgs = CRITERIA.map((_, ci) =>
+    Math.round(DATA.reduce((sum, d) => sum + d.scores[ci], 0) / DATA.length * 100) / 100
+  );
+
+  const barColors = avgs.map(v => {
+    const pct = v / 5;
+    return pct >= .8 ? 'rgba(34, 197, 94, 0.7)' : pct >= .6 ? 'rgba(96, 165, 250, 0.7)' : 'rgba(239, 68, 68, 0.7)';
+  });
+  const barBorders = avgs.map(v => {
+    const pct = v / 5;
+    return pct >= .8 ? 'rgba(34, 197, 94, 1)' : pct >= .6 ? 'rgba(96, 165, 250, 1)' : 'rgba(239, 68, 68, 1)';
+  });
+
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: CRITERIA,
+      datasets: [{
+        label: 'Promedio general',
+        data: avgs,
+        backgroundColor: barColors,
+        borderColor: barBorders,
+        borderWidth: 1,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      scales: {
+        x: {
+          min: 0, max: 5,
+          grid: { color: 'rgba(255,255,255,.05)' },
+          ticks: { font: { size: 10, weight: '600', family: "'JetBrains Mono', monospace" }, color: '#6b7280' }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { font: { size: 11, weight: '700', family: "'Inter', sans-serif" }, color: '#a1a1aa' }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#131623',
+          titleColor: '#f4f4f5',
+          bodyColor: '#a1a1aa',
+          padding: 12, cornerRadius: 10,
+          borderColor: 'rgba(255,255,255,.08)', borderWidth: 1,
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.x.toFixed(2)} / 5.00`
+          }
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// PODIUM
+// ═══════════════════════════════════════════════
+function renderPodium() {
+  const sorted = [...DATA].sort((a,b) => b.media - a.media);
+  const wrap   = document.getElementById('podiumWrap');
+  if (!sorted.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:.85rem;">Sin datos</p>'; return; }
+
+  const MEDAL_SVGS = [
+    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="#fbbf24" opacity=".25"/><path d="M12 3l2.09 4.26L19 8.27l-3.5 3.41.83 4.82L12 14.77l-4.33 2.73.83-4.82L5 8.27l4.91-.01L12 3z" fill="#fbbf24"/></svg>`,
+    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="#94a3b8" opacity=".2"/><path d="M12 3l2.09 4.26L19 8.27l-3.5 3.41.83 4.82L12 14.77l-4.33 2.73.83-4.82L5 8.27l4.91-.01L12 3z" fill="#94a3b8"/></svg>`,
+    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="#fb923c" opacity=".2"/><path d="M12 3l2.09 4.26L19 8.27l-3.5 3.41.83 4.82L12 14.77l-4.33 2.73.83-4.82L5 8.27l4.91-.01L12 3z" fill="#fb923c"/></svg>`,
+  ];
+
+  const order = [
+    sorted[1] ? { rank:2, data:sorted[1], blk:'p2', num:'n2', medalIdx:1, col:'#94a3b8', h:'68%' } : null,
+    sorted[0] ? { rank:1, data:sorted[0], blk:'p1', num:'n1', medalIdx:0, col:'#d97706', h:'100%' } : null,
+    sorted[2] ? { rank:3, data:sorted[2], blk:'p3', num:'n3', medalIdx:2, col:'#c2410c', h:'48%' } : null,
+  ].filter(Boolean);
+
+  wrap.innerHTML = order.map(it => `
+    <div class="podium-col">
+      <div class="podium-info">
+        <div class="podium-medal">${MEDAL_SVGS[it.medalIdx]}</div>
+        <div class="podium-team">${it.data.team}</div>
+        <div class="podium-score" style="color:${it.col}">${it.data.media.toFixed(2)}</div>
+      </div>
+      <div class="podium-block ${it.blk}" style="height:${it.h}">
+        <div class="podium-num ${it.num}">${it.rank}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════
+function renderTable() {
+  const sorted     = [...DATA].sort((a,b) => b.media - a.media);
+  const dotColors  = ['#f59e0b','#94a3b8','#f97316'];
+  document.getElementById('scoreTbody').innerHTML = sorted.map((d, rank) => {
+    const dotColor = dotColors[rank] || '#e2e8f0';
+    const cells = d.scores.map(s => {
+      const pct = s / 5;
+      const c   = pct >= .8 ? '#10b981' : pct >= .6 ? '#f59e0b' : '#f43f5e';
+      return `<td><span class="pill" style="background:${c}18;color:${c}">${s.toFixed(1)}</span></td>`;
+    }).join('');
+    return `<tr>
+      <td><span class="rank-badge"><span class="rank-dot" style="background:${dotColor}"></span>${rank+1}</span></td>
+      <td style="font-weight:800">${d.team}</td>
+      ${cells}
+      <td><span class="pill-avg">${d.media.toFixed(2)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// MÓDULO AI — FICHAS
+// Las fichas las genera Claude leyendo transcript.txt
+// y las guarda como fichas.json en esta misma carpeta.
+// El dashboard solo las levanta y las muestra.
+// ═══════════════════════════════════════════════
+
+async function loadFichas() {
+  try {
+    const res = await fetch('fichas.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const fichas = await res.json();
+    if (!Array.isArray(fichas) || fichas.length === 0) throw new Error('Archivo vacío');
+
+    const fichasConScores = fichas.map(f => ({
+      ...f,
+      gd: DATA.find(d => d.team.toLowerCase() === (f.group || '').toLowerCase()) || null
+    }));
+
+    document.getElementById('aiSetup').style.display  = 'none';
+    document.getElementById('aiFichas').style.display = 'block';
+    const n = fichas.length;
+    document.getElementById('fichasHeader').textContent =
+      `${n} ficha${n > 1 ? 's' : ''} generada${n > 1 ? 's' : ''}`;
+    const badge = document.getElementById('fichasBadge');
+    badge.style.display = 'flex';
+    badge.textContent = `${n} grupos`;
+    renderFichas(fichasConScores);
+
+  } catch (e) {
+    const infoText = document.getElementById('fichasInfoText');
+    const infoSub  = document.getElementById('fichasInfoSub');
+    if (infoText) { infoText.textContent = 'fichas.json no encontrado'; }
+    if (infoSub)  { infoSub.innerHTML   = 'Cuando terminen los pitches, pedile a Claude en Cowork:<br><em style="color:var(--text2);">"generá las fichas del transcript"</em><br>El archivo aparece acá automáticamente.'; }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(loadFichas, 900);
+});
+
+function renderFichas(fichas) {
+  const container = document.getElementById('fichasContainer');
+  container.innerHTML = '';
+
+  fichas.forEach(({ group, proyecto, raw, gd }, idx) => {
+    const pal   = PALETTE[idx % PALETTE.length];
+    const color = pal.border;
+    const media = gd ? gd.media.toFixed(2) : '—';
+    const letter = group.replace(/alumno\s*/i, '').replace(/grupo\s*/i, '').trim().charAt(0);
+    const delay = idx * 0.08;
+
+    const pillsHtml = gd
+      ? CRITERIA.map((c, i) => {
+          const s   = gd.scores[i];
+          const pct = s / 5;
+          const cl  = pct >= .8 ? 'var(--green)' : pct >= .6 ? 'var(--gold)' : 'var(--red)';
+          return `<span class="ficha-pill" style="background:${cl}15;color:${cl};border-color:${cl}40;">${c} <strong>${s.toFixed(1)}</strong></span>`;
+        }).join('')
+      : '';
+
+    const sections = parseFichaRaw(raw || '');
+    const bodyHtml = buildFichaBody(sections, color);
+
+    const el = document.createElement('div');
+    el.className = 'ficha-card';
+    el.style.cssText = `--c:${color}; border-color:${color}30; animation-delay:${delay}s;`;
+    el.innerHTML = `
+      <div style="height:3px;background:linear-gradient(90deg,${color},${color}88,transparent);"></div>
+      <div class="ficha-header">
+        <div class="ficha-letter" style="background:${color}20;border:2px solid ${color}50;color:${color};">
+          ${letter}
+        </div>
+        <div class="ficha-meta">
+          <div class="ficha-group-label">${group}</div>
+          <div class="ficha-project-name" title="${proyecto || ''}">${proyecto || group}</div>
+        </div>
+        <div class="ficha-score-block">
+          <div class="ficha-score-num" style="color:${color};">${media}</div>
+          <div class="ficha-score-label">/ 5.00</div>
+        </div>
+      </div>
+      ${pillsHtml ? `<div class="ficha-pills">${pillsHtml}</div>` : ''}
+      <div class="ficha-body">
+        <div class="ficha-body-inner">${bodyHtml}</div>
+      </div>`;
+
+    container.appendChild(el);
+  });
+}
+
+function parseFichaRaw(text) {
+  const sections = [];
+  let current = { title: null, lines: [] };
+  text.split('\n').forEach(line => {
+    const heading = line.match(/^\*\*([A-ZÁÉÍÓÚÑ\s]+)\*\*\s*$/);
+    if (heading) {
+      if (current.lines.length > 0 || current.title) sections.push(current);
+      current = { title: heading[1].trim(), lines: [] };
+    } else {
+      current.lines.push(line);
+    }
+  });
+  if (current.lines.length > 0 || current.title) sections.push(current);
+  return sections;
+}
+
+const SECTION_DOTS = {
+  'FORTALEZAS': '#22c55e',
+  'ÁREAS DE MEJORA': '#facc15',
+  'RESUMEN DEL PROYECTO': '#60a5fa',
+  'VEREDICTO': '#ff6b35',
+};
+
+function buildFichaBody(sections, accentColor) {
+  let html = '';
+  sections.forEach(sec => {
+    const isVeredicto = sec.title && sec.title.includes('VEREDICTO');
+    const dotColor = SECTION_DOTS[sec.title] || accentColor;
+
+    if (sec.title) {
+      if (isVeredicto) {
+        const bodyText = sec.lines
+          .filter(l => l.trim())
+          .map(l => l.replace(/^[•\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'))
+          .join(' ');
+        html += `
+          <div class="ficha-veredicto" style="background:linear-gradient(135deg, ${dotColor}12, rgba(19,22,35,0.45)); border:1px solid ${dotColor}33; box-shadow: 0 4px 20px ${dotColor}08;">
+            <div class="ficha-veredicto-label" style="color:${dotColor};">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              Veredicto
+            </div>
+            <div class="ficha-veredicto-text">${bodyText}</div>
+          </div>`;
+        return;
+      }
+
+      html += `<div class="ficha-section-title">
+        <span class="ficha-section-dot" style="background:${dotColor};box-shadow:0 0 6px ${dotColor};"></span>
+        ${sec.title}
+      </div>`;
+    }
+
+    sec.lines.forEach(line => {
+      const l = line.trim();
+      if (!l) return;
+      if (/^[•\-\*]\s+/.test(l)) {
+        const content = l.replace(/^[•\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text);">$1</strong>');
+        html += `<div class="ficha-bullet">
+          <span class="ficha-arrow" style="color:${dotColor};">›</span>
+          <span>${content}</span>
+        </div>`;
+      } else {
+        const content = l.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text);">$1</strong>');
+        html += `<p style="margin:6px 0;">${content}</p>`;
+      }
+    });
+  });
+  return html;
+}
+
+function resetAI() {
+  document.getElementById('aiSetup').style.display  = 'flex';
+  document.getElementById('aiFichas').style.display = 'none';
+  loadFichas();
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
