@@ -1,156 +1,103 @@
 ==============================================================================
-DEMO DAY — PROGRAMA DE AGENTES DE AI | eCOMMERCE INSTITUTE
-TRANSCRIPT COMPLETO DE PRESENTACIONES Y EVALUACIÓN DE DEMOS
+TRANSCRIPT COMPLETO DEMO DAY — PROGRAMA DE AGENTES DE AI | eCommerce Institute
+Fecha: 23 de Julio de 2026
 ==============================================================================
 
---- PRESENTACIÓN 1: MARCOS ---
-Proyecto: Agente de Recuperación Automática de Carritos Abandonados por WhatsApp & Voz
-Presentador: Marcos
+--- PRESENTACIÓN 1: CECI ESCUDERO ---
+Proyecto: Re-Check — Agente de Auditoría de Redacción, Guía de Estilo y Edición Editorial
+Presentadora: Ceci Escudero
 
-"Buenas tardes a todos. Mi nombre es Marcos. En nuestra tienda manejábamos una tasa de abandono de carrito del 68%. Los emails tradicionales tenían apenas un 12% de apertura. Construí un agente autónomo multitarea. Cuando Shopify detecta un carrito abandonado con más de 3 minutos de inactividad, se activa nuestro agente en n8n. El agente no envía un mensaje genérico: consulta el historial del cliente en el CRM, analiza los productos en el carrito y utiliza un LLM para decidir el mejor ángulo de persuasión (descuento, envío gratis o resolución de dudas). Si el cliente responde por WhatsApp o audio, el agente procesa la voz con Whisper, genera la respuesta adecuada y si el cliente confirma la compra, el agente genera automáticamente el link de pago seguro a través de la API de Mercado Pago.
-En la demo en vivo que están viendo en pantalla, abandoné un carrito con una campera. A los 2 minutos recibí el mensaje por WhatsApp. Le pregunté si tenía cambio de talle en el local de Palermo. El agente consultó la API de inventario local, me confirmó que sí había stock disponible, me generó un cupón del 10% válido por 15 minutos y me dio el link de checkout directo.
-Impacto medible: En el piloto de 30 días recuperamos el 24% de los carritos abandonados, generando $14.200 USD adicionales en facturación directa con 0 intervención humana."
-
-
---- PRESENTACIÓN 2: PABLO ---
-Proyecto: Orquestador Agéntico de Catálogo y Optimización SEO Multicanal
-Presentador: Pablo
-
-"Hola a todos, soy Pablo. El gran dolor de cabeza en e-commerce al subir 500 productos nuevos es crear títulos, descripciones enriquecidas, etiquetas SEO y especificaciones técnicas para MercadoLibre, Shopify y Magento. Tardábamos 45 minutos por producto.
-Diseñé un orquestador agéntico basado en LangChain con 3 sub-agentes especializados:
-1. Agente Extractor: Toma una imagen del producto o la ficha básica del fabricante y extrae características visuales con visión por computadora.
-2. Agente Copywriter & SEO: Genera descripciones optimizadas para motores de búsqueda ajustadas al buyer persona.
-3. Agente Publisher: Valida las reglas de cada marketplace (límites de caracteres, atributos requeridos) y publica automáticamente mediante las APIs.
-Durante la demo en vivo, cargué una foto de una zapatilla de running sin descripción. El extractor identificó marca, color, tipo de suela y amortiguación. El copywriter armó la ficha técnica SEO y el publisher la sincronizó simultáneamente en Shopify y MercadoLibre en 8 segundos.
-Impacto medible: Redujimos el tiempo de publicación de 45 minutos a 12 segundos por SKU, permitiendo dar de alta 1.200 SKUs al mes con un ahorro de 180 horas hombre."
+Resumen & Transcripción de la Demo:
+Cecilia Escudero presentó 'Re-Check', un agente diseñado para optimizar el flujo editorial en medios de comunicación y creación de contenidos. El dolor principal es que la revisión manual de cada nota por parte de los editores para verificar la guía de estilo, ortografía, tono de voz y SEO toma más de 35 minutos por artículo, generando cuellos de botella antes de publicar.
+El agente recibe el borrador crudo de un redactor, aplica un checklist de 10 puntos editoriales (ortotipografía, tono de voz de la marca, coherencia, palabras clave SEO, estructuración de subtítulos), marca correcciones sugeridas y devuelve la versión final lista para publicación.
+En la demo en vivo, Cecilia cargó un borrador crudo en el sistema. El agente analizó el texto en segundos, identificó fallas de estilo y tono, reestructuró la nota e imprimió el informe de cambios con la versión final pulida.
+Impacto medible: Reduce el tiempo de edición por artículo de 35 minutos a 3 minutos (ahorro de más del 90% del tiempo de edición) y permite liberar más de 80 horas mensuales por editor.
 
 
---- PRESENTACIÓN 3: JUAN ---
-Proyecto: Agente de Conciliación Financiera y Auditoría de Pasarelas de Pago
-Presentador: Juan
+--- PRESENTACIÓN 2: MARIA CECILIA CRESPI ---
+Proyecto: Agente Asesor Financiero y Seguimiento Automático de Cartera de Inversiones
+Presentadora: Maria Cecilia Crespi
 
-"Buenas tardes, mi nombre es Juan. Las discrepancias entre lo que cobra Mercado Pago, Stripe o PayPal y lo que ingresa al banco o al ERP representan hasta un 3% de fuga de margen sin detectar por comisiones ocultas o contracargos.
-Desarrollé un agente auditor de finanzas. El agente se conecta todas las noches por API y web scraping a las pasarelas de pago y al sistema bancario. Extrae los extractos en CSV/JSON, normaliza los datos y realiza un matching transaccional 1 a 1. Si encuentra diferencias en tasas, retenciones impositivas o acreditaciones no recibidas, el agente ejecuta una herramienta de reclamo automático generando un ticket en Soporte de la pasarela con el comprobante adjunto.
-En la demo en vivo corrimos la conciliación del día de ayer. El agente procesó 3.400 transacciones en 15 segundos, detectó 4 cobros de comisiones duplicadas por $125.000 ARS y redactó la solicitud de reembolso automática.
-Impacto medible: Eliminó el 100% del trabajo manual de conciliación financiera (ahorrando 20hs semanales al equipo contable) y recuperó $1.800 USD en sobrecargos en el primer mes."
-
-
---- PRESENTACIÓN 4: PATRICIO ---
-Proyecto: Agente de Gestión Automática de Devoluciones y Logística Inversa (RTA)
-Presentador: Patricio
-
-"Hola, soy Patricio. Gestionar cambios y devoluciones es el proceso más costoso y destructivo de la experiencia de cliente en e-commerce. Genera más del 40% de los tickets de soporte.
-Mi proyecto es un Agente Autónomo de Logística Inversa. Cuando un cliente solicita una devolución en la tienda, interactúa con el agente. El agente solicita fotos del producto, utiliza un modelo de visión artificial para verificar que el artículo esté intacto y sin signos de uso extremo, valida la política de devolución según la fecha de entrega y, si se aprueba, genera la etiqueta de envío de devolución con Andreani/OCASA. Además, coordina con el depósito la recepción y emite la nota de crédito o cupón de cambio de forma instantánea.
-En la demo en vivo, simulé la devolución de un pantalón por talle incorrecto. Subí la foto de la etiqueta original, el agente la leyó con OCR, verificó la compra en la base de datos, aprobó la solicitud y me entregó el código QR de Andreani para despachar en sucursal en menos de 1 minuto.
-Impacto medible: Redujo el tiempo medio de resolución de devoluciones de 4 días a 3 minutos, bajando el costo operativo por devolución en un 75%."
+Resumen & Transcripción de la Demo:
+Maria Cecilia Crespi presentó un agente asesor para la gestión y seguimiento de portafolios de inversión de clientes. El problema es que los asesores financieros dedican más de 2 horas diarias al research de mercado y análisis de contexto macroeconómico, más 1.5 horas semanales por cliente para preparar reportes de cartera.
+El sistema automatizado (vía Make y Anthropic Claude) realiza el research diario, analiza la posición de activos del cliente ajustando la explicación según el nivel de conocimiento técnico del usuario (básico vs avanzado), genera recomendaciones de 'Mantener', 'Comprar' o 'Vender', y envía semanalmente un reporte automático consolidado por Telegram.
+En la demo en vivo, el agente procesó la cartera de un cliente, analizó los activos y disparó automáticamente el mensaje por Telegram con el desglose de composición, análisis de riesgo y recomendaciones de inversión.
+Impacto medible: Ahorro de tiempo del 85-90% en tareas de research. Para una cartera de 20 clientes, reduce los costos operativos de .400 USD a  USD mensuales.
 
 
---- PRESENTACIÓN 5: MARTA ---
-Proyecto: Asistente Agéntico de Compras Personalizadas con Prueba Visual en Vivo
-Presentadora: Marta
+--- PRESENTACIÓN 3: MARU PORTELA ---
+Proyecto: GrowthThing — Sistema Multi-Agente de Prospecting B2B y Generación de Oportunidades
+Presentadora: Maru Portela
 
-"Buenas tardes, soy Marta. En moda y cosmética online, la falta de asesoramiento en tiempo real genera altas tasas de abandono.
-Construí un agente asesor de personal shopper. El usuario conversa con el agente por voz o texto contándole qué evento tiene (ej: 'Boda de día en la playa'). El agente no solo busca productos en el catálogo, sino que analiza la paleta de colores del cliente, combina prendas armando un outfit completo (vestido, zapatos, accesorios) y utiliza un modelo generativo de imagen para mostrar cómo se ve el outfit combinado en un modelo con características físicas similares.
-En la demo en vivo, le pedí una recomendación para un festival de música. El agente armó un look de 3 prendas, verificó stock de cada talle y añadió todo al carrito con 1 solo clic.
-Impacto medible: Incrementó el ticket medio (AOV) de la tienda en un 38% al incentivar la compra cross-selling de outfits completos."
-
-
---- PRESENTACIÓN 6: JUANA ---
-Proyecto: Agente Auditor de Reputación y Respuesta Autónoma en Marketplaces
-Presentadora: Juana
-
-"Hola a todos, mi nombre es Juana. En MercadoLibre y Amazon, una respuesta tardía o una mala calificación sin atender destruye el posicionamiento del algoritmo y las ventas.
-Desarrollé un agente de monitoreo y respuesta autónoma 24/7. El agente escucha la API de preguntas y opiniones de los marketplaces. Cuando llega una pregunta previa a la compra, analiza la ficha del producto y stock en tiempo real y responde en menos de 45 segundos con un tono vendedor. Si llega una reseña negativa post-venta, analiza el motivo, verifica el trackeo del envío y si fue demora del correo, envía automáticamente una disculpa con un cupón de compensación y abre un caso de mediación.
-En la demo en vivo enviamos una pregunta sobre compatibilidad técnica a las 3 AM. El agente respondió en 12 segundos con precisión y enlace al accesorio complementario.
-Impacto medible: Bajó el tiempo promedio de respuesta pre-venta de 48 minutos a 35 segundos, aumentando la tasa de conversión en MercadoLibre un 18%."
+Resumen & Transcripción de la Demo:
+Maru Portela (socia en NanoThing, consultora de Customer Experience) presentó 'GrowthThing', un sistema multi-agente para la prospección B2B. El proceso manual de prospecting tomaba entre 3 y 4 horas semanales por lead y sufría de mensajes fríos e inconsistentes.
+El sistema cuenta con 3 agentes: 1) Rastreador: escrapea señales públicas en LinkedIn, webs y noticias con Firecrawl y califica la madurez de CX de las empresas en 4 niveles; 2) Detector: monitorea cambios en el pipeline y puestos clave; 3) Nutridor: diseña secuencias de seguimiento altamente personalizadas con tono humano.
+En la demo en vivo, ejecutó el rastreador sobre empresas del sector tecnológico y de gestión empresarial. El agente trajo las empresas, identificó el nivel de madurez CX, extrajo datos relevantes de noticias y redactó mensajes de prospección hiper-personalizados.
+Impacto medible: Ahorro del 77% en tiempo de prospección (de 6.5h a 1.5h semanales por lead). ROI estimado del 2.500% anual con un ahorro operativo de .400 USD al año.
 
 
---- PRESENTACIÓN 7: MARA ---
-Proyecto: Agente Copiloto para Negociación y Reposición Automática con Proveedores
-Presentadora: Mara
+--- PRESENTACIÓN 4: DEBORA MENIGALI ---
+Proyecto: Colaboratech — Agente de Documentación de Procesos y Gestión del Conocimiento Interno
+Presentadora: Debora Menigali
 
-"Buenas tardes, soy Mara. El descalce de stock o stockout provoca pérdidas directas de ventas. Comprar de más congela el capital de trabajo.
-Cree un Agente de Reposición y Negociación de Inventario. El agente predice la demanda futura analizando la velocidad de ventas de los últimos 30 días, la estacionalidad y los días de entrega del proveedor. Cuando el stock de un SKU alcanza el punto de reorden, el agente genera la orden de compra automática, redacta un correo al proveedor solicitando presupuesto y condiciones de pago, compara si hay ofertas alternativas en otros distribuidores y deja lista la orden para firma del gerente de compras.
-En la demo en vivo, bajé intencionalmente el stock de un producto estrella. En 5 segundos el agente detectó el quiebre inminente, emitió la solicitud de cotización a 3 proveedores precargados y presentó la tabla comparativa con la opción de menor costo y mejor plazo.
-Impacto medible: Evitó 14 quiebres de stock en el primer mes de prueba y redujo el exceso de inventario congelado en un 22%."
-
-
---- PRESENTACIÓN 8: MONICA ---
-Proyecto: Orquestador de Logística de Última Milla y Re-enrutamiento Dinámico
-Presentadora: Monica
-
-"Hola a todos, soy Monica. El 30% de los reclamos post-compra ocurren en la última milla por paquetes demorados o correos que no encuentran el domicilio.
-Diseñé un Orquestador Agéntico Logístico. Se conecta a las APIs de courier (Shipnow, Chazki, Treggo). El agente rastrea cada paquete en tiempo real. Si detecta una anomalía (ejemplo: 'Domicilio no encontrado' o 'Intento fallido de entrega'), el agente contacta inmediatamente al comprador por WhatsApp, le solicita la ubicación exacta en Google Maps o referencias adicionales, actualiza el sistema del courier vía API y re-programa la visita para el mismo día.
-En la demo en vivo simulamos un estado de alerta por dirección incorrecta. El agente envió el mensaje al cliente, capturó la corrección de altura de calle y actualizó la orden en el panel de la empresa de logística instantáneamente.
-Impacto medible: Redujo las entregas fallidas de un 14% a menos del 2.5%, ahorrando miles de dólares en re-despachos."
+Resumen & Transcripción de la Demo:
+Debora Menigali (Droguería del Sur) presentó 'Colaboratech', una solución para evitar la fuga de conocimiento operativo en la empresa. El dolor es que cuando un colaborador se jubila, renuncia o se va de vacaciones, el saber operativo se pierde y el onboarding de nuevos empleados es lento.
+El sistema toma las transcripciones crudas de reuniones de capacitación en Microsoft Teams descargadas en una carpeta local, las procesa con Claude CoWork y genera fichas estandarizadas de lectura rápida (menos de 2 minutos) con pasos, errores comunes, soluciones y glosario. Clasifica automáticamente la ficha en carpetas por dirección (Finanzas, RRHH, IT, Comercial, etc.) y genera un borrador en Gmail con una gacetilla semanal de novedades.
+En la demo en vivo, cargó la transcripción de una reunión sobre 'Alta de Proveedores y Pago de Eventos'. El agente leyó el archivo, generó la ficha Colaboratech, la clasificó en la carpeta de Comunicación/Eventos y dejó listo el borrador del email digest en Gmail.
+Impacto medible: Preserva el 100% del conocimiento crítico de la empresa. Genera un retorno estimado superior al 1.600% al comparar el costo de hora del colaborador (.000 ARS/h) contra 7 licencias de Claude CoWork.
 
 
---- PRESENTACIÓN 9: PEDRO ---
-Proyecto: Agente de Prevención de Fraude y Verificación de Identidad por Comportamiento
-Presentador: Pedro
+--- PRESENTACIÓN 5: OSCAR GONZALEZ REZEX ---
+Proyecto: Agente de Social Media Marketing y Dirección de Arte para Múltiples Marcas (Marketing Studio)
+Presentador: Oscar Gonzalez Rezex
 
-"Buenas tardes, soy Pedro. Los ataques de friendly fraud y uso de tarjetas robadas nos costaban más de $8.000 USD mensuales en contracargos.
-Desarrollé un agente de seguridad e-commerce. Evalúa cada transacción en tiempo real combinando análisis de geolocalización IP, comportamiento de navegación en la tienda, score de la tarjeta y verificación de identidad agéntica. Si una orden es sospechosa (ejemplo: compra de alto valor desde IP diferente al país de la tarjeta), el agente retiene la orden y dispara una micro-verificación interactiva por WhatsApp solicitando validación biométrica o confirmación bancaria al titular.
-En la demo en vivo procesamos una transacción simulada con tarjeta extranjera e IP VPN. El agente bloqueó la aprobación automática, solicitó la verificación al usuario y autorizó la venta solo tras la validación correcta.
-Impacto medible: Redujo los contracargos por fraude en un 91% sin afectar el flujo de checkout de los compradores legítimos."
-
-
---- PRESENTACIÓN 10: ROBERTO ---
-Proyecto: Agente Autónomo de Dynamic Pricing y Monitoreo de Competencia
-Presentador: Roberto
-
-"Hola a todos, soy Roberto. En e-commerce, tener precios fijos te deja fuera del mercado cuando tus competidores lanzan ofertas o se quedan sin stock.
-Construí un Agente de Precios Dinámicos. El agente realiza web scraping constante sobre las tiendas de la competencia y marketplaces. Analiza el nivel de stock propio, el margen mínimo permitido y la elasticidad precio-demanda. Si un competidor directo se queda sin stock de un producto clave, el agente sube ligeramente nuestro precio para maximizar el margen. Si el competidor baja el precio y nosotros tenemos buen margen, el agente ajusta automáticamente nuestro precio en Shopify para mantener la Buy Box.
-En la demo en vivo cambió el precio de un televisor en un sitio competidor. A los 20 segundos nuestro agente detectó la variación, recalculó el margen y actualizó la etiqueta de precio en Shopify.
-Impacto medible: Aumentó el margen bruto de utilidad en un 14.5% y mejoró las ventas en productos donde la competencia no tenía stock."
+Resumen & Transcripción de la Demo:
+Oscar Gonzalez Rezex presentó 'Marketing Studio', una plataforma agéntica para agencias que gestionan múltiples marcas. El problema es crear planes de contenido, copies y guías visuales sin alucinar y respetando el tono e historial de cada cliente, sin pagar licencias de Claude individuales para cada diseñador/community manager.
+El sistema utiliza Apify para escrapear competidores y redes sociales, guarda aprendizajes históricos en repositorios de GitHub y expone una interfaz web custom (agente.marketingstudio) conectada a Anthropic Sonnet a través de n8n. El usuario selecciona la marca, ingresa el objetivo de campaña y el agente genera la grilla de contenido, ganchos (teasers/reveals), copies y dirección de arte.
+En la demo en vivo, mostró la arquitectura en GitHub/Apify/n8n y la interfaz web generando un plan de contenidos para un producto de la agencia sin alucinaciones y basado en aprendizajes reales de la marca.
+Impacto medible: Elimina el pago de múltiples licencias individuales de Claude (ahorro directo SaaS) y acelera la producción de campañas multimarca en un 80%.
 
 
---- PRESENTACIÓN 11: JUANMA ---
-Proyecto: Agente de Gestión de Inventario Físico vs Online con Alertas de Stockout
-Presentador: Juanma
+--- PRESENTACIÓN 6: VALENTIN GIACOBINO ---
+Proyecto: Agente Autónomo de Atención al Cliente, Gestión de Reclamos y Ruteo Postventa
+Presentador: Valentin Giacobino
 
-"Buenas tardes, soy Juanma. Quienes vendemos en tiendas físicas y e-commerce sufrimos el sobrevendido cuando un producto se vende en el local y no se descuenta a tiempo en la web.
-Mi proyecto es un Agente de Sincronización Omnicanal. Escucha los eventos de punto de venta (POS) y de e-commerce. Cuando el inventario cae a 1 unidad, el agente bloquea la venta online temporalmente para evitar ventas sin stock, o re-asigna el stock disponible desde la sucursal más cercana según la ubicación del cliente online.
-En la demo en vivo se realizó una compra presencial en la caja de la sucursal. El agente descontó el producto y actualizó el stock online en Shopify y MercadoLibre en menos de 2 segundos.
-Impacto medible: Eliminó por completo las cancelaciones por falta de stock (que antes eran del 5% del total de pedidos online)."
-
-
---- PRESENTACIÓN 12: DIEGO ---
-Proyecto: Agente Generador y Programador de Campañas Ad-Tech Personalizadas
-Presentador: Diego
-
-"Hola, mi nombre es Diego. Crear campañas de Meta Ads y Google Ads para cientos de productos requiere diseñar banners, redactar textos y configurar audiencias manualmente.
-Construí un Agente Ad-Tech para e-commerce. Toma los productos de mayor rotación del catálogo, genera creativos publicitarios automáticos usando modelos de imagen y copy, configura las campañas en la Meta Marketing API y ajusta el presupuesto de acuerdo a la tasa de conversión en tiempo real de la tienda. Si un producto baja su conversión, el agente reasigna el presupuesto publicitario al producto estrella del día.
-En la demo en vivo seleccionamos una línea de mochilas. El agente generó 3 variantes de anuncio en imagen y texto y creó el borrador de la campaña en Meta Ads Manager en 40 segundos.
-Impacto medible: Aumentó el ROAS (Retorno de Inversión Publicitaria) de 3.2x a 5.1x en las primeras 3 semanas."
+Resumen & Transcripción de la Demo:
+Valentin Giacobino presentó un agente autónomo de atención postventa y resolución de reclamos para e-commerce. El problema es la saturación del canal de soporte por clientes con productos dañados o demoras en envíos fuera del horario de oficina.
+El agente opera 24/7 en WhatsApp: atiende al cliente, analiza la falla, solicita fotos o comprobantes, registra la incidencia con los enlaces de imágenes en una base de datos en Google Sheets en tiempo real y notifica por email al responsable del área con un botón directo de 1-clic para responderle al cliente.
+En la demo en vivo, interactuó por WhatsApp simulando el reclamo por una madera de cama dañada. El agente tomó los datos, solicitó y recibió la foto, cargó la fila en Google Sheets y disparó la notificación por correo al operador con el enlace listo para responder.
+Impacto medible: Cobertura de atención 24/7 al 100% de los reclamos recibidos. Reduce el tiempo de gestión humana a solo 1 clic de respuesta. (Logró la calificación más alta del Demo Day: 4.90).
 
 
---- PRESENTACIÓN 13: VALENTINA ---
-Proyecto: Agente de Atención y Postventa Multilingüe B2B
-Presentadora: Valentina
+--- PRESENTACIÓN 7: KAROL LAMOZA ESPEJO ---
+Proyecto: Agente Evaluador y Buscador Inteligente de Licitaciones Públicas (Mercado Público Chile)
+Presentadora: Karol Lamoza Espejo
 
-"Buenas tardes, soy Valentina. En e-commerce B2B transfronterizo, los clientes compran en diferentes zonas horarias e idiomas, exigiendo cotizaciones de volumen y certificados aduaneros.
-Desarrollé un Agente de Ventas B2B Multilingüe. Habla 8 idiomas, consulta las listas de precios por volumen según el tipo de cliente B2B, genera cotizaciones proforma en PDF al instante y verifica los requisitos arancelarios según el país de destino.
-En la demo en vivo, un cliente escribió en portugués pidiendo cotización por 500 unidades de un insumo industrial. El agente respondió en portugués perfecto en 15 segundos, aplicó la escala de descuento B2B y adjunto la cotización proforma lista para pagar.
-Impacto medible: Redujo el ciclo de cierre de ventas B2B internacionales de 72 horas a menos de 10 minutos."
-
-
---- PRESENTACIÓN 14: VALERIA ---
-Proyecto: Sistema Agéntico de Trade Marketing y Optimización de Bundling
-Presentadora: Valeria
-
-"Hola a todos, mi nombre es Valeria. Muchas veces los clientes compran un solo producto y no ven artículos complementarios porque las recomendaciones son estáticas.
-Diseñé un Agente de Bundling Dinámico. Analiza las tendencias de compra históricas e identifica patrones de co-compra en tiempo real. Cuando un usuario añade un producto al carrito, el agente calcula una oferta de paquete único (bundle) con un descuento exclusivo en el segundo producto y lo presenta en un widget interactivo. Si el cliente acepta, el agente crea la combinación de SKUs en el checkout de forma transparente.
-En la demo en vivo añadí una cafetera al carrito. El agente me ofreció un kit de cápsulas y descalcificador con un 15% OFF en el acto, aumentando el valor del pedido.
-Impacto medible: Elevó la tasa de conversión de cross-selling de un 4% a un 19%, aumentando el valor medio de orden (AOV) en $18 USD por transacción."
+Resumen & Transcripción de la Demo:
+Karol Lamoza Espejo presentó un agente buscador y evaluador de licitaciones públicas en Chile (Mercado Público). Karol se dedica a capacitaciones y asesorías para emprendedores financiadas por licitaciones del Estado. La revisión manual de pliegos licitatorios tomaba entre 2 y 3 horas diarias y dejaba muchas oportunidades sin evaluar.
+El agente escanea Mercado Público diariamente, aplica 10 criterios de evaluación personalizados según las competencias y perfil de la empresa, califica las licitaciones de 1 a 5 y entrega un reporte clasificándolas en Go, No-Go o Revisión, añadiendo comentarios estratégicos (ej: 'requiere socio estratégico', 'plazo de ejecución corto').
+En la demo en vivo, corrió el escaneo sobre Mercado Público. El agente filtró pliegos en tiempo real, asignó puntajes de idoneidad y emitió recomendaciones específicasGo/No-Go con un 92% de precisión comprobada frente a la revisión manual.
+Impacto medible: Reducción del tiempo diario de evaluación de 2.5 horas a 15 minutos. Ahorro monetario directo de .300.000 CLP al mes, recuperando la inversión con 1 hora de trabajo mensual.
 
 
---- PRESENTACIÓN 15: KAREN ---
-Proyecto: Agente de Compliance Legal, Etiquetado y Normativa de Exportación e-Commerce
-Presentadora: Karen
+--- PRESENTACIÓN 8: AGUSTINA VIDAL ---
+Proyecto: Agente de Análisis de Carteras de Inversión y Clasificación de Activos Financieros
+Presentadora: Agustina Vidal
 
-"Buenas tardes, soy Karen. Vender productos alimenticios o cosméticos a nivel internacional requiere cumplir normativas de etiquetado, ingredientes permitidos y regulaciones locales en cada país (FDA, ANMAT, EU Regulations).
-Construí un Agente de Compliance Transfronterizo. El agente escanea la formulación de los productos y los textos de empaque. Los contrasta contra las bases regulatorias actualizadas de los países de destino. Si detecta un ingrediente prohibido o falta de advertencia obligatoria, genera el informe de ajuste de etiqueta e impide la publicación en ese mercado objetivo hasta corregirlo.
-En la demo en vivo cargamos la ficha de una crema facial con un filtro UV específico. El agente advirtió que en la Unión Europea requería una concentración máxima diferente y emitió la sugerencia de modificación para el empaque de exportación.
-Impacto medible: Redujo a cero los bloqueos aduaneros por incumplimiento de etiquetado en envíos internacionales y ahorró miles de dólares en multas regulatorias."
+Resumen & Transcripción de la Demo:
+Agustina Vidal presentó un agente para la auditoría y clasificación automática de activos financieros en carteras de inversión. El dolor de los asesores patrimoniales es procesar extractos de cuentas bancarias y de brokers en PDF/CSV que vienen con inconsistencias o tipologías de activos mal categorizadas, lo que exige tipeo y revisión manual.
+El agente escanea los extractos consolidados, extrae la posición de títulos, clasifica los activos (Renta Fija, Renta Variable, Fondos, Cash), detecta errores de etiquetado en el informe del broker y genera la tabla de asignación patrimonial limpia.
+En la demo en vivo, cargó un extracto bancario con posiciones financieras complejas. El agente procesó el documento, clasificó los activos y detectó un error en 2 instrumentos que figuraban erróneamente como renta variable en la base original del broker.
+Impacto medible: Elimina el 100% del trabajo manual de desgrabación y clasificación de estados de cuenta, eliminando el riesgo de error humano y acelerando la preparación de reuniones con inversores.
+
+
+--- PRESENTACIÓN 9: ALESSANDRA PERDOMO ---
+Proyecto: Agente de Curaduría Editorial, Transcripción y Generación de Contenido Multimedia (Content Lab)
+Presentadora: Alessandra Perdomo
+
+Resumen & Transcripción de la Demo:
+Alessandra Perdomo (eCommerce Institute - Content Lab) presentó un sistema agéntico para la producción editorial de libros y contenidos basados en más de 100 entrevistas a referentes de la industria. Transcribir y editar manualmente estas entrevistas tenía un costo estimado de más de .000.000 ARS (140 horas de desgrabación).
+El sistema funciona con Make y la API de Anthropic Claude en 2 etapas: Agente 1) Diaporiza y limpia la transcripción cruda de YouTube identificando hablantes y marcas de ininteligible; Agente 2) Analiza el contenido editorial, asigna citas textuales (quotes) a cada capítulo según la estructura del libro, detecta vacíos de información, sugiere preguntas de seguimiento e identifica hooks multimedia para videopodcasts y redes sociales.
+En la demo en vivo, activó el escenario de Make a partir de una transcripción cruda. El agente procesó el texto, separó hablantes (Marcos vs entrevistado), envió notificación por Gmail y generó el brief editorial con las citas por capítulo y clips seleccionados.
+Impacto medible: Reduce el costo de procesamiento inicial de .000.000 ARS a apenas .000 ARS (costo de la API de Claude), logrando un ahorro de cientos de horas de trabajo editorial y un ROI masivo.
 ==============================================================================
