@@ -756,8 +756,8 @@
       .kpi-value { font-size: 2.2rem; }
 
       /* Chart canvas containers */
-      .radar-canvas-wrap { height: 280px; }
-      .bar-canvas-wrap { height: 220px; }
+      .radar-canvas-wrap { height: 420px !important; }
+      .bar-canvas-wrap { height: 260px !important; }
 
       /* Podium mobile */
       .podium-wrap { height: 200px; gap: 6px; padding: 0; }
@@ -1365,6 +1365,7 @@ function buildDatasets() {
 function renderRadar() {
   Chart.defaults.font.family = "'Inter', sans-serif";
   if (radarChart) radarChart.destroy();
+  const isMobile = window.innerWidth < 768;
   const ctx = document.getElementById('radarChart').getContext('2d');
   radarChart = new Chart(ctx, {
     type: 'radar',
@@ -1376,14 +1377,18 @@ function renderRadar() {
           min: 0, max: 5,
           angleLines: { color: 'rgba(255,255,255,.05)' },
           grid: { color: 'rgba(255,255,255,.04)', circular: true },
-          pointLabels: { color: '#a1a1aa', font: { size: 11, weight: '700', family: "'Inter', sans-serif" }, padding: 20 },
+          pointLabels: {
+            color: '#a1a1aa',
+            font: { size: isMobile ? 9.5 : 11, weight: '700', family: "'Inter', sans-serif" },
+            padding: isMobile ? 6 : 20
+          },
           ticks: { display: false, stepSize: 1 }
         }
       },
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { padding: 20, usePointStyle: true, pointStyle: 'circle', font: { size: 11, weight: '600' }, color: '#a1a1aa', boxWidth: 10 }
+          labels: { padding: isMobile ? 10 : 20, usePointStyle: true, pointStyle: 'circle', font: { size: isMobile ? 10 : 11, weight: '600' }, color: '#a1a1aa', boxWidth: isMobile ? 8 : 10 }
         },
         tooltip: {
           backgroundColor: '#131623',
