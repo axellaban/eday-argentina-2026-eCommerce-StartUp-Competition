@@ -1,0 +1,83 @@
+:root {
+  --bg:        #022840;
+  --bg-dark:   #011929;
+  --surface:   rgba(7, 36, 61, 0.8);
+  --surface2:  rgba(15, 48, 78, 0.9);
+  --ui:        #0B3552;
+  --ui-2:      #124163;
+  --border:    rgba(69, 119, 178, 0.28);
+  --border2:   rgba(0, 168, 255, 0.4);
+  --text:      #FFFFFF;
+  --text2:     #D5DCF2;
+  --muted:     #859CC2;
+  --brand:     #00A8FF;
+  --brand-glow:rgba(0, 168, 255, 0.35);
+  --purple:    #4577B2;
+  --purple-glow:rgba(69, 119, 178, 0.25);
+  --gold:      #F6B40E;
+  --gold-glow: rgba(246, 180, 14, 0.25);
+  --silver:    #D5DCF2;
+  --bronze:    #E08443;
+  --green:     #22C55E;
+  --green-glow:rgba(34, 197, 94, 0.2);
+  --red:       #EF4444;
+  --eday-navy: #022840;
+  --eday-celeste: #18A0D8;
+  --eday-deep: #2967A3;
+  --eday-ice:  #D5DCF2;
+  --radius:    16px;
+  --radius-sm: 10px;
+  --shadow:    0 4px 20px rgba(1,25,41,.6);
+  --shadow-lg: 0 16px 48px rgba(1,25,41,.8);
+  --glow-blue: 0 0 35px rgba(0, 168, 255, 0.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #011929 0%, #022840 50%, #063454 100%);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--brand); }
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+textarea, input, select {
+  font-family: inherit;
+}
+
+/* Ambient Orbs */
+.ambient-orb { position: fixed; border-radius: 50%; filter: blur(100px); pointer-events: none; z-index: 0; will-change: transform; }
+.orb-1 { width: 650px; height: 650px; background: #00A8FF; top: -200px; left: -100px; opacity: 0.08; }
+.orb-2 { width: 550px; height: 550px; background: #2967A3; bottom: -150px; right: -100px; opacity: 0.12; }
+.orb-3 { width: 400px; height: 400px; background: #18A0D8; top: 45%; left: 50%; opacity: 0.07; }
+
+/* Responsive Media Queries */
+@media (max-width: 768px) {
+  body { padding: 0 0 20px; }
+  .copiloto-header { padding: 14px !important; flex-direction: column; align-items: stretch; gap: 12px; }
+  .setup-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+  .live-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+  .live-panel { min-height: 420px !important; padding: 16px !important; }
+}
