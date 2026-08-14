@@ -163,6 +163,28 @@ export default function PublicoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * Respaldo en mano. El historial vive en este navegador y en el servidor,
+   * pero un archivo descargado es el único que no depende de ninguno de los
+   * dos. Al final de la jornada, un click y te lo llevás.
+   */
+  const descargarFichas = () => {
+    const payload = {
+      evento: "eCommerce StartUp Competition Argentina 2026",
+      exportado: new Date().toISOString(),
+      equipos: finished.length,
+      fichas: finished,
+    };
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `fichas-eday-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const estado = configError
     ? { cls: "chip chip--bad", txt: "SIN CANAL" }
     : conectado
@@ -225,11 +247,20 @@ export default function PublicoPage() {
             const { color, txt } = banda(val);
 
             return (
-              <div className={`meter${delta !== 0 ? " meter--moved" : ""}`} key={ind.key}>
+              <div
+                className={`meter${delta !== 0 ? " meter--moved" : ""}`}
+                key={ind.key}
+                /* El valor y el color van como custom properties: así el CSS
+                   decide si se dibuja como barra horizontal o fader vertical. */
+                style={{ "--v": val, "--c": color } as React.CSSProperties}
+              >
                 <div className="meter__top">
                   <div className="meter__name">
                     <span className="meter__icon">{ind.icon}</span>
+                    {/* Nombre completo en desktop, corto en el fader vertical:
+                        rotado, el largo no entra y quedaba cortado. */}
                     <span className="meter__label">{ind.label}</span>
+                    <span className="meter__label meter__label--short">{ind.short}</span>
                   </div>
                   <div className="meter__right">
                     <span
@@ -243,7 +274,7 @@ export default function PublicoPage() {
 
                 <div className="meter__track">
                   <div className="meter__mid" />
-                  <div className="meter__fill" style={{ width: `${val}%`, background: color }} />
+                  <div className="meter__fill" />
                 </div>
 
                 <div className="meter__status" style={{ marginTop: 7 }}>{txt}</div>
@@ -260,6 +291,11 @@ export default function PublicoPage() {
             <div className="eyebrow" style={{ color: "var(--green)" }}>Fichas registradas</div>
             <h3 style={{ marginTop: 2 }}>Equipos presentados ({finished.length})</h3>
           </div>
+          {finished.length > 0 && (
+            <button className="btn btn--ghost btn--sm" onClick={descargarFichas}>
+              ↓ Descargar respaldo
+            </button>
+          )}
         </div>
 
         {finished.length === 0 ? (

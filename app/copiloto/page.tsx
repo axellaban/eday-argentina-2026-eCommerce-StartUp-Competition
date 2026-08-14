@@ -491,7 +491,7 @@ export default function CopilotoPage() {
           <section className="card console__panel">
             <div className="section-head">
               <div>
-                <div className="eyebrow">Indicadores en vivo</div>
+                <div className="eyebrow">Análisis</div>
                 <h3 style={{ marginTop: 3 }}>Evaluador Copiloto IA</h3>
               </div>
               <label className="chip chip--mute" style={{ cursor: "pointer" }}>
@@ -505,31 +505,12 @@ export default function CopilotoPage() {
               </label>
             </div>
 
-            <div className="meters meters--compact" style={{ marginBottom: "var(--gap)" }}>
-              {INDICATORS.map((ind) => {
-                const val = metrics?.[ind.key] ?? 50;
-                const color = val > 65 ? "var(--green)" : val > 45 ? "var(--brand)" : val > 30 ? "var(--gold)" : "var(--red)";
-                return (
-                  <div className="meter" key={ind.key}>
-                    <div className="meter__top">
-                      <div className="meter__name">
-                        <span className="meter__icon">{ind.icon}</span>
-                        <span className="meter__label">{ind.short}</span>
-                      </div>
-                      <span className="meter__val" style={{ color }}>{val}</span>
-                    </div>
-                    <div className="meter__track">
-                      <div className="meter__mid" />
-                      <div className="meter__fill" style={{ width: `${val}%`, background: color }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
+            {/* Los 6 indicadores viven en la pantalla pública, que es donde se
+                miran. Repetirlos acá era ruido: al operador le alcanza con
+                saber que el análisis está corriendo. */}
             <div style={{ fontSize: "var(--fs-micro)" }} className="muted mono">
               {isRecording && autoAnalisis
-                ? `Re-analizando cada ${INTERVALO_ANALISIS_MS / 1000}s · último: ${ultimoAnalisis || "—"}`
+                ? `Re-analizando indicadores cada ${INTERVALO_ANALISIS_MS / 1000}s · último: ${ultimoAnalisis || "—"}`
                 : "Análisis automático en pausa"}
             </div>
 
@@ -544,7 +525,7 @@ export default function CopilotoPage() {
                 </>
               ) : (
                 <div className="transcript__empty" style={{ padding: "8% 0" }}>
-                  Las barras se mueven solas mientras se habla.
+                  Los 6 indicadores se mueven solos en la pantalla pública.
                   <br />
                   Tocá &laquo;Analizar pitch&raquo; para el veredicto escrito.
                 </div>
