@@ -7,7 +7,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
   <style>
@@ -15,38 +15,41 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; font-size: 16px; }
     :root {
-      --bg:        #070810;
-      --surface:   #0f1119;
-      --surface2:  #131623;
-      --ui:        #171a27;
-      --ui-2:      #1b1e2c;
-      --border:    #242838;
-      --border2:   #2e3244;
-      --text:      #f4f4f5;
-      --text2:     #a1a1aa;
-      --muted:     #6b7280;
-      --brand:     #00AAFF;
-      --brand-glow:rgba(0, 170, 255, 0.3);
-      --purple:    #5B8DB8;
-      --purple-glow:rgba(91, 141, 184, 0.2);
+      --bg:        #022840;
+      --bg-dark:   #011929;
+      --surface:   rgba(7, 36, 61, 0.75);
+      --surface2:  rgba(15, 48, 78, 0.85);
+      --ui:        #0B3552;
+      --ui-2:      #124163;
+      --border:    rgba(69, 119, 178, 0.28);
+      --border2:   rgba(0, 168, 255, 0.4);
+      --text:      #FFFFFF;
+      --text2:     #D5DCF2;
+      --muted:     #859CC2;
+      --brand:     #00A8FF;
+      --brand-glow:rgba(0, 168, 255, 0.35);
+      --purple:    #4577B2;
+      --purple-glow:rgba(69, 119, 178, 0.25);
       --gold:      #F6B40E;
       --gold-glow: rgba(246, 180, 14, 0.25);
-      --silver:    #94a3b8;
-      --bronze:    #fb923c;
-      --green:     #22c55e;
+      --silver:    #D5DCF2;
+      --bronze:    #E08443;
+      --green:     #22C55E;
       --green-glow:rgba(34, 197, 94, 0.2);
-      --red:       #ef4444;
-      --eday-navy: #2B4B6F;
-      --eday-celeste: #75AADB;
+      --red:       #EF4444;
+      --eday-navy: #022840;
+      --eday-celeste: #18A0D8;
+      --eday-deep: #2967A3;
+      --eday-ice:  #D5DCF2;
       --radius:    16px;
       --radius-sm: 10px;
-      --shadow:    0 2px 10px rgba(0,0,0,.5);
-      --shadow-lg: 0 12px 40px rgba(0,0,0,.6);
-      --glow-blue: 0 0 30px rgba(0, 170, 255, 0.08);
+      --shadow:    0 4px 20px rgba(1,25,41,.6);
+      --shadow-lg: 0 16px 48px rgba(1,25,41,.8);
+      --glow-blue: 0 0 35px rgba(0, 168, 255, 0.12);
     }
     body {
-      font-family: 'Inter', sans-serif;
-      background: var(--bg);
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #011929 0%, #022840 50%, #063454 100%);
       color: var(--text);
       min-height: 100vh;
       padding: 24px 16px 64px;
@@ -69,8 +72,9 @@
       position: fixed;
       inset: 0;
       background:
-        radial-gradient(900px at 15% 5%, rgba(0, 170, 255, 0.06), transparent 60%),
-        radial-gradient(700px at 85% 80%, rgba(43, 75, 111, 0.06), transparent 60%);
+        radial-gradient(1000px at 15% 5%, rgba(0, 168, 255, 0.12), transparent 65%),
+        radial-gradient(900px at 85% 85%, rgba(24, 160, 216, 0.1), transparent 60%),
+        radial-gradient(700px at 50% 50%, rgba(41, 103, 163, 0.08), transparent 70%);
       pointer-events: none;
       z-index: 0;
     }
@@ -88,9 +92,9 @@
 
     /* ── Card (glassmorphism dark) ── */
     .card {
-      background: rgba(15, 17, 25, 0.7);
-      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--border);
+      background: rgba(7, 36, 61, 0.75);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(69, 119, 178, 0.28);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 28px;
@@ -110,7 +114,7 @@
       box-shadow: 0 20px 48px -12px rgba(0, 170, 255, 0.18), 0 0 0 1px rgba(0, 170, 255, 0.06);
     }
     .card-title {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 1.05rem;
       font-weight: 700;
       color: var(--text);
@@ -139,9 +143,9 @@
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 12px;
-      background: rgba(15, 17, 25, 0.75);
+      background: rgba(7, 36, 61, 0.85);
       backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5);
-      border: 1px solid rgba(0, 170, 255, 0.08);
+      border: 1px solid rgba(0, 168, 255, 0.25);
       border-radius: var(--radius);
       padding: 22px 30px;
       margin-bottom: 20px;
@@ -172,7 +176,7 @@
     .header-logo { height: 38px; width: auto; flex-shrink: 0; filter: drop-shadow(0 2px 8px rgba(0, 170, 255, 0.15)); }
     .header-icon svg { width: 26px; height: 26px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .header-title {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 1.75rem; font-weight: 900; letter-spacing: -0.03em;
       background: linear-gradient(135deg, #ffffff, var(--eday-celeste), var(--brand));
       background-size: 200% 100%;
@@ -210,9 +214,9 @@
 
     /* ── KPI Cards ── */
     .kpi-card {
-      background: rgba(15, 17, 25, 0.7);
-      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--border);
+      background: rgba(7, 36, 61, 0.75);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(69, 119, 178, 0.28);
       border-radius: var(--radius);
       padding: 26px 28px;
       box-shadow: var(--shadow);
@@ -288,7 +292,7 @@
     .btn {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 9px 18px; border-radius: 10px;
-      font-family: 'Inter', inherit; font-size: .84rem; font-weight: 700;
+      font-family: 'Poppins', inherit; font-size: .84rem; font-weight: 700;
       cursor: pointer; border: none; transition: all .18s;
     }
     .btn-primary {
@@ -333,7 +337,7 @@
       filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
     }
     .podium-team {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: .85rem; font-weight: 800; color: var(--text); margin-top: 5px;
     }
     .podium-score {
@@ -380,7 +384,7 @@
     }
     thead th:last-child { text-align: center; }
     tbody td { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,.03); font-weight: 600; color: var(--text2); font-family: 'JetBrains Mono', monospace; }
-    tbody td:nth-child(2) { font-family: 'Inter', sans-serif; font-weight: 800; color: var(--text); }
+    tbody td:nth-child(2) { font-family: 'Poppins', sans-serif; font-weight: 800; color: var(--text); }
     tbody td:last-child { text-align: center; }
     tbody tr:last-child td { border-bottom: none; }
     tbody tr:hover td { background: rgba(255,255,255,.02); color: var(--text); }
@@ -514,7 +518,7 @@
       font-family: 'JetBrains Mono', monospace;
     }
     .ficha-project-name {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em;
       color: var(--text); line-height: 1.1; white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis;
@@ -603,7 +607,7 @@
       display: flex; align-items: center; justify-content: center;
     }
     .ai-empty-title {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 1rem; font-weight: 700; color: var(--text2);
     }
     .ai-empty-sub {
@@ -629,7 +633,7 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
     }
     .loading-card {
-      background: rgba(15, 17, 25, 0.92); border: 1px solid rgba(0, 170, 255, 0.1); border-radius: var(--radius);
+      background: rgba(2, 40, 64, 0.95); border: 1px solid rgba(0, 168, 255, 0.3); border-radius: var(--radius);
       padding: 48px 60px; text-align: center; box-shadow: var(--shadow-lg), 0 0 100px -30px rgba(0, 170, 255, 0.12);
       display: flex; flex-direction: column; align-items: center; gap: 20px;
       animation: slideIn .45s cubic-bezier(0.22, 0.68, 0, 1.1);
@@ -680,9 +684,9 @@
 
     /* ── Ambient floating orbs ── */
     .ambient-orb { position: fixed; border-radius: 50%; filter: blur(100px); pointer-events: none; z-index: 0; will-change: transform; }
-    .orb-1 { width: 600px; height: 600px; background: var(--brand); top: -200px; left: -100px; opacity: 0.04; animation: orbFloat1 25s ease-in-out infinite; }
-    .orb-2 { width: 500px; height: 500px; background: var(--eday-navy); bottom: -150px; right: -100px; opacity: 0.06; animation: orbFloat2 30s ease-in-out infinite; }
-    .orb-3 { width: 350px; height: 350px; background: var(--eday-celeste); top: 50%; left: 55%; opacity: 0.035; animation: orbFloat3 22s ease-in-out infinite; }
+    .orb-1 { width: 650px; height: 650px; background: #00A8FF; top: -200px; left: -100px; opacity: 0.08; animation: orbFloat1 25s ease-in-out infinite; }
+    .orb-2 { width: 550px; height: 550px; background: #2967A3; bottom: -150px; right: -100px; opacity: 0.12; animation: orbFloat2 30s ease-in-out infinite; }
+    .orb-3 { width: 400px; height: 400px; background: #18A0D8; top: 45%; left: 50%; opacity: 0.07; animation: orbFloat3 22s ease-in-out infinite; }
     @keyframes orbFloat1 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(80px,-60px) scale(1.15)} 66%{transform:translate(-50px,40px) scale(.9)} }
     @keyframes orbFloat2 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(-60px,50px) scale(1.1)} 66%{transform:translate(40px,-70px) scale(.92)} }
     @keyframes orbFloat3 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(50px,60px) scale(1.2)} 66%{transform:translate(-70px,-40px) scale(.88)} }
@@ -708,7 +712,7 @@
     .p1 { box-shadow: 0 0 40px rgba(246, 180, 14, 0.08) !important; }
 
     /* ── Ficha glassmorphism ── */
-    .ficha-card { background: rgba(15, 17, 25, 0.65) !important; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+    .ficha-card { background: rgba(7, 36, 61, 0.75) !important; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 
     /* ── Btn ripple ── */
     .btn { position: relative; overflow: hidden; }
@@ -880,7 +884,7 @@
       <div class="kpi-icon">
         <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       </div>
-      <div class="kpi-label">Alumnos evaluados</div>
+      <div class="kpi-label">Equipos evaluados</div>
       <div class="kpi-value blue" id="kpiGrupos">–</div>
       <div class="kpi-sub" id="kpiGruposSub">–</div>
     </div>
@@ -889,7 +893,7 @@
       <div class="kpi-icon">
         <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
       </div>
-      <div class="kpi-label">Alumno Líder</div>
+      <div class="kpi-label">Equipo Líder</div>
       <div class="kpi-value green" id="kpiLider">–</div>
       <div class="kpi-sub" id="kpiLiderSub">promedio más alto</div>
     </div>
@@ -918,7 +922,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             Análisis Multidimensional
           </div>
-          <div class="card-sub">5 criterios de evaluación por alumno</div>
+          <div class="card-sub">5 criterios de evaluación por equipo</div>
         </div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-active" id="btnAll"  onclick="setMode('all')">Todos</button>
@@ -938,7 +942,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
         Leaderboard
       </div>
-      <div class="card-sub">Top 3 alumnos por promedio general</div>
+      <div class="card-sub">Top 3 equipos por promedio general</div>
       <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;">
         <div class="podium-wrap" id="podiumWrap"></div>
         <div class="podium-legend">
@@ -984,7 +988,7 @@
           <thead>
             <tr>
               <th>#</th>
-              <th>Alumno</th>
+              <th>Equipo</th>
               <th>⚡ Vivo</th>
               <th>🧠 Arq.</th>
               <th>🎯 Caso</th>
@@ -1064,8 +1068,8 @@
       <span style="font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-weight:600;opacity:.5;">eCommerce DAY Argentina · 2026</span>
     </div>
     <div style="text-align:center;opacity:.35;">
-      <span style="font-size:.62rem;color:var(--muted);font-family:'Inter',sans-serif;font-weight:400;letter-spacing:.03em;">Dashboard made by</span><br>
-      <span style="font-size:.65rem;color:var(--text2);font-family:'Inter',sans-serif;font-weight:500;letter-spacing:.02em;">Edna Gálvez & Axel Laban Arzubi</span>
+      <span style="font-size:.62rem;color:var(--muted);font-family:'Poppins',sans-serif;font-weight:400;letter-spacing:.03em;">Dashboard made by</span><br>
+      <span style="font-size:.65rem;color:var(--text2);font-family:'Poppins',sans-serif;font-weight:500;letter-spacing:.02em;">Edna Gálvez & Axel Laban Arzubi</span>
     </div>
   </footer>
 
@@ -1145,10 +1149,10 @@ function parseCSV(text) {
     const cols  = parseCSVLine(lines[i]);
     const first = (cols[0] || '').trim();
     const nombre = (cols[1] || '').trim();
-    const alumnoNum = parseInt(first, 10);
+    const equipoNum = parseInt(first, 10);
     
-    if (!nombre && (isNaN(alumnoNum) || alumnoNum < 1)) continue;
-    const team = nombre || ('Alumno ' + alumnoNum);
+    if (!nombre && (isNaN(equipoNum) || equipoNum < 1)) continue;
+    const team = nombre || ('Equipo ' + equipoNum);
 
     // Parsear los 5 scores (cols 2-6)
     // Si alguno está vacío o no es número → skip fila (alumno sin votos aún)
@@ -1249,8 +1253,8 @@ async function loadData(showLoader = false) {
       document.getElementById('syncInfo').textContent = `✓ Sync ${now}`;
       document.getElementById('syncInfo').style.color = 'var(--green)';
       showBanner('success',
-        `Conectado a Google Sheets · ${parsed.length} alumnos cargados`,
-        `Hoja "Analisis" · ${parsed.length} alumnos con calificaciones · datos en tiempo real`,
+        `Conectado a Google Sheets · ${parsed.length} equipos cargados`,
+        `Hoja "Analisis" · ${parsed.length} equipos con calificaciones · datos en tiempo real`,
         `${ms}ms`
       );
 
@@ -1302,7 +1306,7 @@ function DEMO_DATA() {
 function renderKPIs() {
   document.getElementById('kpiGrupos').textContent = DATA.length;
   document.getElementById('kpiGruposSub').textContent =
-    DATA.length > 0 ? `Alumnos 1 – ${DATA.length} · Demo Day eCI` : '–';
+    DATA.length > 0 ? `Equipos 1 – ${DATA.length} · Demo Day eCI` : '–';
 
   const sorted  = [...DATA].sort((a,b) => b.media - a.media);
   const leader  = sorted[0];
@@ -1363,7 +1367,7 @@ function buildDatasets() {
 }
 
 function renderRadar() {
-  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.font.family = "'Poppins', sans-serif";
   if (radarChart) radarChart.destroy();
   const isMobile = window.innerWidth < 768;
   const ctx = document.getElementById('radarChart').getContext('2d');
@@ -1378,8 +1382,8 @@ function renderRadar() {
           angleLines: { color: 'rgba(255,255,255,.05)' },
           grid: { color: 'rgba(255,255,255,.04)', circular: true },
           pointLabels: {
-            color: '#a1a1aa',
-            font: { size: isMobile ? 9.5 : 11, weight: '700', family: "'Inter', sans-serif" },
+            color: '#D5DCF2',
+            font: { size: isMobile ? 9.5 : 11, weight: '700', family: "'Poppins', sans-serif" },
             padding: isMobile ? 6 : 20
           },
           ticks: { display: false, stepSize: 1 }
@@ -1483,7 +1487,7 @@ function renderBar() {
         },
         y: {
           grid: { display: false },
-          ticks: { font: { size: 11, weight: '700', family: "'Inter', sans-serif" }, color: '#a1a1aa' }
+          ticks: { font: { size: 11, weight: '700', family: "'Poppins', sans-serif" }, color: '#a1a1aa' }
         }
       },
       plugins: {
