@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import FichaTexto from "../components/FichaTexto";
 
 const TEAMS_DEFAULT = [
   { name: "Ceci Escudero", project: "Pipeline de 4 Agentes para Generación de Contenido LinkedIn (GIT)" },
@@ -24,6 +25,9 @@ const INTERVALO_SYNC_MS = 12_000;
 /** Mínimo de caracteres nuevos para gastar una llamada al LLM. */
 const MIN_TEXTO_NUEVO = 90;
 
+/** Reintentos automáticos si Deepgram corta la conexión a mitad del pitch. */
+const MAX_REINTENTOS_MIC = 4;
+
 const BORRADOR_KEY = "eday.copiloto.borrador";
 
 type Health = { tone: "ok" | "warn" | "bad"; msg: string } | null;
@@ -43,6 +47,7 @@ export default function CopilotoPage() {
   const [autoAnalisis, setAutoAnalisis] = useState(true);
   const [ultimoAnalisis, setUltimoAnalisis] = useState<string>("");
   const [metrics, setMetrics] = useState<Record<string, number> | null>(null);
+  const [micCaido, setMicCaido] = useState(false);
 
   const [health, setHealth] = useState<Health>(null);
   const [authWarning, setAuthWarning] = useState(false);
@@ -58,6 +63,10 @@ export default function CopilotoPage() {
   const projectRef = useRef("");
   const textoRef = useRef("");
   const largoAnalizadoRef = useRef(0);
+  const enVueloRef = useRef(false);
+  const metricsRef = useRef<Record<string, number> | null>(null);
+  const detenidoAdredeRef = useRef(false);
+  const reintentosRef = useRef(0);
 
   const activeTeamName = customTeam.trim() || selectedTeam;
 
@@ -117,6 +126,7 @@ export default function CopilotoPage() {
   }, []);
 
   const stopAudio = useCallback(() => {
+    detenidoAdredeRef.current = true;
     if (socketRef.current) {
       try { socketRef.current.close(); } catch {}
       socketRef.current = null;
@@ -154,26 +164,52 @@ export default function CopilotoPage() {
     }
   }, []);
 
-  /** Recalcula los 6 indicadores y los empuja a la pantalla pública. */
+  /**
+   * Recalcula los 6 indicadores y los empuja a la pantalla pública.
+   *
+   * El guard de "en vuelo" importa: si una lectura tarda más que el intervalo,
+   * se encimarían dos llamadas y la respuesta vieja podría pisar a la nueva,
+   * haciendo que las barras vayan para atrás en pantalla.
+   */
   const analizarIndicadores = useCallback(async (texto: string) => {
-    if (texto.length < 40) return;
+    if (texto.length < 40 || enVueloRef.current) return;
+    enVueloRef.current = true;
     try {
       const res = await fetch("/api/eval-metrics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ team: teamRef.current, project: projectRef.current, transcript: texto }),
+        body: JSON.stringify({
+          team: teamRef.current,
+          project: projectRef.current,
+          transcript: texto,
+          // La lectura anterior: el modelo parte de ahí en vez de puntuar
+          // desde cero cada vez, que es lo que hacía saltar los valores.
+          previas: metricsRef.current,
+        }),
       });
       const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        setHealth({ tone: "bad", msg: data.error || "No se pudieron calcular los indicadores." });
+        // El endpoint devuelve las previas cuando falla: no se pierde el estado.
+        if (data.metrics) {
+          metricsRef.current = data.metrics;
+          setMetrics(data.metrics);
+        }
+        setHealth({ tone: "warn", msg: data.error || "No se pudieron recalcular los indicadores." });
         return;
       }
-      if (data.metrics) setMetrics(data.metrics);
+
+      if (data.metrics) {
+        metricsRef.current = data.metrics;
+        setMetrics(data.metrics);
+      }
       if (data.broadcastError) setHealth({ tone: "bad", msg: data.broadcastError });
       setUltimoAnalisis(new Date().toLocaleTimeString("es-AR"));
       largoAnalizadoRef.current = texto.length;
     } catch {
-      setHealth({ tone: "bad", msg: "Error de red al analizar indicadores." });
+      setHealth({ tone: "warn", msg: "Error de red al analizar indicadores." });
+    } finally {
+      enVueloRef.current = false;
     }
   }, []);
 
@@ -224,13 +260,8 @@ export default function CopilotoPage() {
     setInterimText("");
   };
 
-  const toggleRecording = async () => {
-    if (isRecording) {
-      stopAudio();
-      if (textoRef.current) publicar({ mode: "sync", fullText: textoRef.current });
-      return;
-    }
-
+  /** Abre micrófono + WebSocket de Deepgram. Se reutiliza al reconectar. */
+  const abrirMicrofono = async (esReintento = false) => {
     try {
       const tokenRes = await fetch("/api/deepgram-token", { method: "POST" });
       const tokenData = await tokenRes.json();
@@ -262,13 +293,18 @@ export default function CopilotoPage() {
       const socket = new WebSocket(wsUrl, [tokenData.scheme || "bearer", tokenData.token]);
 
       socket.onopen = () => {
+        reintentosRef.current = 0;
+        setMicCaido(false);
         const mediaRecorder = new MediaRecorder(stream, { mimeType });
         mediaRecorder.addEventListener("dataavailable", (event) => {
           if (event.data.size > 0 && socket.readyState === WebSocket.OPEN) socket.send(event.data);
         });
         mediaRecorder.start(250);
         mediaRecorderRef.current = mediaRecorder;
-        setHealth({ tone: "ok", msg: "Micrófono conectado, transcribiendo" });
+        setHealth({
+          tone: "ok",
+          msg: esReintento ? "Micrófono reconectado, transcribiendo" : "Micrófono conectado, transcribiendo",
+        });
       };
 
       socket.onmessage = (message) => {
@@ -297,15 +333,54 @@ export default function CopilotoPage() {
       };
 
       socket.onerror = () => setHealth({ tone: "bad", msg: "Error en la conexión con Deepgram." });
-      socket.onclose = () => setIsRecording(false);
+
+      // Deepgram puede cortar solo (token vencido, red, inactividad). Antes
+      // esto apagaba la grabación en silencio: el operador seguía hablando
+      // creyendo que se transcribía y no se registraba nada.
+      socket.onclose = () => {
+        setIsRecording(false);
+        if (detenidoAdredeRef.current) return;
+
+        if (reintentosRef.current < MAX_REINTENTOS_MIC) {
+          reintentosRef.current += 1;
+          setMicCaido(true);
+          setHealth({
+            tone: "warn",
+            msg: `Se cortó la transcripción. Reconectando (intento ${reintentosRef.current}/${MAX_REINTENTOS_MIC})…`,
+          });
+          setTimeout(() => {
+            if (!detenidoAdredeRef.current) abrirMicrofono(true);
+          }, 1200 * reintentosRef.current);
+        } else {
+          setMicCaido(true);
+          setHealth({
+            tone: "bad",
+            msg: "La transcripción se cortó y no pudo reconectar. Tocá Grabar de nuevo.",
+          });
+        }
+      };
 
       socketRef.current = socket;
+      detenidoAdredeRef.current = false;
       setIsRecording(true);
     } catch (err: any) {
       console.error("Error al iniciar grabación:", err);
-      alert("Error al iniciar audio: " + (err.message || err.toString()));
+      setMicCaido(true);
+      setHealth({ tone: "bad", msg: "Error al iniciar audio: " + (err.message || err.toString()) });
       stopAudio();
     }
+  };
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+      stopAudio();
+      setMicCaido(false);
+      if (textoRef.current) publicar({ mode: "sync", fullText: textoRef.current });
+      return;
+    }
+    reintentosRef.current = 0;
+    detenidoAdredeRef.current = false;
+    await abrirMicrofono(false);
   };
 
   /** Análisis narrativo completo, a pedido del operador. */
@@ -484,6 +559,13 @@ export default function CopilotoPage() {
               </button>
             </div>
 
+            {micCaido && (
+              <div className="notice notice--bad" style={{ marginBottom: 12 }}>
+                <span>▲</span>
+                <span>Se cortó la transcripción. Revisá el chip de estado arriba.</span>
+              </div>
+            )}
+
             <div className="transcript transcript--op" ref={transcriptBoxRef}>
               {transcript.length === 0 && !interimText ? (
                 <div className="transcript__empty">
@@ -538,7 +620,7 @@ export default function CopilotoPage() {
               {aiAnalysis ? (
                 <>
                   <span className="ficha__tag" style={{ color: "var(--brand)" }}>Evaluación de la IA</span>
-                  {aiAnalysis}
+                  <FichaTexto raw={aiAnalysis} />
                 </>
               ) : (
                 <div className="transcript__empty" style={{ padding: "8% 0" }}>

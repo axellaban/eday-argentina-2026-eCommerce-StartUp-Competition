@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import PusherClient from "pusher-js";
 import { INDICATORS, neutralMetrics } from "@/lib/criteria";
 import { PUSHER_CHANNEL, PUSHER_CLUSTER, PUSHER_EVENTS, PUSHER_KEY } from "@/lib/pusher-config";
+import FichaTexto from "../components/FichaTexto";
 
 type Metrics = Record<string, number>;
 
@@ -180,6 +181,12 @@ export default function PublicoPage() {
   }, [texto]);
 
   const aplicarMetrics = (nuevas: Metrics) => {
+    // El refetch de seguridad trae la misma lectura una y otra vez. Sin este
+    // corte, cada 20s se agregaba un punto repetido al recorrido y destellaba
+    // el medidor como si hubiera habido una medición nueva.
+    const iguales = Object.keys(nuevas).every((k) => nuevas[k] === metricsRef.current[k]);
+    if (iguales) return;
+
     setPrevias(metricsRef.current);
     metricsRef.current = nuevas;
     setMetrics(nuevas);
@@ -481,7 +488,7 @@ export default function PublicoPage() {
               {s.analysis && (
                 <div className="ficha__body ficha__body--ai">
                   <span className="ficha__tag" style={{ color: "var(--brand)" }}>💡 Evaluación de la IA</span>
-                  {s.analysis}
+                  <FichaTexto raw={s.analysis} />
                 </div>
               )}
             </article>
