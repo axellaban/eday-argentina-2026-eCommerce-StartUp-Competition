@@ -4,3 +4,6 @@ node_modules
 *.log
 .env
 .env.local
+
+data/
+.vercel

@@ -11,7 +11,10 @@ import os
 from urllib.parse import urlparse
 
 PORT = 8080
-DIR  = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.abspath(__file__))
+# El dashboard y sus assets viven en public/ (única copia; antes estaban
+# duplicados también en la raíz del repo).
+DIR  = os.path.join(ROOT, 'public')
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
