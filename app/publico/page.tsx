@@ -53,6 +53,81 @@ function fusionar(a: TeamSession[], b: TeamSession[]): TeamSession[] {
   return Array.from(porEquipo.values());
 }
 
+/** Cuántas lecturas del LLM guarda cada indicador para dibujar su recorrido. */
+const LARGO_HISTORIA = 18;
+
+const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+
+/**
+ * Lleva los valores mostrados hacia los valores reales de a poco, cuadro por
+ * cuadro. Sin esto la barra se queda quieta 12 segundos y después pega un
+ * salto: el LLM entrega una lectura cada tanto, pero el recorrido entre una
+ * y otra se puede recorrer de forma continua, que es lo que se lee como
+ * "tiempo real" en pantalla.
+ *
+ * No inventa movimiento: sólo interpola entre dos mediciones reales.
+ */
+function useValoresAnimados(objetivo: Metrics, duracion = 2600): Metrics {
+  const [mostrado, setMostrado] = useState<Metrics>(objetivo);
+  const desdeRef = useRef<Metrics>(objetivo);
+  const inicioRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    desdeRef.current = { ...mostrado };
+    inicioRef.current = performance.now();
+
+    const paso = (ahora: number) => {
+      const t = Math.min(1, (ahora - inicioRef.current) / duracion);
+      const k = easeOut(t);
+      const siguiente: Metrics = {};
+      for (const key of Object.keys(objetivo)) {
+        const a = desdeRef.current[key] ?? 50;
+        const b = objetivo[key] ?? 50;
+        siguiente[key] = a + (b - a) * k;
+      }
+      setMostrado(siguiente);
+      if (t < 1) rafRef.current = requestAnimationFrame(paso);
+    };
+
+    rafRef.current = requestAnimationFrame(paso);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+    // `mostrado` a propósito fuera de las dependencias: se lee como punto de
+    // partida, incluirlo reiniciaría la animación en cada cuadro.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objetivo, duracion]);
+
+  return mostrado;
+}
+
+/**
+ * Puntos del recorrido de un indicador.
+ *
+ * Se escala al rango propio de la serie, no de 0 a 100: una variación de 5
+ * puntos sobre una escala de 100 se dibuja como una línea recta y no se ve
+ * nada. El piso de 14 puntos evita que una serie casi plana se vea como una
+ * montaña rusa.
+ */
+function puntosRecorrido(serie: number[]): string {
+  const min = Math.min(...serie);
+  const max = Math.max(...serie);
+  const centro = (min + max) / 2;
+  const span = Math.max(max - min, 14);
+  const desde = centro - span / 2;
+  const alto = 22;
+  const margen = 2;
+
+  return serie
+    .map((v, i) => {
+      const x = (i / (serie.length - 1)) * 100;
+      const y = margen + (1 - (v - desde) / span) * alto;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
 const banda = (v: number) =>
   v > 65 ? { color: "var(--green)", txt: "Alto" }
   : v > 55 ? { color: "var(--brand)", txt: "Favorable" }
@@ -68,9 +143,34 @@ export default function PublicoPage() {
   const [finished, setFinished] = useState<TeamSession[]>([]);
   const [conectado, setConectado] = useState(false);
   const [configError, setConfigError] = useState("");
+  const [historia, setHistoria] = useState<Record<string, number[]>>({});
+  const [pulso, setPulso] = useState(0);
+  const [pulsando, setPulsando] = useState(false);
+  const [ultimaLectura, setUltimaLectura] = useState<number | null>(null);
+  const [ultimaFrase, setUltimaFrase] = useState<number | null>(null);
+  const [ahora, setAhora] = useState(() => Date.now());
 
   const boxRef = useRef<HTMLDivElement | null>(null);
   const metricsRef = useRef<Metrics>(neutralMetrics());
+
+  // Valores interpolados: lo que realmente se dibuja en pantalla.
+  const vistos = useValoresAnimados(metrics);
+
+  // Destello al llegar una lectura. Se hace con una clase temporal y NO
+  // cambiando la key del nodo: re-montar el elemento cortaba en seco la
+  // interpolación cuadro por cuadro y hacía parpadear la barra.
+  useEffect(() => {
+    if (!pulso) return;
+    setPulsando(true);
+    const t = setTimeout(() => setPulsando(false), 1500);
+    return () => clearTimeout(t);
+  }, [pulso]);
+
+  // Reloj de baja frecuencia para los "hace Ns" del encabezado.
+  useEffect(() => {
+    const t = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // Autoscroll de los subtítulos: era la razón principal por la que el
   // transcript "no aparecía completo" — el texto estaba, pero abajo del corte.
@@ -83,6 +183,15 @@ export default function PublicoPage() {
     setPrevias(metricsRef.current);
     metricsRef.current = nuevas;
     setMetrics(nuevas);
+    setUltimaLectura(Date.now());
+    setPulso((n) => n + 1);
+    setHistoria((prev) => {
+      const sig: Record<string, number[]> = {};
+      for (const key of Object.keys(nuevas)) {
+        sig[key] = [...(prev[key] || []), nuevas[key]].slice(-LARGO_HISTORIA);
+      }
+      return sig;
+    });
   };
 
   const cargarDelServidor = async () => {
@@ -114,9 +223,14 @@ export default function PublicoPage() {
     setFinished(leerLocal());
     cargarDelServidor();
 
+    // Este refetch es la red de seguridad y va SIEMPRE, incluso sin Pusher:
+    // antes estaba después del return de abajo, así que justo cuando el canal
+    // en vivo no andaba la pantalla se quedaba congelada para siempre.
+    const t = setInterval(cargarDelServidor, 20_000);
+
     if (!PUSHER_KEY) {
-      setConfigError("Falta NEXT_PUBLIC_PUSHER_KEY: la pantalla no recibe el pitch en vivo.");
-      return;
+      setConfigError("Falta NEXT_PUBLIC_PUSHER_KEY: la pantalla actualiza sólo cada 20s.");
+      return () => clearInterval(t);
     }
 
     const pusher = new PusherClient(PUSHER_KEY, { cluster: PUSHER_CLUSTER, forceTLS: true });
@@ -129,6 +243,7 @@ export default function PublicoPage() {
     channel.bind(PUSHER_EVENTS.transcript, (d: { team: string; project: string; textChunk: string }) => {
       setActivePitch({ team: d.team, project: d.project });
       setTexto((prev) => (prev ? prev + " " : "") + d.textChunk);
+      setUltimaFrase(Date.now());
     });
 
     // Reemplaza el texto completo: corrige lo que se haya perdido.
@@ -150,10 +265,10 @@ export default function PublicoPage() {
       setActivePitch(null);
       setTexto("");
       aplicarMetrics(neutralMetrics());
+      setHistoria({});
+      setUltimaLectura(null);
+      setUltimaFrase(null);
     });
-
-    // Red de seguridad: si Pusher se cortó un rato, esto vuelve a alinear.
-    const t = setInterval(cargarDelServidor, 20_000);
 
     return () => {
       clearInterval(t);
@@ -184,6 +299,9 @@ export default function PublicoPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  /** Hubo texto nuevo hace menos de 6s: está entrando audio de verdad. */
+  const escuchando = ultimaFrase !== null && ahora - ultimaFrase < 6000;
 
   const estado = configError
     ? { cls: "chip chip--bad", txt: "SIN CANAL" }
@@ -237,25 +355,38 @@ export default function PublicoPage() {
             <div className="eyebrow">Análisis dinámico</div>
             <h3 style={{ marginTop: 2 }}>Indicadores del equipo activo</h3>
           </div>
-          <div className="muted mono" style={{ fontSize: "var(--fs-micro)" }}>
-            La IA reevalúa mientras se habla · 50 = neutro
+          {/* Estado real del análisis, no una leyenda fija: se ve si está
+              entrando audio y hace cuánto fue la última lectura del LLM. */}
+          <div className="live-state mono">
+            <span className={`live-state__dot${escuchando ? " live-state__dot--on" : ""}`} />
+            <span>{escuchando ? "Escuchando" : "En espera"}</span>
+            <span className="live-state__sep">·</span>
+            <span>
+              {ultimaLectura
+                ? `Última lectura hace ${Math.max(0, Math.round((ahora - ultimaLectura) / 1000))}s`
+                : "Sin lecturas aún"}
+            </span>
           </div>
         </div>
 
         <div className="meters">
           {INDICATORS.map((ind) => {
-            const val = Math.round(metrics[ind.key] ?? 50);
+            // El valor animado es el que se dibuja; el real, el que decide color y estado.
+            const animado = vistos[ind.key] ?? 50;
+            const val = Math.round(animado);
+            const objetivo = Math.round(metrics[ind.key] ?? 50);
             const prev = Math.round(previas[ind.key] ?? 50);
-            const delta = val - prev;
-            const { color, txt } = banda(val);
+            const delta = objetivo - prev;
+            const { color, txt } = banda(objetivo);
+            const serie = historia[ind.key] || [];
 
             return (
               <div
-                className={`meter${delta !== 0 ? " meter--moved" : ""}`}
+                className={`meter${pulsando ? " meter--pulse" : ""}`}
                 key={ind.key}
-                /* El valor y el color van como custom properties: así el CSS
-                   decide si se dibuja como barra horizontal o fader vertical. */
-                style={{ "--v": val, "--c": color } as React.CSSProperties}
+                /* El valor animado y el color van como custom properties: así
+                   el CSS decide si se dibuja horizontal o como fader vertical. */
+                style={{ "--v": animado, "--c": color } as React.CSSProperties}
               >
                 <div className="meter__top">
                   <div className="meter__name">
@@ -280,7 +411,31 @@ export default function PublicoPage() {
                   <div className="meter__fill" />
                 </div>
 
-                <div className="meter__status" style={{ marginTop: 7 }}>{txt}</div>
+                {/* Recorrido de las últimas lecturas: deja ver la tendencia,
+                    no sólo el valor de ahora. */}
+                {serie.length > 1 && (
+                  <svg className="meter__spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+                    <polyline
+                      points={puntosRecorrido(serie)}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth="1.8"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    {/* Punta: dónde está parado ahora mismo */}
+                    <circle
+                      cx="100"
+                      cy={puntosRecorrido(serie).split(" ").pop()?.split(",")[1]}
+                      r="2.2"
+                      fill={color}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </svg>
+                )}
+
+                <div className="meter__status">{txt}</div>
               </div>
             );
           })}

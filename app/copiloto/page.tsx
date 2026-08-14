@@ -16,12 +16,14 @@ const TEAMS_DEFAULT = [
   { name: "Domenico", project: "" },
 ];
 
-/** Cada cuánto el LLM re-evalúa los indicadores mientras la persona habla. */
-const INTERVALO_ANALISIS_MS = 18_000;
+/** Cada cuánto el LLM re-evalúa los indicadores mientras la persona habla.
+ *  12s da unas 50 lecturas en un pitch de 10 minutos: suficiente para que la
+ *  pantalla pública tenga siempre un tramo nuevo que recorrer. */
+const INTERVALO_ANALISIS_MS = 12_000;
 /** Cada cuánto se reenvía el transcript completo para corregir texto perdido. */
 const INTERVALO_SYNC_MS = 12_000;
 /** Mínimo de caracteres nuevos para gastar una llamada al LLM. */
-const MIN_TEXTO_NUEVO = 120;
+const MIN_TEXTO_NUEVO = 90;
 
 const BORRADOR_KEY = "eday.copiloto.borrador";
 
