@@ -36,12 +36,14 @@ export default function LoginPage() {
     <div className="center-screen">
       <form className="card stack" style={{ width: "min(420px, 100%)" }} onSubmit={submit}>
         <div>
-          <img
-            className="topbar__logo"
-            src="/logos argentina/PNG/SIN BAJADA/02.png"
-            alt="eCommerce DAY Argentina"
-            style={{ marginBottom: 18 }}
-          />
+          <a href="/" aria-label="Ir al dashboard">
+            <img
+              className="topbar__logo"
+              src="/logos argentina/PNG/SIN BAJADA/02.png"
+              alt="eCommerce DAY Argentina"
+              style={{ marginBottom: 18 }}
+            />
+          </a>
           <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 800 }}>Acceso al Copiloto</h1>
           <p className="soft" style={{ fontSize: "var(--fs-xs)", marginTop: 6 }}>
             Panel del operador · eCommerce StartUp Competition Argentina 2026

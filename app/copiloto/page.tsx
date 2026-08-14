@@ -38,6 +38,7 @@ export default function CopilotoPage() {
   const [interimText, setInterimText] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
   const [autoAnalisis, setAutoAnalisis] = useState(true);
   const [ultimoAnalisis, setUltimoAnalisis] = useState<string>("");
   const [metrics, setMetrics] = useState<Record<string, number> | null>(null);
@@ -333,8 +334,31 @@ export default function CopilotoPage() {
 
   const finishSession = async () => {
     stopAudio();
+    setIsFinishing(true);
     const texto = textoRef.current;
     if (texto) await publicar({ mode: "sync", fullText: texto });
+
+    // La ficha final la escribe el LLM con todo el transcript, en el mismo
+    // formato que las fichas de referencia del dashboard. Si falla, seguimos
+    // con lo que haya del análisis en vivo: nunca perdemos el pitch por esto.
+    let ficha = aiAnalysis;
+    try {
+      setHealth({ tone: "warn", msg: "Generando ficha final con la IA…" });
+      const res = await fetch("/api/ficha-final", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ team: activeTeamName, project: projectName, transcript: texto }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.raw) {
+        ficha = data.raw;
+        setAiAnalysis(data.raw);
+      } else if (data.error) {
+        setHealth({ tone: "warn", msg: `Ficha automática no generada: ${data.error}` });
+      }
+    } catch {
+      setHealth({ tone: "warn", msg: "No se pudo generar la ficha automática." });
+    }
 
     try {
       const res = await fetch("/api/fichas", {
@@ -345,7 +369,7 @@ export default function CopilotoPage() {
           team: activeTeamName,
           project: projectName,
           textChunk: interimText,
-          analysis: aiAnalysis,
+          analysis: ficha,
           metrics,
         }),
       });
@@ -358,6 +382,7 @@ export default function CopilotoPage() {
     }
 
     try { localStorage.removeItem(BORRADOR_KEY); } catch {}
+    setIsFinishing(false);
     setStep("session");
   };
 
@@ -367,7 +392,10 @@ export default function CopilotoPage() {
     <div className="shell">
       <header className="topbar">
         <div className="topbar__brand">
-          <img className="topbar__logo" src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" />
+          {/* El logo siempre vuelve al dashboard */}
+          <a href="/" aria-label="Ir al dashboard">
+            <img className="topbar__logo" src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" />
+          </a>
           <div className="topbar__divider" />
           <div>
             <div className="topbar__title">Copiloto de Evaluación</div>

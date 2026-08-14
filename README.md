@@ -13,6 +13,13 @@ Competition Argentina 2026 (eCommerce Institute).
 
 `/copiloto` y `/publico` se comunican por Pusher Channels en tiempo real.
 
+Al tocar **Finalizar ficha**, el copiloto le pasa la transcripción completa a
+`/api/ficha-final`, que genera la ficha de evaluación con el mismo formato y
+nivel de detalle que las fichas de referencia (RESUMEN / FORTALEZAS por
+indicador / ÁREAS DE MEJORA / VEREDICTO). Esa ficha viaja a la pantalla
+pública y al dashboard. Si la generación falla, se guarda igual el pitch con
+el análisis en vivo que hubiera.
+
 ## Los 6 indicadores
 
 Definidos una sola vez en [`lib/criteria.ts`](lib/criteria.ts), en el mismo orden

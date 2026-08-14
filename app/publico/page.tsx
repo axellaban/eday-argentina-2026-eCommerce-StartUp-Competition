@@ -195,7 +195,10 @@ export default function PublicoPage() {
     <div className="shell shell--wide">
       <header className="topbar">
         <div className="topbar__brand">
-          <img className="topbar__logo" src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" />
+          {/* El logo siempre vuelve al dashboard */}
+          <a href="/" aria-label="Ir al dashboard">
+            <img className="topbar__logo" src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" />
+          </a>
           <div className="topbar__divider" />
           <div>
             <div className="topbar__title">Demo Day · En Vivo</div>

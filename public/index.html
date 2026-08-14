@@ -1101,6 +1101,17 @@ const CRITERIA = [
   '👁️ Percepción Personal'
 ];
 
+// En el radar los nombres largos se pisan entre sí y se salen del canvas en
+// pantallas chicas: ahí se usan estos.
+const CRITERIA_SHORT = [
+  '🌍 Mercado',
+  '🧲 Producto',
+  '🧱 Innovación',
+  '🏃 Ejecución',
+  '👥 Equipo',
+  '👁️ Percepción'
+];
+
 const PALETTE = [
   { border:'#a78bfa', bg:'rgba(167,139,250,.08)' },
   { border:'#60a5fa', bg:'rgba(96,165,250,.08)'  },
@@ -1399,9 +1410,11 @@ function renderRadar() {
   const ctx = document.getElementById('radarChart').getContext('2d');
   radarChart = new Chart(ctx, {
     type: 'radar',
-    data: { labels: CRITERIA, datasets: buildDatasets() },
+    data: { labels: isMobile ? CRITERIA_SHORT : CRITERIA, datasets: buildDatasets() },
     options: {
       responsive: true, maintainAspectRatio: false,
+      // Aire para que las etiquetas de los vértices no queden cortadas por el borde
+      layout: { padding: isMobile ? { top: 14, bottom: 14, left: 30, right: 30 } : 10 },
       scales: {
         r: {
           min: 0, max: 5,
@@ -1409,8 +1422,9 @@ function renderRadar() {
           grid: { color: 'rgba(255,255,255,.04)', circular: true },
           pointLabels: {
             color: '#D5DCF2',
-            font: { size: isMobile ? 9.5 : 11, weight: '700', family: "'Poppins', sans-serif" },
-            padding: isMobile ? 6 : 20
+            font: { size: isMobile ? 9 : 11, weight: '700', family: "'Poppins', sans-serif" },
+            padding: isMobile ? 10 : 20,
+            centerPointLabels: false
           },
           ticks: { display: false, stepSize: 1 }
         }
@@ -1709,6 +1723,21 @@ async function loadFichas() {
 
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(loadFichas, 900);
+});
+
+// Al rotar el teléfono o cambiar el ancho hay que rearmar el radar: las
+// etiquetas largas/cortas se eligen en el momento de construirlo.
+let resizeTimer = null;
+let lastIsMobile = window.innerWidth < 768;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const nowMobile = window.innerWidth < 768;
+    if (nowMobile !== lastIsMobile && DATA.length) {
+      lastIsMobile = nowMobile;
+      renderAll();
+    }
+  }, 250);
 });
 
 function renderFichas(fichas) {
