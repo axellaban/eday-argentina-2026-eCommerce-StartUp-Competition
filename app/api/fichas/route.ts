@@ -1,66 +1,34 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import { pusherServer } from "@/lib/pusher";
+import { broadcast } from "@/lib/pusher";
+import { PUSHER_EVENTS } from "@/lib/pusher-config";
+import { loadSessions, saveSessions, isDurable, TeamSession } from "@/lib/store";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
-
-interface TeamSession {
-  team: string;
-  project: string;
-  transcript: string;
-  analysis?: string;
-  metrics?: any;
-  isFinished: boolean;
-  timestamp: string;
-  updatedAt: number;
-}
-
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(SESSIONS_FILE)) {
-    fs.writeFileSync(SESSIONS_FILE, JSON.stringify({ sessions: {}, activeTeam: null }, null, 2));
-  }
-}
-
-function loadSessionsData(): { sessions: Record<string, TeamSession>; activeTeam: string | null } {
-  try {
-    ensureDataDir();
-    const raw = fs.readFileSync(SESSIONS_FILE, "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return { sessions: {}, activeTeam: null };
-  }
-}
-
-function saveSessionsData(data: { sessions: Record<string, TeamSession>; activeTeam: string | null }) {
-  try {
-    ensureDataDir();
-    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error("Error guardando sessions.json en disco:", e);
-  }
-}
+// El estado cambia en cada pitch: nunca cachear esta ruta.
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const team = searchParams.get("team");
-  const data = loadSessionsData();
+  const data = await loadSessions();
 
-  if (team && data.sessions[team]) {
-    return NextResponse.json(data.sessions[team]);
+  if (team) {
+    const session = data.sessions[team];
+    if (!session) {
+      return NextResponse.json({ error: "Equipo no encontrado" }, { status: 404 });
+    }
+    return NextResponse.json(session);
   }
 
-  const finishedList = Object.values(data.sessions).filter(s => s.isFinished);
+  const finishedList = Object.values(data.sessions)
+    .filter((s) => s.isFinished)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
   const activeSession = data.activeTeam ? data.sessions[data.activeTeam] : null;
 
   return NextResponse.json({
     activeSession,
     finishedSessions: finishedList,
-    allSessions: data.sessions
+    allSessions: data.sessions,
+    durable: isDurable(),
   });
 }
 
@@ -73,21 +41,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Falta el nombre del equipo" }, { status: 400 });
     }
 
-    const data = loadSessionsData();
+    const data = await loadSessions();
 
     if (!data.sessions[team]) {
-      data.sessions[team] = {
+      const nueva: TeamSession = {
         team,
         project: project || "",
         transcript: "",
         isFinished: false,
         timestamp: new Date().toLocaleTimeString("es-AR"),
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
+      data.sessions[team] = nueva;
     }
 
     const session = data.sessions[team];
-    data.activeTeam = team;
 
     if (project) session.project = project;
 
@@ -99,33 +67,41 @@ export async function POST(req: Request) {
     if (analysis) session.analysis = analysis;
     if (metrics) session.metrics = metrics;
 
+    let broadcastError: string | null = null;
+
     if (action === "finish") {
       session.isFinished = true;
       session.updatedAt = Date.now();
       data.activeTeam = null;
 
-      // Broadcast finished pitch event to public viewers via Pusher
-      try {
-        await pusherServer.trigger("eday-pitch-channel", "finish-pitch", {
-          team: session.team,
-          project: session.project,
-          transcript: session.transcript,
-          analysis: session.analysis,
-          metrics: session.metrics,
-          timestamp: session.timestamp
-        });
-      } catch {}
+      const result = await broadcast(PUSHER_EVENTS.finish, {
+        team: session.team,
+        project: session.project,
+        transcript: session.transcript,
+        analysis: session.analysis,
+        metrics: session.metrics,
+        timestamp: session.timestamp,
+        isFinished: true,
+      });
+      if (!result.ok) broadcastError = result.error;
+    } else {
+      session.isFinished = false;
+      data.activeTeam = team;
     }
 
-    saveSessionsData(data);
+    await saveSessions(data);
 
     return NextResponse.json({
       success: true,
       team,
-      session
+      session,
+      durable: isDurable(),
+      broadcastError,
     });
-
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Error al procesar la sesión del equipo" }, { status: 500 });
+    return NextResponse.json(
+      { error: e.message || "Error al procesar la sesión del equipo" },
+      { status: 500 }
+    );
   }
 }

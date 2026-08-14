@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
+import { INDICATORS_PROMPT_BLOCK } from "@/lib/criteria";
+
+export const dynamic = "force-dynamic";
 
 const COMPETITION_PROMPT = `Sos el EVALUADOR COPILOTO Y JURADO ASISTENTE de la eCommerce StartUp Competition Argentina 2026 (eCommerce Institute).
 
 Recibís:
 1. EQUIPO QUE PRESENTA: Nombre del equipo y/o proyecto.
-2. CRITERIOS DE EVALUACIÓN OFICIALES (0 a 5 pts cada uno):
-   - ⚡ Funciona en Vivo (demo real sin fallos)
-   - 🧠 Arquitectura Agéntica (orquestación, conectores, prompts)
-   - 🎯 Relevancia del Caso de Uso (dolor real de e-commerce/retail)
-   - 📊 Impacto Medible (ahorro de tiempo, dinero, ROI)
-   - 💡 ¿Me lo Robo? (innovación y replicabilidad)
+2. LOS 6 INDICADORES OFICIALES DE EVALUACIÓN (el jurado puntúa cada uno de 1 a 5):
+${INDICATORS_PROMPT_BLOCK}
 3. TRANSCRIPCIÓN EN TIEMPO REAL de lo que está exponiendo el equipo o preguntando el jurado.
 
 Tu objetivo:
@@ -19,20 +18,26 @@ Analizar la presentación en vivo y generar feedback conciso, estructurado y dir
 **1) Sugerencia / Feedback Clave**
 - Una oración directa con la idea central o respuesta a la pregunta del jurado.
 
-**2) Análisis por Criterio**
-- **⚡ Funciona en Vivo:** Observaciones sobre la demo en vivo.
-- **🧠 Arquitectura Agéntica:** Calidad del stack (APIs, agentes, memoria).
-- **📊 Impacto & Relevancia:** Retorno de inversión y aplicación en e-commerce.
+**2) Análisis por Indicador**
+- **🌍 Potencial de Mercado:** Tamaño real de la oportunidad.
+- **🧲 Producto y Adopción:** Qué tan usable es y quién lo está usando.
+- **🧱 Innovación y Tecnología:** Calidad del stack agéntico (APIs, agentes, memoria).
+- **🏃 Ejecución y Avance:** Qué tan lejos llegaron y qué mostraron funcionando.
+- **👥 Perfil del Equipo y Visión:** Capacidad de llevarlo adelante.
+- **👁️ Percepción Personal:** Impresión general del pitch.
 
 **💡 Veredicto sugerido para la Ficha:**
-Resumen sintético del pitch en 2-3 líneas para la Ficha IA.`;
+Resumen sintético del pitch en 2-3 líneas para la Ficha IA, con una sugerencia de puntaje de 1 a 5 por indicador.`;
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const apiKey = (process.env.GEMINI_API_KEY || "").trim();
     if (!apiKey) {
-      return NextResponse.json({ error: "Falta GEMINI_API_KEY en las variables de entorno." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Falta GEMINI_API_KEY en las variables de entorno." },
+        { status: 500 }
+      );
     }
 
     const team = body.team || body.company || "Equipo Presentador";
@@ -48,27 +53,33 @@ ${transcript}
 ÚLTIMA PREGUNTA / PUNTO A EVALUAR:
 ${question || "(Analizar pitch acumulado)"}`;
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          { role: "user", parts: [{ text: `${COMPETITION_PROMPT}\n\n${userPrompt}` }] }
-        ]
-      })
-    });
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: `${COMPETITION_PROMPT}\n\n${userPrompt}` }] }],
+        }),
+      }
+    );
 
     if (!res.ok) {
       const errText = await res.text();
-      return NextResponse.json({ error: "Error en Gemini API", detail: errText }, { status: res.status });
+      return NextResponse.json(
+        { error: "Error en Gemini API", detail: errText },
+        { status: res.status }
+      );
     }
 
     const data = await res.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sin respuesta del modelo.";
 
     return NextResponse.json({ text });
-
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Error procesando solicitud." }, { status: 500 });
+    return NextResponse.json(
+      { error: e.message || "Error procesando solicitud." },
+      { status: 500 }
+    );
   }
 }

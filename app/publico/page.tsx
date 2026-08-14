@@ -2,15 +2,10 @@
 
 import { useEffect, useState } from "react";
 import PusherClient from "pusher-js";
+import { INDICATORS, neutralMetrics } from "@/lib/criteria";
+import { PUSHER_CHANNEL, PUSHER_CLUSTER, PUSHER_EVENTS, PUSHER_KEY } from "@/lib/pusher-config";
 
-interface Metrics {
-  mercado: number;
-  producto: number;
-  innovacion: number;
-  ejecucion: number;
-  equipo: number;
-  percepcion: number;
-}
+type Metrics = Record<string, number>;
 
 interface TeamSession {
   team: string;
@@ -22,30 +17,13 @@ interface TeamSession {
   isFinished?: boolean;
 }
 
-const INITIAL_METRICS: Metrics = {
-  mercado: 50,
-  producto: 50,
-  innovacion: 50,
-  ejecucion: 50,
-  equipo: 50,
-  percepcion: 50,
-};
-
-const INDICATORS = [
-  { key: "mercado", label: "Potencial de Mercado", icon: "🌍" },
-  { key: "producto", label: "Producto y Adopción", icon: "🧲" },
-  { key: "innovacion", label: "Innovación y Tecnología", icon: "🧱" },
-  { key: "ejecucion", label: "Ejecución y Avance", icon: "🏃‍♂️" },
-  { key: "equipo", label: "Perfil del Equipo y Visión", icon: "👥" },
-  { key: "percepcion", label: "Percepción Personal", icon: "👁️" },
-];
-
 export default function PublicLiveViewerPage() {
   const [activePitch, setActivePitch] = useState<{ team: string; project: string } | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<string[]>([]);
-  const [metrics, setMetrics] = useState<Metrics>(INITIAL_METRICS);
+  const [metrics, setMetrics] = useState<Metrics>(neutralMetrics);
   const [finishedSessions, setFinishedSessions] = useState<TeamSession[]>([]);
   const [pusherConnected, setPusherConnected] = useState(false);
+  const [configError, setConfigError] = useState("");
 
   // Initial load & recovery from server API
   const loadSavedData = async () => {
@@ -74,41 +52,54 @@ export default function PublicLiveViewerPage() {
   useEffect(() => {
     loadSavedData();
 
-    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY || "3e9301996d5be7839306";
-    const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "sa1";
+    if (!PUSHER_KEY) {
+      setConfigError(
+        "Falta NEXT_PUBLIC_PUSHER_KEY: la pantalla no va a recibir el pitch en vivo."
+      );
+      return;
+    }
 
-    const pusher = new PusherClient(pusherKey, {
-      cluster,
+    const pusher = new PusherClient(PUSHER_KEY, {
+      cluster: PUSHER_CLUSTER,
       forceTLS: true,
     });
 
     pusher.connection.bind("connected", () => setPusherConnected(true));
+    pusher.connection.bind("disconnected", () => setPusherConnected(false));
+    pusher.connection.bind("error", () =>
+      setConfigError("No se pudo conectar al canal en tiempo real.")
+    );
 
-    const channel = pusher.subscribe("eday-pitch-channel");
+    const channel = pusher.subscribe(PUSHER_CHANNEL);
 
     // Listen for live speech transcript chunks
-    channel.bind("live-transcript", (data: { team: string; project: string; textChunk: string }) => {
-      setActivePitch({ team: data.team, project: data.project });
-      setLiveTranscript(prev => [...prev, data.textChunk]);
-    });
+    channel.bind(
+      PUSHER_EVENTS.transcript,
+      (data: { team: string; project: string; textChunk: string }) => {
+        setActivePitch({ team: data.team, project: data.project });
+        setLiveTranscript((prev) => [...prev, data.textChunk]);
+      }
+    );
 
     // Listen for live LLM metric shifts (0-100%, 50% is neutral middle)
-    channel.bind("live-metrics", (data: { team: string; metrics: Metrics }) => {
+    channel.bind(PUSHER_EVENTS.metrics, (data: { team: string; metrics: Metrics }) => {
       if (data.metrics) {
         setMetrics(data.metrics);
       }
     });
 
     // Listen for finished pitch events
-    channel.bind("finish-pitch", (data: TeamSession) => {
-      setFinishedSessions(prev => [data, ...prev.filter(s => s.team !== data.team)]);
+    channel.bind(PUSHER_EVENTS.finish, (data: TeamSession) => {
+      setFinishedSessions((prev) => [data, ...prev.filter((s) => s.team !== data.team)]);
       setActivePitch(null);
       setLiveTranscript([]);
-      setMetrics(INITIAL_METRICS);
+      setMetrics(neutralMetrics());
     });
 
     return () => {
-      pusher.unsubscribe("eday-pitch-channel");
+      pusher.unsubscribe(PUSHER_CHANNEL);
+      // Sin disconnect() el socket queda abierto entre remontajes.
+      pusher.disconnect();
     };
   }, []);
 
@@ -151,12 +142,33 @@ export default function PublicLiveViewerPage() {
               ↻ Sincronizar Fichas
             </button>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", padding: "6px 14px", borderRadius: "999px" }}>
-              <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 8px #22C55E" }}></div>
-              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#22C55E", fontFamily: "monospace" }}>
-                {pusherConnected ? "CANAL REALTIME ACTIVO" : "RECONECTANDO..."}
-              </span>
-            </div>
+            {(() => {
+              const color = configError ? "#EF4444" : pusherConnected ? "#22C55E" : "#F6B40E";
+              const label = configError
+                ? "SIN CANAL"
+                : pusherConnected
+                ? "CANAL REALTIME ACTIVO"
+                : "RECONECTANDO...";
+              return (
+                <div
+                  title={configError || undefined}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    background: `${color}1A`,
+                    border: `1px solid ${color}55`,
+                    padding: "6px 14px",
+                    borderRadius: "999px",
+                  }}
+                >
+                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}` }}></div>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color, fontFamily: "monospace" }}>
+                    {label}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         </header>
 

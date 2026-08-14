@@ -838,7 +838,7 @@
     <img src="logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY" style="height:40px;width:auto;" />
     <div class="spinner"></div>
     <h3>Conectando a Google Sheets…</h3>
-    <p id="loadingMsg">Cargando datos de la hoja "Analisis"</p>
+    <p id="loadingMsg">Cargando datos de la hoja "Análisis"</p>
   </div>
 </div>
 
@@ -902,7 +902,7 @@
       <div class="kpi-icon">
         <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       </div>
-      <div class="kpi-label">Criterio Más Fuerte</div>
+      <div class="kpi-label">Indicador Más Fuerte</div>
       <div class="kpi-value gold" id="kpiCriterio" style="font-size:1.4rem;margin-top:6px;">–</div>
       <div class="kpi-sub" id="kpiCriterioSub">promedio más alto entre todos</div>
     </div>
@@ -922,7 +922,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             Análisis Multidimensional
           </div>
-          <div class="card-sub">5 criterios de evaluación por equipo</div>
+          <div class="card-sub">6 indicadores de evaluación por equipo</div>
         </div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-active" id="btnAll"  onclick="setMode('all')">Todos</button>
@@ -964,9 +964,9 @@
       <div class="card-accent"></div>
       <div class="card-title">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
-        Promedio por Criterio
+        Promedio por Indicador
       </div>
-      <div class="card-sub">Rendimiento agregado · todos los grupos</div>
+      <div class="card-sub">Rendimiento agregado · todos los equipos</div>
       <div class="bar-canvas-wrap">
         <canvas id="barChart"></canvas>
       </div>
@@ -989,11 +989,12 @@
             <tr>
               <th>#</th>
               <th>Equipo</th>
-              <th>⚡ Vivo</th>
-              <th>🧠 Arq.</th>
-              <th>🎯 Caso</th>
-              <th>📈 Impacto</th>
-              <th>🔥 Robo</th>
+              <th>🌍 Mercado</th>
+              <th>🧲 Producto</th>
+              <th>🧱 Innovación</th>
+              <th>🏃 Ejecución</th>
+              <th>👥 Equipo</th>
+              <th>👁️ Percepción</th>
               <th>Prom. ★</th>
             </tr>
           </thead>
@@ -1079,16 +1080,25 @@
 // ═══════════════════════════════════════════════
 // CONFIG — Google Sheets
 // ═══════════════════════════════════════════════
-const SHEET_ID  = '1q0RMckS9DcJSzmX6RUmlfdfd-PkH_pvK-rcpIrK-5GY';
-// gviz/tq respeta el nombre de hoja correctamente (export?format=csv trae siempre la primera hoja)
-const CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Analisis`;
+const SHEET_ID  = '1Ust7i7HhsPrJdQxJ3v-GvhulQjfC_eCJxXCHuFxDvbc';
+// gviz/tq respeta el nombre de hoja correctamente (export?format=csv trae siempre la primera hoja).
+// El nombre lleva tilde ("Análisis") y hay que encodearlo, si no Google devuelve la primera hoja.
+const SHEET_NAME = 'Análisis';
+// Variantes por si la tilde no resuelve del lado de Google: se prueban en orden
+// y gana la primera que devuelva filas con puntajes válidos.
+const SHEET_NAME_CANDIDATES = [SHEET_NAME, 'Analisis', 'análisis', 'analisis'];
+const csvUrl = (nombre) =>
+  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nombre)}`;
 
+// Los 6 indicadores oficiales, en el mismo orden que las columnas C-H de la hoja.
+// Si cambiás esto, actualizá también lib/criteria.ts (misma lista, del lado de la app).
 const CRITERIA = [
-  '⚡ Funciona en Vivo',
-  '🧠 Arquitectura Agéntica',
-  '🎯 Relevancia del Caso',
-  '📈 Impacto Medible',
-  '🔥 ¿Me lo Robo?'
+  '🌍 Potencial de Mercado',
+  '🧲 Producto y Adopción',
+  '🧱 Innovación y Tecnología',
+  '🏃 Ejecución y Avance',
+  '👥 Perfil del Equipo y Visión',
+  '👁️ Percepción Personal'
 ];
 
 const PALETTE = [
@@ -1144,7 +1154,8 @@ function parseCSV(text) {
   const lines = text.trim().split('\n').filter(l => l.trim().length > 0);
   const results = [];
   // row 0 = header; rows 1..N = datos
-  // col 0 = N° Alumno, col 1 = Nombre (Col B), cols 2-6 = 5 scores (Cols C-G), col 7 = Media (Col H)
+  // col 0 = Equipo N° (Col A), col 1 = Nombre (Col B),
+  // cols 2-7 = los 6 indicadores (Cols C-H), col 8 = Media Total (Col I)
   for (let i = 1; i < lines.length; i++) {
     const cols  = parseCSVLine(lines[i]);
     const first = (cols[0] || '').trim();
@@ -1154,11 +1165,11 @@ function parseCSV(text) {
     if (!nombre && (isNaN(equipoNum) || equipoNum < 1)) continue;
     const team = nombre || ('Equipo ' + equipoNum);
 
-    // Parsear los 5 scores (cols 2-6)
-    // Si alguno está vacío o no es número → skip fila (alumno sin votos aún)
+    // Parsear los 6 indicadores (cols 2-7)
+    // Si alguno está vacío o no es número → skip fila (equipo sin votos aún)
     const scores = [];
     let valid = true;
-    for (let j = 2; j <= 6; j++) {
+    for (let j = 2; j <= 7; j++) {
       const raw = (cols[j] || '').trim();
       if (raw === '' || raw.startsWith('#')) { valid = false; break; }
       const n = parseNum(raw);
@@ -1166,8 +1177,8 @@ function parseCSV(text) {
       scores.push(n);
     }
     if (!valid) continue;
-    // Media: usar col 7 si es un número válido, sino calcular
-    const mediaRaw = (cols[7] || '').trim();
+    // Media Total: usar col 8 (Col I) si es un número válido, sino calcular
+    const mediaRaw = (cols[8] || '').trim();
     const mediaSheet = (mediaRaw === '' || mediaRaw.startsWith('#')) ? NaN : parseNum(mediaRaw);
     const media = !isNaN(mediaSheet)
       ? Math.round(mediaSheet * 100) / 100
@@ -1224,17 +1235,32 @@ async function loadData(showLoader = false) {
   }
 
   try {
-    const url = CSV_URL + '&cachebust=' + Date.now();
-    const res = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache, no-store' } });
+    // Si el nombre de hoja no resuelve, Google devuelve la PRIMERA hoja del
+    // libro (la de respuestas del formulario) sin avisar, y el parseo sale
+    // vacío. Por eso probamos variantes del nombre y nos quedamos con la
+    // primera que traiga filas válidas.
+    let parsed = [];
+    let lastError = null;
 
-    if (!res.ok) throw new Error(`HTTP ${res.status} — El servidor de Google respondió con error`);
+    for (const nombre of SHEET_NAME_CANDIDATES) {
+      const url = `${csvUrl(nombre)}&cachebust=${Date.now()}`;
+      try {
+        const res = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache, no-store' } });
+        if (!res.ok) { lastError = new Error(`HTTP ${res.status} — El servidor de Google respondió con error`); continue; }
 
-    if (isFirstLoad || showLoader) {
-      document.getElementById('loadingMsg').textContent = 'Parseando CSV…';
+        if (isFirstLoad || showLoader) {
+          document.getElementById('loadingMsg').textContent = 'Parseando CSV…';
+        }
+        const candidato = parseCSV(await res.text());
+        if (candidato.length > 0) { parsed = candidato; break; }
+      } catch (err) {
+        lastError = err;
+      }
     }
-    const text   = await res.text();
-    const parsed = parseCSV(text);
-    const ms     = Date.now() - t0;
+
+    if (parsed.length === 0 && lastError) throw lastError;
+
+    const ms = Date.now() - t0;
 
     if (parsed.length === 0) {
       DATA = DEMO_DATA();
@@ -1242,7 +1268,7 @@ async function loadData(showLoader = false) {
       document.getElementById('syncInfo').style.color = 'var(--gold)';
       showBanner('warning',
         'Conectado a Sheets · sin datos válidos aún',
-        `La hoja "Analisis" no tiene filas con puntajes válidos aún. Mostrando datos demo.`,
+        `La hoja "${SHEET_NAME}" no tiene filas con puntajes válidos aún. Mostrando datos demo.`,
         `${ms}ms`
       );
     } else {
@@ -1254,7 +1280,7 @@ async function loadData(showLoader = false) {
       document.getElementById('syncInfo').style.color = 'var(--green)';
       showBanner('success',
         `Conectado a Google Sheets · ${parsed.length} equipos cargados`,
-        `Hoja "Analisis" · ${parsed.length} equipos con calificaciones · datos en tiempo real`,
+        `Hoja "${SHEET_NAME}" · ${parsed.length} equipos con calificaciones · datos en tiempo real`,
         `${ms}ms`
       );
 
@@ -1282,21 +1308,21 @@ async function loadData(showLoader = false) {
 
 function DEMO_DATA() {
   return [
-    { team:'Marcos',    scores:[1.0,1.0,1.0,1.0,1.0], media:1.00 },
-    { team:'Pablo',     scores:[2.0,2.0,2.0,2.0,2.0], media:2.00 },
-    { team:'Juan',      scores:[3.0,3.0,3.0,3.0,3.0], media:3.00 },
-    { team:'Patricio',  scores:[4.0,4.0,4.0,4.0,4.0], media:4.00 },
-    { team:'Marta',     scores:[5.0,5.0,5.0,5.0,5.0], media:5.00 },
-    { team:'Juana',     scores:[1.0,1.0,1.0,1.0,1.0], media:1.00 },
-    { team:'Mara',      scores:[2.0,2.0,2.0,2.0,2.0], media:2.00 },
-    { team:'Monica',    scores:[3.0,3.0,3.0,3.0,3.0], media:3.00 },
-    { team:'Pedro',     scores:[4.0,4.0,4.0,4.0,4.0], media:4.00 },
-    { team:'Roberto',   scores:[5.0,5.0,5.0,5.0,5.0], media:5.00 },
-    { team:'Juanma',    scores:[1.0,1.0,1.0,1.0,1.0], media:1.00 },
-    { team:'Diego',     scores:[2.0,2.0,2.0,2.0,2.0], media:2.00 },
-    { team:'Valentina', scores:[3.0,3.0,3.0,3.0,3.0], media:3.00 },
-    { team:'Valeria',   scores:[4.0,4.0,4.0,4.0,4.0], media:4.00 },
-    { team:'Karen',     scores:[5.0,5.0,5.0,5.0,5.0], media:5.00 },
+    { team:'Marcos',    scores:[1.0,1.0,1.0,1.0,1.0,1.0], media:1.00 },
+    { team:'Pablo',     scores:[2.0,2.0,2.0,2.0,2.0,2.0], media:2.00 },
+    { team:'Juan',      scores:[3.0,3.0,3.0,3.0,3.0,3.0], media:3.00 },
+    { team:'Patricio',  scores:[4.0,4.0,4.0,4.0,4.0,4.0], media:4.00 },
+    { team:'Marta',     scores:[5.0,5.0,5.0,5.0,5.0,5.0], media:5.00 },
+    { team:'Juana',     scores:[1.0,1.0,1.0,1.0,1.0,1.0], media:1.00 },
+    { team:'Mara',      scores:[2.0,2.0,2.0,2.0,2.0,2.0], media:2.00 },
+    { team:'Monica',    scores:[3.0,3.0,3.0,3.0,3.0,3.0], media:3.00 },
+    { team:'Pedro',     scores:[4.0,4.0,4.0,4.0,4.0,4.0], media:4.00 },
+    { team:'Roberto',   scores:[5.0,5.0,5.0,5.0,5.0,5.0], media:5.00 },
+    { team:'Juanma',    scores:[1.0,1.0,1.0,1.0,1.0,1.0], media:1.00 },
+    { team:'Diego',     scores:[2.0,2.0,2.0,2.0,2.0,2.0], media:2.00 },
+    { team:'Valentina', scores:[3.0,3.0,3.0,3.0,3.0,3.0], media:3.00 },
+    { team:'Valeria',   scores:[4.0,4.0,4.0,4.0,4.0,4.0], media:4.00 },
+    { team:'Karen',     scores:[5.0,5.0,5.0,5.0,5.0,5.0], media:5.00 },
   ];
 }
 
@@ -1613,15 +1639,53 @@ const DEMO_FICHAS = [
   }
 ];
 
-async function loadFichas() {
-  let fichas = [];
+// Fichas capturadas en vivo por el copiloto (/api/fichas). Antes el dashboard
+// sólo leía el fichas.json estático, así que nada de lo grabado durante el
+// evento llegaba nunca a la pantalla del jurado.
+async function fetchFichasEnVivo() {
+  try {
+    const res = await fetch('/api/fichas?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const sesiones = Array.isArray(data.finishedSessions) ? data.finishedSessions : [];
+    return sesiones
+      .filter(s => s && s.team && (s.analysis || s.transcript))
+      .map(s => ({
+        group: s.team,
+        proyecto: s.project || '',
+        raw: s.analysis || s.transcript || '',
+        enVivo: true
+      }));
+  } catch (e) {
+    // El dashboard también se sirve suelto (file:// o servidor.py), sin API.
+    return [];
+  }
+}
+
+async function fetchFichasEstaticas() {
   try {
     const res = await fetch('fichas.json?t=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    fichas = await res.json();
+    const fichas = await res.json();
     if (!Array.isArray(fichas) || fichas.length === 0) throw new Error('Archivo vacío');
+    return fichas;
   } catch (e) {
-    console.log('Usando fichas de demo como fallback:', e.message);
+    console.log('fichas.json no disponible:', e.message);
+    return [];
+  }
+}
+
+async function loadFichas() {
+  const [enVivo, estaticas] = await Promise.all([fetchFichasEnVivo(), fetchFichasEstaticas()]);
+
+  // Las capturadas en vivo pisan a las estáticas del mismo equipo.
+  const porEquipo = new Map();
+  estaticas.forEach(f => porEquipo.set((f.group || '').toLowerCase(), f));
+  enVivo.forEach(f => porEquipo.set((f.group || '').toLowerCase(), f));
+
+  let fichas = Array.from(porEquipo.values());
+  if (fichas.length === 0) {
+    console.log('Sin fichas reales, uso las de demo como fallback.');
     fichas = DEMO_FICHAS;
   }
 
@@ -1633,11 +1697,13 @@ async function loadFichas() {
   document.getElementById('aiSetup').style.display  = 'none';
   document.getElementById('aiFichas').style.display = 'block';
   const n = fichas.length;
+  const nEnVivo = fichas.filter(f => f.enVivo).length;
   document.getElementById('fichasHeader').textContent =
-    `${n} ficha${n > 1 ? 's' : ''} generada${n > 1 ? 's' : ''}`;
+    `${n} ficha${n > 1 ? 's' : ''} generada${n > 1 ? 's' : ''}` +
+    (nEnVivo ? ` · ${nEnVivo} en vivo` : '');
   const badge = document.getElementById('fichasBadge');
   badge.style.display = 'flex';
-  badge.textContent = `${n} grupos`;
+  badge.textContent = `${n} equipos`;
   renderFichas(fichasConScores);
 }
 
