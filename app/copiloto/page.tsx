@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { INDICATORS } from "@/lib/criteria";
 
 const TEAMS_DEFAULT = [
   { name: "Ceci Escudero", project: "Pipeline de 4 Agentes para Generación de Contenido LinkedIn (GIT)" },
@@ -459,18 +458,6 @@ export default function CopilotoPage() {
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
               />
-            </div>
-          </div>
-
-          <div>
-            <div className="label" style={{ marginBottom: 10 }}>Los 6 indicadores · 1 a 5 pts</div>
-            <div className="pill-row">
-              {INDICATORS.map((ind) => (
-                <div className="pill" key={ind.key}>
-                  <span>{ind.icon}</span>
-                  <strong>{ind.label}</strong>
-                </div>
-              ))}
             </div>
           </div>
 

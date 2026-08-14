@@ -520,19 +520,6 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
 @media (max-width: 760px) { .form-grid { grid-template-columns: 1fr; } }
 
-.pill-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 9px; }
-.pill {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--line-soft);
-  border-radius: 9px;
-  padding: 10px 12px;
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
 /* ── Fichas del historial ───────────────────────────────────── */
 
 .ficha { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: var(--pad); }
