@@ -13,7 +13,15 @@
 export const PUSHER_CHANNEL = "eday-pitch-channel";
 
 export const PUSHER_EVENTS = {
+  /** Cada frase cerrada, para que los subtítulos aparezcan al instante. */
   transcript: "live-transcript",
+  /**
+   * Transcript COMPLETO acumulado, cada pocos segundos. Los eventos sueltos
+   * pueden perderse (red, pestaña dormida, viewer que entra tarde) y entonces
+   * la pantalla pública queda con el texto incompleto. Este evento reemplaza
+   * todo el texto en vez de sumar, así se corrige solo.
+   */
+  sync: "sync-transcript",
   metrics: "live-metrics",
   finish: "finish-pitch",
 } as const;

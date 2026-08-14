@@ -23,7 +23,7 @@ export default function LoginPage() {
         return;
       }
       const next = new URLSearchParams(window.location.search).get("next") || "/copiloto";
-      // Ruta relativa únicamente, para no permitir redirecciones a otro dominio.
+      // Sólo rutas relativas, para no permitir redirecciones a otro dominio.
       window.location.href = next.startsWith("/") && !next.startsWith("//") ? next : "/copiloto";
     } catch {
       setError("Error de red al iniciar sesión.");
@@ -33,107 +33,37 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #011929 0%, #022840 50%, #063454 100%)",
-        color: "#FFFFFF",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
-      }}
-    >
-      <div className="ambient-orb orb-1"></div>
-      <div className="ambient-orb orb-2"></div>
+    <div className="center-screen">
+      <form className="card stack" style={{ width: "min(420px, 100%)" }} onSubmit={submit}>
+        <div>
+          <img
+            className="topbar__logo"
+            src="/logos argentina/PNG/SIN BAJADA/02.png"
+            alt="eCommerce DAY Argentina"
+            style={{ marginBottom: 18 }}
+          />
+          <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 800 }}>Acceso al Copiloto</h1>
+          <p className="soft" style={{ fontSize: "var(--fs-xs)", marginTop: 6 }}>
+            Panel del operador · eCommerce StartUp Competition Argentina 2026
+          </p>
+        </div>
 
-      <form
-        onSubmit={submit}
-        style={{
-          position: "relative",
-          zIndex: 10,
-          width: "100%",
-          maxWidth: "420px",
-          background: "rgba(7, 36, 61, 0.85)",
-          border: "1px solid rgba(69, 119, 178, 0.28)",
-          borderRadius: "20px",
-          padding: "32px",
-          backdropFilter: "blur(20px)",
-        }}
-      >
-        <img
-          src="/logos argentina/PNG/SIN BAJADA/02.png"
-          alt="eCommerce DAY Argentina"
-          style={{ height: "34px", width: "auto", marginBottom: "20px" }}
-        />
-        <h1 style={{ fontSize: "1.35rem", fontWeight: 800, marginBottom: "6px" }}>
-          Acceso al Copiloto
-        </h1>
-        <p style={{ fontSize: "0.85rem", color: "#D5DCF2", marginBottom: "22px" }}>
-          Panel del operador · eCommerce StartUp Competition Argentina 2026
-        </p>
+        <div>
+          <label className="label" htmlFor="pw">Contraseña</label>
+          <input
+            id="pw"
+            className="input"
+            type="password"
+            value={password}
+            autoFocus
+            autoComplete="current-password"
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-        <label
-          style={{
-            display: "block",
-            fontSize: "0.75rem",
-            fontWeight: 700,
-            textTransform: "uppercase",
-            color: "#859CC2",
-            marginBottom: "8px",
-          }}
-        >
-          Contraseña
-        </label>
-        <input
-          type="password"
-          value={password}
-          autoFocus
-          onChange={(e) => setPassword(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "12px 16px",
-            borderRadius: "12px",
-            background: "#0B3552",
-            border: "1px solid rgba(0, 168, 255, 0.3)",
-            color: "#FFFFFF",
-            fontSize: "0.95rem",
-            outline: "none",
-            marginBottom: "16px",
-          }}
-        />
+        {error && <div className="notice notice--bad">{error}</div>}
 
-        {error && (
-          <div
-            style={{
-              background: "rgba(239, 68, 68, 0.12)",
-              border: "1px solid rgba(239, 68, 68, 0.35)",
-              color: "#EF4444",
-              borderRadius: "10px",
-              padding: "10px 14px",
-              fontSize: "0.82rem",
-              marginBottom: "16px",
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading || !password}
-          style={{
-            width: "100%",
-            padding: "14px",
-            borderRadius: "12px",
-            background: "linear-gradient(135deg, #00A8FF, #18A0D8)",
-            color: "#FFFFFF",
-            fontSize: "0.95rem",
-            fontWeight: 800,
-            border: "none",
-            opacity: loading || !password ? 0.6 : 1,
-          }}
-        >
+        <button className="btn btn--primary btn--block" type="submit" disabled={loading || !password}>
           {loading ? "Verificando…" : "Entrar"}
         </button>
       </form>

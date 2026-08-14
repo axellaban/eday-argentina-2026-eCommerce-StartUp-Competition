@@ -4,20 +4,30 @@ import { PUSHER_EVENTS } from "@/lib/pusher-config";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Empuja texto a la pantalla pública.
+ *
+ * mode "append" (default): una frase suelta, para que aparezca al instante.
+ * mode "sync": el transcript completo acumulado, que reemplaza lo que haya.
+ *   Es la red de seguridad contra eventos perdidos y contra viewers que
+ *   abrieron la pantalla a mitad del pitch.
+ */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { team, project, textChunk, isFinal } = body;
+    const { team, project, textChunk, fullText, isFinal, mode } = body;
 
-    if (!team || !textChunk) {
+    const esSync = mode === "sync";
+    const contenido = esSync ? fullText : textChunk;
+
+    if (!team || typeof contenido !== "string") {
       return NextResponse.json({ error: "Faltan parámetros requeridos" }, { status: 400 });
     }
 
-    const result = await broadcast(PUSHER_EVENTS.transcript, {
+    const result = await broadcast(esSync ? PUSHER_EVENTS.sync : PUSHER_EVENTS.transcript, {
       team,
       project,
-      textChunk,
-      isFinal: !!isFinal,
+      ...(esSync ? { fullText: contenido } : { textChunk: contenido, isFinal: !!isFinal }),
       timestamp: new Date().toLocaleTimeString("es-AR"),
     });
 
@@ -27,7 +37,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: result.error }, { status: 503 });
     }
 
-    return NextResponse.json({ success: true, team, broadcastedText: textChunk });
+    return NextResponse.json({ success: true, team, mode: esSync ? "sync" : "append" });
   } catch (e: any) {
     return NextResponse.json(
       { error: e.message || "Error transmitiendo evento Pusher" },
