@@ -135,10 +135,22 @@ export default function CopilotoStandalonePage() {
       const tokenData = await tokenRes.json();
 
       if (!tokenRes.ok || !tokenData.token) {
-        alert(
-          "Error conectando con el servicio de transcripción:\n" +
-            (tokenData.error || `HTTP ${tokenRes.status}`)
-        );
+        // Mostrar el motivo real de cada intento, no sólo el titular: sin esto
+        // hay que adivinar por qué Deepgram rechazó la credencial.
+        const detalle = tokenData.intentos
+          ? Object.entries(tokenData.intentos)
+              .map(([metodo, motivo]) => `• ${metodo}: ${motivo}`)
+              .join("\n")
+          : tokenData.detail || "";
+        const msg = [
+          tokenData.error || `HTTP ${tokenRes.status}`,
+          detalle,
+          tokenData.ayuda || "",
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+        setBroadcastHealth({ ok: false, msg: tokenData.error || "Deepgram rechazó la credencial." });
+        alert("Error conectando con el servicio de transcripción:\n\n" + msg);
         return;
       }
 

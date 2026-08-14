@@ -3,65 +3,142 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 /**
- * Devuelve un token efímero de Deepgram para que el navegador abra el WebSocket.
+ * Entrega al navegador una credencial EFÍMERA de Deepgram.
  *
- * IMPORTANTE: nunca devolver DEEPGRAM_API_KEY al cliente. La versión anterior
- * tenía un fallback que, si /auth/grant fallaba, mandaba la key maestra en texto
- * plano al navegador — cualquiera que hiciera POST acá se la llevaba. Si el
- * grant falla, ahora fallamos.
+ * Regla que no se rompe: DEEPGRAM_API_KEY nunca sale de acá. La versión vieja
+ * tenía un fallback que, si esto fallaba, mandaba la key maestra al navegador;
+ * cualquiera que hiciera POST se la llevaba.
+ *
+ * Se intentan dos caminos, ambos seguros:
+ *   1. POST /v1/auth/grant  → access_token de corta vida (esquema "bearer").
+ *      Requiere que la key tenga permiso para emitir tokens.
+ *   2. Crear una API key temporal con scope mínimo (usage:write) y TTL corto
+ *      vía la Keys API (esquema "token"). Requiere permiso keys:write.
+ *
+ * Si los dos fallan, devolvemos 502 con el detalle de cada intento para poder
+ * diagnosticar sin adivinar.
  */
-export async function POST() {
-  const rawKey = process.env.DEEPGRAM_API_KEY;
-  if (!rawKey) {
-    return NextResponse.json(
-      { error: "Falta DEEPGRAM_API_KEY en las variables de entorno." },
-      { status: 500 }
-    );
-  }
-  const apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
 
+const DG = "https://api.deepgram.com";
+const TTL = 600; // 10 min: alcanza de sobra para abrir la conexión del pitch.
+
+function apiKey(): string {
+  return (process.env.DEEPGRAM_API_KEY || "").trim().replace(/^["']|["']$/g, "");
+}
+
+function authHeaders(key: string) {
+  return { Authorization: `Token ${key}`, "Content-Type": "application/json" };
+}
+
+async function readError(r: Response): Promise<string> {
+  const text = await r.text().catch(() => "");
+  return `HTTP ${r.status} ${text.slice(0, 300)}`.trim();
+}
+
+/** Camino 1: token efímero nativo. */
+async function viaGrant(key: string): Promise<{ token: string; scheme: string; expires_in: number } | string> {
   try {
-    const r = await fetch("https://api.deepgram.com/v1/auth/grant", {
+    const r = await fetch(`${DG}/v1/auth/grant`, {
       method: "POST",
-      headers: {
-        Authorization: `Token ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      // 300s: el token sólo se usa para abrir la conexión, pero un margen mayor
-      // evita fallar si el operador tarda en dar permiso al micrófono.
-      body: JSON.stringify({ ttl_seconds: 300 }),
+      headers: authHeaders(key),
+      body: JSON.stringify({ ttl_seconds: TTL }),
     });
+    if (!r.ok) return await readError(r);
+    const j: any = await r.json().catch(() => ({}));
+    if (!j.access_token) return "respuesta sin access_token";
+    return { token: j.access_token, scheme: "bearer", expires_in: j.expires_in ?? TTL };
+  } catch (e: any) {
+    return e?.message || "error de red";
+  }
+}
 
-    if (!r.ok) {
-      const detail = await r.text().catch(() => "");
-      return NextResponse.json(
-        {
-          error: "Deepgram rechazó la solicitud de token efímero.",
-          detail: detail.slice(0, 500),
-        },
-        { status: 502 }
-      );
+/** Camino 2: API key temporal con scope mínimo y vencimiento. */
+async function viaTempKey(key: string): Promise<{ token: string; scheme: string; expires_in: number } | string> {
+  try {
+    let projectId = (process.env.DEEPGRAM_PROJECT_ID || "").trim();
+
+    if (!projectId) {
+      const pr = await fetch(`${DG}/v1/projects`, { headers: authHeaders(key) });
+      if (!pr.ok) return `no se pudo listar proyectos: ${await readError(pr)}`;
+      const pj: any = await pr.json().catch(() => ({}));
+      projectId = pj?.projects?.[0]?.project_id || "";
+      if (!projectId) return "la cuenta no devolvió ningún project_id";
     }
+
+    const r = await fetch(`${DG}/v1/projects/${projectId}/keys`, {
+      method: "POST",
+      headers: authHeaders(key),
+      body: JSON.stringify({
+        comment: `copiloto-eday-${Date.now()}`,
+        scopes: ["usage:write"],
+        time_to_live_in_seconds: TTL,
+      }),
+    });
+    if (!r.ok) return `no se pudo crear key temporal: ${await readError(r)}`;
 
     const j: any = await r.json().catch(() => ({}));
-    const token = j.access_token;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: "Deepgram no devolvió un token efímero válido." },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json({
-      token,
-      scheme: "bearer",
-      expires_in: j.expires_in ?? 300,
-    });
+    if (!j.key) return "respuesta sin key temporal";
+    return { token: j.key, scheme: "token", expires_in: TTL };
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "No se pudo contactar a Deepgram." },
-      { status: 502 }
-    );
+    return e?.message || "error de red";
   }
+}
+
+async function mintCredential() {
+  const key = apiKey();
+  if (!key) return { error: "Falta DEEPGRAM_API_KEY en las variables de entorno.", status: 500 };
+
+  const intentos: Record<string, string> = {};
+
+  const grant = await viaGrant(key);
+  if (typeof grant !== "string") return { ok: grant, via: "auth/grant" };
+  intentos["auth/grant"] = grant;
+
+  const temp = await viaTempKey(key);
+  if (typeof temp !== "string") return { ok: temp, via: "key temporal" };
+  intentos["key temporal"] = temp;
+
+  return {
+    error: "Deepgram rechazó los dos métodos de credencial efímera.",
+    intentos,
+    ayuda:
+      "Suele ser permisos: la DEEPGRAM_API_KEY tiene que ser de un miembro con rol owner/admin del proyecto. " +
+      "Generá una key nueva con permisos completos en console.deepgram.com y actualizá la variable en Vercel.",
+    status: 502,
+  };
+}
+
+export async function POST() {
+  const res = await mintCredential();
+  if ("ok" in res && res.ok) {
+    return NextResponse.json({ ...res.ok, via: res.via });
+  }
+  const { status, ...body } = res as any;
+  return NextResponse.json(body, { status });
+}
+
+/**
+ * Diagnóstico: dice qué método funciona sin exponer ninguna credencial.
+ * Abrilo en el navegador estando logueado.
+ */
+export async function GET() {
+  const key = apiKey();
+  if (!key) {
+    return NextResponse.json({ configurada: false, error: "Falta DEEPGRAM_API_KEY." }, { status: 500 });
+  }
+
+  const grant = await viaGrant(key);
+  const temp = typeof grant === "string" ? await viaTempKey(key) : null;
+
+  return NextResponse.json({
+    configurada: true,
+    largoDeLaKey: key.length,
+    "auth/grant": typeof grant === "string" ? { ok: false, motivo: grant } : { ok: true },
+    "key temporal":
+      temp === null
+        ? "no hizo falta probarlo"
+        : typeof temp === "string"
+        ? { ok: false, motivo: temp }
+        : { ok: true },
+  });
 }
