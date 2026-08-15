@@ -1127,6 +1127,7 @@
     }
     .ai-hl--dato { background: #34D399; }
     .ai-hl--demo { background: #60A5FA; }
+    .ai-hl--flojo { background: #FB923C; }
     .ai-leyenda {
       display: flex; flex-wrap: wrap; gap: 16px;
       margin: 14px 0 10px;
@@ -2569,19 +2570,23 @@ function arrancarEscrituraAI() {
 /**
  * Marcas del transcript.
  *
- * Van SÓLO "dato" (evidencia dura) y "demo" (mostrado en vivo). El copiloto
- * también marca "flojo" —afirmaciones sin respaldo— y eso se queda en el panel
- * del operador a propósito: resaltar en naranja la frase de alguien mientras
- * esa persona está en el escenario, en una pantalla que ve toda la sala, es
- * señalarle públicamente un error que además el modelo puede estar cometiendo.
- * El jurado necesita esa señal; el auditorio no.
+ * Las tres categorías se muestran, incluida "flojo" (afirmación importante sin
+ * respaldo). Tener presente lo que eso implica: la marca aparece mientras la
+ * persona sigue en el escenario, en una pantalla que puede estar viendo toda
+ * la sala, y la pone un modelo que se puede equivocar.
+ *
+ * Para sacarla de la vista pública sin tocar nada más, borrá la línea de
+ * `flojo` de acá abajo: el resaltado y la leyenda se filtran solos por este
+ * objeto, y el copiloto la sigue mostrando igual para el jurado.
  */
 const AI_MARCAS_PUBLICAS = {
-  dato: { label: 'Evidencia dura', color: '#34D399' },
-  demo: { label: 'Demo en vivo',   color: '#60A5FA' },
+  dato:  { label: 'Evidencia dura', color: '#34D399' },
+  demo:  { label: 'Demo en vivo',   color: '#60A5FA' },
+  flojo: { label: 'Sin respaldo',   color: '#FB923C' },
 };
 
 let aiMarcas = [];
+let aiFirmaMarcas = '';
 
 /** Parte el texto en tramos marcados y sin marcar, sin solapes. */
 function segmentarAI(texto, marcas) {
@@ -2787,7 +2792,7 @@ function cabeceraVivo(equipo, proyecto) {
   if (!equipo) return;
   // Equipo nuevo: las mediciones del anterior ya no valen, y hasta que llegue
   // la primera lectura del nuevo manda lo que diga el servidor.
-  if (aiEquipoVisto !== equipo) { aiMetricsEnVivo = false; aiMarcas = []; }
+  if (aiEquipoVisto !== equipo) { aiMetricsEnVivo = false; aiMarcas = []; aiFirmaMarcas = ''; }
   aiEquipoVisto = equipo;
   document.getElementById('aiEquipo').textContent = equipo;
   if (proyecto !== undefined && proyecto !== null) {
@@ -2853,8 +2858,16 @@ async function refrescarAI() {
 
     // Ni las preguntas ni las marcas viajan por el canal: salen siempre de acá.
     pintarPreguntasAI(activa.preguntas);
+    /**
+     * Comparar por contenido y no por cantidad: el modelo puede devolver las
+     * mismas catorce marcas pero sobre otras frases, y con un `length !==` esa
+     * tanda no se pintaba nunca. El transcript quedaba resaltado con las
+     * marcas de hace un minuto.
+     */
     const marcasNuevas = Array.isArray(activa.marcas) ? activa.marcas : [];
-    if (marcasNuevas.length !== aiMarcas.length || cambioEquipo) {
+    const firmaMarcas = marcasNuevas.map((m) => `${m.tipo}:${m.cita}`).join('|');
+    if (firmaMarcas !== aiFirmaMarcas || cambioEquipo) {
+      aiFirmaMarcas = firmaMarcas;
       aiMarcas = marcasNuevas;
       if (!aiEscrituraTimer) pintarTranscriptAI(false);
     }
@@ -2864,7 +2877,7 @@ async function refrescarAI() {
     document.getElementById('aiEquipo').textContent   = '—';
     document.getElementById('aiProyecto').textContent = '';
     document.getElementById('aiLecturas').textContent = '';
-    aiMarcas = [];
+    aiMarcas = []; aiFirmaMarcas = '';
     fijarTextoAI('', true);
     pintarMedidoresAI(null);
     pintarRadarAI(null);

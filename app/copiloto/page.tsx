@@ -90,6 +90,7 @@ export default function CopilotoPage() {
   const teamRef = useRef("");
   const projectRef = useRef("");
   const textoRef = useRef("");
+  const textoFinalRef = useRef("");
   const largoAnalizadoRef = useRef(0);
   const enVueloRef = useRef(false);
   const lecturasRef = useRef(0);
@@ -115,8 +116,28 @@ export default function CopilotoPage() {
     projectRef.current = projectName;
   }, [activeTeamName, projectName]);
 
+  /**
+   * Dos versiones del transcript, y la diferencia importa.
+   *
+   * `textoRef` incluye el interim: la frase que Deepgram todavía está
+   * corrigiendo mientras la persona la termina de decir. Sirve para mostrarla
+   * en pantalla, porque es lo que hace que el texto aparezca al instante.
+   *
+   * `textoFinalRef` tiene sólo lo ya cerrado, y es el que se guarda, se
+   * transmite y se manda al modelo. Con el interim adentro pasaban dos cosas
+   * feas:
+   *
+   *   1. El sync mandaba "…frase a med" y un segundo después llegaba el chunk
+   *      final "frase a medias completa", que se AGREGA. La frase quedaba
+   *      duplicada en el transcript de la pantalla pública y del AI Judge.
+   *   2. El marcado citaba tramos del interim, que después cambiaban al
+   *      cerrarse la frase. Esa cita ya no existía literal en el texto y la
+   *      marca se descartaba sola: justo las frases más recientes, que son las
+   *      que el jurado está mirando, se quedaban sin resaltar.
+   */
   useEffect(() => {
     textoRef.current = (transcript.join(" ") + " " + interimText).trim();
+    textoFinalRef.current = transcript.join(" ").trim();
   }, [transcript, interimText]);
 
   useEffect(() => {
@@ -315,7 +336,7 @@ export default function CopilotoPage() {
   useEffect(() => {
     if (!isRecording || !autoAnalisis) return;
     const t = setInterval(() => {
-      const texto = textoRef.current;
+      const texto = textoFinalRef.current;
       if (texto.length - largoAnalizadoRef.current < MIN_TEXTO_NUEVO) return;
       analizarIndicadores(texto);
     }, INTERVALO_ANALISIS_MS);
@@ -326,7 +347,7 @@ export default function CopilotoPage() {
   useEffect(() => {
     if (!isRecording || !autoAnalisis) return;
     const t = setInterval(() => {
-      const texto = textoRef.current;
+      const texto = textoFinalRef.current;
       if (texto.length - largoMarcadoRef.current < MIN_TEXTO_NUEVO * 2) return;
       marcarTranscript(texto);
     }, INTERVALO_MARCAS_MS);
@@ -339,7 +360,7 @@ export default function CopilotoPage() {
     if (!isRecording) return;
     const t = setInterval(() => {
       if (!textoRef.current) return;
-      publicar({ mode: "sync", fullText: textoRef.current });
+      publicar({ mode: "sync", fullText: textoFinalRef.current });
       // Y de paso repara el transcript del servidor: si algún chunk se perdió
       // en el camino, el hueco se tapa acá.
       fetch("/api/fichas", {
@@ -348,7 +369,7 @@ export default function CopilotoPage() {
         body: JSON.stringify({
           team: teamRef.current,
           project: projectRef.current,
-          fullText: textoRef.current,
+          fullText: textoFinalRef.current,
           lecturas: lecturasRef.current,
           /**
            * Los indicadores en curso.
@@ -381,6 +402,18 @@ export default function CopilotoPage() {
     setPreguntas([]);
     setResueltas([]);
     preguntasRef.current = [];
+    /**
+     * Los indicadores tienen que arrancar en cero para cada equipo.
+     *
+     * setMetrics(null) limpiaba la pantalla pero metricsRef quedaba con los
+     * valores del equipo anterior, y ese ref es el que se usa para dos cosas:
+     * se manda como `previas` a la medición —así que el equipo nuevo empezaba
+     * a ser juzgado desde el puntaje del anterior— y viaja en el sync, así que
+     * el AI Judge lo mostraba con esos números desde el segundo cero, antes de
+     * que la IA escuchara una sola palabra. Con el tope de 12 puntos por
+     * lectura, salir de un arranque equivocado tomaba varias lecturas.
+     */
+    metricsRef.current = null;
     setLecturas(0);
     lecturasRef.current = 0;
     setSegundos(0);
@@ -518,7 +551,7 @@ export default function CopilotoPage() {
     if (isRecording) {
       stopAudio();
       setMicCaido(false);
-      if (textoRef.current) publicar({ mode: "sync", fullText: textoRef.current });
+      if (textoFinalRef.current) publicar({ mode: "sync", fullText: textoFinalRef.current });
       return;
     }
     reintentosRef.current = 0;
@@ -554,6 +587,8 @@ export default function CopilotoPage() {
   const finishSession = async () => {
     stopAudio();
     setIsFinishing(true);
+    // Al cerrar sí entra el interim: es la última frase dicha y ya no va a
+    // llegar ningún chunk que la duplique.
     const texto = textoRef.current;
     if (texto) await publicar({ mode: "sync", fullText: texto });
 
