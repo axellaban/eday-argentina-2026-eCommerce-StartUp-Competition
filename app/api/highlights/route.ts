@@ -40,10 +40,20 @@ Marcá SÓLO fragmentos que valgan la pena. Tres tipos:
 4. "flojo" no es un castigo: es una señal de que al jurado le falta información sobre ese punto. Sé exigente pero justo.
 5. Nunca inventes texto que no esté en la transcripción.
 
-## Preguntas de cierre
-Además, proponé hasta 5 preguntas concretas que el jurado debería hacer al terminar el pitch. Tienen que apuntar a lo que falta o a lo que habría que verificar, no a lo que ya se explicó. Directas, una oración cada una.
+## Preguntas de cierre — se van construyendo, no se tiran todas juntas
+El pitch está EN CURSO. Vas a recibir las preguntas que ya propusiste antes y tenés que devolver la lista actualizada.
 
-Si la transcripción es muy corta o todavía no dice nada sustancial, devolvé listas vacías.`;
+Reglas, en orden de importancia:
+
+1. SACÁ las preguntas que el orador ya respondió. Si más adelante en la transcripción dio el dato que faltaba, esa pregunta dejó de tener sentido y no debe volver a aparecer. Esto es lo más importante: una pregunta sobre algo que la persona ya explicó deja mal parado al jurado.
+2. CONSERVÁ tal cual las que siguen sin responder. No las reescribas ni les cambies el orden: el jurado ya las leyó.
+3. AGREGÁ como máximo 2 preguntas nuevas por vez, y sólo si hay material nuevo que las justifique. Es preferible devolver cero preguntas nuevas que inventar relleno.
+4. NUNCA propongas nada sobre un tema que el orador todavía no llegó a tocar. Si recién arrancó y habló del problema pero no del producto, no preguntes por el producto: puede estar por explicarlo. Una pregunta sólo es válida cuando el orador YA pasó por ese tema y lo dejó incompleto.
+5. Tope de 6 preguntas en total. Si ya hay 6 y aparece una mejor, sacá la más débil.
+
+Cada pregunta: una sola oración, directa, sobre algo verificable.
+
+Si la transcripción todavía es corta o no dio material suficiente, devolvé la lista de preguntas TAL CUAL te la pasaron (o vacía si no había ninguna) y no agregues nada.`;
 
 const RESPONSE_SCHEMA = {
   type: "OBJECT",
@@ -60,9 +70,23 @@ const RESPONSE_SCHEMA = {
       },
     },
     preguntas: { type: "ARRAY", items: { type: "STRING" } },
+    resueltas: {
+      type: "ARRAY",
+      description: "Preguntas previas que el orador ya respondió y por eso se sacaron.",
+      items: { type: "STRING" },
+    },
   },
   required: ["marcas", "preguntas"],
 };
+
+/**
+ * Antes de este umbral no se proponen preguntas.
+ *
+ * Con tres frases de pitch cualquier pregunta es prematura: el orador
+ * seguramente esté por explicar justo eso. Unos 900 caracteres son cerca de un
+ * minuto hablando, que ya da material real.
+ */
+const MINIMO_PARA_PREGUNTAS = 900;
 
 function recortar(t: string): string {
   return t.length <= MAX_TRANSCRIPT ? t : t.slice(-MAX_TRANSCRIPT);
@@ -77,14 +101,29 @@ export async function POST(req: Request) {
     if (!apiKey) {
       return NextResponse.json({ error: "Falta GEMINI_API_KEY." }, { status: 500 });
     }
+    const previas: string[] = Array.isArray(body.preguntasPrevias)
+      ? body.preguntasPrevias.map((p: any) => String(p || "").trim()).filter(Boolean).slice(0, 6)
+      : [];
+
     if (transcript.length < 200) {
-      return NextResponse.json({ marcas: [], preguntas: [] });
+      return NextResponse.json({ marcas: [], preguntas: previas });
     }
+
+    const puedePreguntar = transcript.length >= MINIMO_PARA_PREGUNTAS;
 
     const prompt = `${PROMPT}
 
 ## Equipo
 ${body.team || "Equipo"}${body.project ? ` — ${body.project}` : ""}
+
+## Preguntas que ya propusiste
+${previas.length ? previas.map((p, i) => `${i + 1}. ${p}`).join("\n") : "(ninguna todavía)"}
+
+${
+  puedePreguntar
+    ? "El pitch ya tiene material suficiente: podés revisar la lista y sumar hasta 2 preguntas nuevas si corresponde."
+    : "El pitch RECIÉN ARRANCA y todavía no hay material suficiente. NO agregues ninguna pregunta nueva: devolvé la lista tal cual."
+}
 
 ## Transcripción
 ${recortar(transcript)}`;
@@ -152,12 +191,31 @@ ${recortar(transcript)}`;
       .slice(0, 14)
       .map((m: any) => ({ cita: String(m.cita).trim(), tipo: m.tipo }));
 
-    const preguntas = (Array.isArray(parsed.preguntas) ? parsed.preguntas : [])
+    let preguntas = (Array.isArray(parsed.preguntas) ? parsed.preguntas : [])
       .map((p: any) => String(p || "").trim())
-      .filter(Boolean)
-      .slice(0, 5);
+      .filter(Boolean);
 
-    return NextResponse.json({ marcas, preguntas, descartadas: (parsed.marcas?.length || 0) - marcas.length });
+    // Red de seguridad del lado del servidor: aunque el prompt lo prohíba, si
+    // el modelo igual inventa preguntas antes de tiempo, no salen.
+    if (!puedePreguntar) preguntas = previas;
+
+    // Y aunque tenga permiso, no puede sumar más de 2 de una: si devuelve una
+    // andanada, se recorta conservando primero las que ya estaban.
+    const nuevas = preguntas.filter((p: string) => !previas.includes(p));
+    if (nuevas.length > 2) {
+      const conservadas = preguntas.filter((p: string) => previas.includes(p));
+      preguntas = [...conservadas, ...nuevas.slice(0, 2)];
+    }
+    preguntas = preguntas.slice(0, 6);
+
+    const resueltas = previas.filter((p) => !preguntas.includes(p));
+
+    return NextResponse.json({
+      marcas,
+      preguntas,
+      resueltas,
+      descartadas: (parsed.marcas?.length || 0) - marcas.length,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Error marcando el transcript." }, { status: 500 });
   }

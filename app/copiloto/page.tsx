@@ -56,7 +56,9 @@ export default function CopilotoPage() {
   const [micCaido, setMicCaido] = useState(false);
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [preguntas, setPreguntas] = useState<string[]>([]);
+  const [resueltas, setResueltas] = useState<string[]>([]);
   const [lecturas, setLecturas] = useState(0);
+  const [segundos, setSegundos] = useState(0);
 
   const [health, setHealth] = useState<Health>(null);
   const [authWarning, setAuthWarning] = useState(false);
@@ -75,6 +77,7 @@ export default function CopilotoPage() {
   const enVueloRef = useRef(false);
   const lecturasRef = useRef(0);
   const marcasEnVueloRef = useRef(false);
+  const preguntasRef = useRef<string[]>([]);
   const largoMarcadoRef = useRef(0);
   const metricsRef = useRef<Record<string, number> | null>(null);
   const detenidoAdredeRef = useRef(false);
@@ -95,6 +98,12 @@ export default function CopilotoPage() {
   useEffect(() => {
     textoRef.current = (transcript.join(" ") + " " + interimText).trim();
   }, [transcript, interimText]);
+
+  useEffect(() => {
+    if (!isRecording) return;
+    const t = setInterval(() => setSegundos((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [isRecording]);
 
   // Autoscroll: sin esto el texto nuevo queda abajo, fuera de vista.
   useEffect(() => {
@@ -242,12 +251,25 @@ export default function CopilotoPage() {
       const res = await fetch("/api/highlights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ team: teamRef.current, project: projectRef.current, transcript: texto }),
+        body: JSON.stringify({
+          team: teamRef.current,
+          project: projectRef.current,
+          transcript: texto,
+          // Las preguntas se construyen sobre las anteriores: el modelo saca
+          // las que el orador ya respondió y suma pocas por vez.
+          preguntasPrevias: preguntasRef.current,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return;                       // El marcado es un extra: si falla, no molesta.
       if (Array.isArray(data.marcas)) setMarcas(data.marcas);
-      if (Array.isArray(data.preguntas)) setPreguntas(data.preguntas);
+      if (Array.isArray(data.preguntas)) {
+        preguntasRef.current = data.preguntas;
+        setPreguntas(data.preguntas);
+      }
+      if (Array.isArray(data.resueltas) && data.resueltas.length) {
+        setResueltas((prev) => [...prev, ...data.resueltas].slice(-6));
+      }
       largoMarcadoRef.current = texto.length;
     } catch {
       // silencioso a propósito
@@ -311,8 +333,11 @@ export default function CopilotoPage() {
     setUltimoAnalisis("");
     setMarcas([]);
     setPreguntas([]);
+    setResueltas([]);
+    preguntasRef.current = [];
     setLecturas(0);
     lecturasRef.current = 0;
+    setSegundos(0);
     largoAnalizadoRef.current = 0;
     largoMarcadoRef.current = 0;
 
@@ -509,7 +534,13 @@ export default function CopilotoPage() {
         ficha = data.raw;
         setAiAnalysis(data.raw);
       } else {
-        fichaError = data.error || `El generador de fichas respondió ${res.status}.`;
+        // El endpoint manda el motivo real en `detail` (ej. "quota exceeded").
+        // Antes se descartaba y en pantalla quedaba un "Error en Gemini API"
+        // que no le servía a nadie para saber qué arreglar.
+        const detalle = typeof data.detail === "string" ? data.detail.slice(0, 220) : "";
+        fichaError = [data.error || `El generador respondió ${res.status}.`, detalle]
+          .filter(Boolean)
+          .join(" · ");
         setHealth({ tone: "bad", msg: `Ficha no generada: ${fichaError}` });
       }
     } catch (e: any) {
@@ -633,16 +664,16 @@ export default function CopilotoPage() {
           <section className="card console__panel">
             <div className="section-head">
               <div style={{ minWidth: 0 }}>
-                <div className="eyebrow">En vivo</div>
+                <div className="eyebrow">{isRecording ? "● Grabando" : "En vivo"}</div>
                 <h3 style={{ marginTop: 3 }}>{activeTeamName}</h3>
                 <div className="ficha__proj">{projectName}</div>
               </div>
-              <button
-                className={`btn ${isRecording ? "btn--stop" : "btn--rec"}`}
-                onClick={toggleRecording}
-              >
-                {isRecording ? "⏹ Detener" : "🎙 Grabar"}
-              </button>
+              {/* El cronómetro del pitch: el operador necesita saber cuánto
+                  lleva hablando el equipo sin mirar el reloj del celular. */}
+              <div className="pitch-reloj mono" title="Tiempo de este pitch">
+                {String(Math.floor(segundos / 60)).padStart(2, "0")}:
+                {String(segundos % 60).padStart(2, "0")}
+              </div>
             </div>
 
             {micCaido && (
@@ -676,11 +707,29 @@ export default function CopilotoPage() {
               )}
             </div>
 
+            {/* Todos los controles juntos y en el orden en que se usan:
+                primero grabar, después analizar, al final cerrar. El de grabar
+                manda, porque es el que decide si el sistema está capturando. */}
             <div className="console__actions">
-              <button className="btn btn--primary" onClick={analizarPitch} disabled={isAnalyzing}>
-                {isAnalyzing ? "✨ Analizando…" : "✨ Analizar pitch"}
+              <button
+                className={`btn console__rec ${isRecording ? "btn--stop" : "btn--rec"}`}
+                onClick={toggleRecording}
+                disabled={isFinishing}
+              >
+                {isRecording ? "⏹  Detener micrófono" : "🎙  Grabar micrófono"}
               </button>
-              <button className="btn btn--ghost" onClick={finishSession}>💾 Finalizar ficha</button>
+
+              <button
+                className="btn btn--ghost"
+                onClick={analizarPitch}
+                disabled={isAnalyzing || isFinishing}
+              >
+                {isAnalyzing ? "✨ Analizando…" : "✨ Analizar"}
+              </button>
+
+              <button className="btn btn--ghost" onClick={finishSession} disabled={isFinishing}>
+                {isFinishing ? "⏳ Generando ficha…" : "💾 Finalizar"}
+              </button>
             </div>
           </section>
 
@@ -713,12 +762,18 @@ export default function CopilotoPage() {
             {preguntas.length > 0 && (
               <div style={{ margin: "var(--gap) 0" }}>
                 <span className="ficha__tag" style={{ color: "var(--brand)" }}>
-                  Preguntas sugeridas para el cierre
+                  Preguntas para el cierre · se suman a medida que avanza
                 </span>
                 <div className="preguntas">
                   {preguntas.map((q, i) => (
-                    <div className="preguntas__item" key={i}>
+                    <div className="preguntas__item" key={q}>
                       <span className="preguntas__n">{i + 1}</span>
+                      <span>{q}</span>
+                    </div>
+                  ))}
+                  {resueltas.slice(-2).map((q) => (
+                    <div className="preguntas__item preguntas__item--resuelta" key={`r-${q}`}>
+                      <span className="preguntas__n">✓</span>
                       <span>{q}</span>
                     </div>
                   ))}

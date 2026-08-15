@@ -63,6 +63,60 @@ const LARGO_HISTORIA = 18;
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
 /**
+ * Revela el texto carácter por carácter, como cuando un LLM va escribiendo la
+ * respuesta, en vez de que aparezcan bloques enteros de golpe.
+ *
+ * La velocidad se adapta: si quedó texto sin mostrar —porque el orador habló
+ * rápido o llegó un tramo largo de una— acelera para alcanzarlo en unos pocos
+ * segundos en lugar de quedarse cada vez más atrás. Nunca "adivina" texto: sólo
+ * muestra antes o después lo que ya llegó.
+ */
+function useEscritura(objetivo: string) {
+  const [mostrado, setMostrado] = useState("");
+  const largoRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const ultimoRef = useRef(0);
+
+  useEffect(() => {
+    // Cambió el equipo o se limpió: se reinicia sin animar.
+    if (!objetivo.startsWith(mostrado.slice(0, Math.min(mostrado.length, 40)))) {
+      largoRef.current = 0;
+    }
+    if (objetivo.length < largoRef.current) largoRef.current = objetivo.length;
+
+    ultimoRef.current = performance.now();
+
+    const paso = (ahora: number) => {
+      const dt = Math.min(0.1, (ahora - ultimoRef.current) / 1000);
+      ultimoRef.current = ahora;
+
+      const pendiente = objetivo.length - largoRef.current;
+      if (pendiente <= 0) {
+        rafRef.current = null;
+        return;
+      }
+
+      // Base cómoda de leer; si hay cola, acelera para vaciarla en ~3 segundos.
+      const velocidad = Math.min(900, Math.max(55, pendiente / 3));
+      largoRef.current = Math.min(objetivo.length, largoRef.current + velocidad * dt);
+      setMostrado(objetivo.slice(0, Math.floor(largoRef.current)));
+      rafRef.current = requestAnimationFrame(paso);
+    };
+
+    if (rafRef.current === null) rafRef.current = requestAnimationFrame(paso);
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objetivo]);
+
+  return { texto: mostrado, escribiendo: mostrado.length < objetivo.length };
+}
+
+/**
  * Lleva los valores mostrados hacia los valores reales de a poco, cuadro por
  * cuadro. Sin esto la barra se queda quieta 12 segundos y después pega un
  * salto: el LLM entrega una lectura cada tanto, pero el recorrido entre una
@@ -164,6 +218,9 @@ export default function PublicoPage() {
   // Valores interpolados: lo que realmente se dibuja en pantalla.
   const vistos = useValoresAnimados(metrics);
 
+  // El transcript se revela escribiéndose, no de golpe.
+  const { texto: textoVisible, escribiendo } = useEscritura(texto);
+
   // Destello al llegar una lectura. Se hace con una clase temporal y NO
   // cambiando la key del nodo: re-montar el elemento cortaba en seco la
   // interpolación cuadro por cuadro y hacía parpadear la barra.
@@ -184,9 +241,13 @@ export default function PublicoPage() {
   // transcript "no aparecía completo" — el texto estaba, pero abajo del corte.
   useEffect(() => {
     textoRef.current = texto;
+  }, [texto]);
+
+  // El autoscroll sigue al texto que se está escribiendo, no al que llegó.
+  useEffect(() => {
     const box = boxRef.current;
     if (box) box.scrollTop = box.scrollHeight;
-  }, [texto]);
+  }, [textoVisible]);
 
   const aplicarMetrics = (nuevas: Metrics) => {
     // El refetch de seguridad trae la misma lectura una y otra vez. Sin este
@@ -401,7 +462,14 @@ export default function PublicoPage() {
         </div>
 
         <div className="transcript transcript--live" ref={boxRef}>
-          {texto ? texto : <div className="transcript__empty">Las palabras del orador van a aparecer acá en vivo.</div>}
+          {texto ? (
+            <p>
+              {textoVisible}
+              {escribiendo && <span className="cursor-escritura" aria-hidden="true" />}
+            </p>
+          ) : (
+            <div className="transcript__empty">Las palabras del orador van a aparecer acá en vivo.</div>
+          )}
         </div>
       </section>
 

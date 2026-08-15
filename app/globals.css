@@ -291,8 +291,11 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 }
 /* Desde 641px son tarjetas horizontales; por debajo, faders verticales
    (ver el bloque de mobile más abajo). */
-@media (min-width: 641px)  { .meters { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1100px) { .meters { grid-template-columns: repeat(3, 1fr); } }
+/* minmax(0, 1fr) y no 1fr: un track 1fr nunca baja del ancho de su contenido,
+   así que las tarjetas con nombres largos empujaban la grilla y la última
+   columna se cortaba contra el borde de la tarjeta. */
+@media (min-width: 641px)  { .meters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .meters { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
 .meter {
   background: var(--surface-2);
@@ -303,8 +306,8 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 }
 .meter--pulse { border-color: var(--line-lit); }
 
-.meter__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
-.meter__name { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 700; min-width: 0; }
+.meter__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 11px; min-width: 0; }
+.meter__name { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 700; min-width: 0; flex: 1 1 auto; }
 .meter__icon { font-size: 1.15em; flex: none; }
 .meter__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meter__label--short { display: none; }
@@ -498,7 +501,17 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 @media (max-width: 640px) {
   .transcript--live { min-height: 46vh; max-height: 58vh; }
 }
-.transcript--op   { font-size: var(--fs-sm); flex: 1; min-height: 0; line-height: 2; }
+.transcript--op {
+  font-size: var(--fs-base);
+  flex: 1 1 auto;
+  min-height: 0;
+  line-height: 1.95;
+  /* El contenido se apoya abajo: mientras hay poco texto no queda flotando
+     arriba, y al llenarse el scroll toma el control. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
 .transcript p { margin-bottom: 9px; }
 .transcript__interim { color: var(--brand); font-style: italic; }
 .transcript__empty { color: var(--text-3); font-style: italic; text-align: center; padding: 12% 0; font-size: var(--fs-sm); }
@@ -511,13 +524,16 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
   gap: var(--gap);
   align-items: stretch;
 }
-.console__panel { display: flex; flex-direction: column; min-height: min(62vh, 620px); }
+/* Alto fijo, no mínimo. Con min-height el panel crecía a medida que entraba
+   texto y empujaba los botones fuera de la vista. Ahora el contenedor no se
+   mueve nunca: el texto viejo sube y el nuevo aparece abajo. */
+.console__panel { display: flex; flex-direction: column; height: min(74vh, 780px); }
 .console__actions { display: flex; gap: 10px; margin-top: 13px; flex-wrap: wrap; }
 .console__actions .btn { flex: 1; min-width: 150px; }
 
 @media (max-width: 900px) {
   .console { grid-template-columns: 1fr; }
-  .console__panel { min-height: 46vh; }
+  .console__panel { height: min(66vh, 560px); }
 }
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
@@ -665,7 +681,12 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 /* Radar + medidores lado a lado en pantalla grande, apilados en mobile */
 .analisis { display: grid; gap: var(--gap); align-items: center; }
 @media (min-width: 1100px) {
-  .analisis { grid-template-columns: minmax(400px, 520px) 1fr; }
+  .analisis { grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); }
+}
+/* Con el radar al lado, los medidores tienen menos ancho del que sugiere la
+   ventana: se acomodan al espacio real de su columna, no al del viewport. */
+@media (min-width: 1100px) and (max-width: 1500px) {
+  .analisis .meters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* ── Heatmap del transcript (sólo panel del operador) ───────────
@@ -737,7 +758,7 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 
 .ficha__grid { display: grid; gap: var(--gap); align-items: start; }
 @media (min-width: 1100px) {
-  .ficha__grid { grid-template-columns: minmax(300px, 380px) 1fr; }
+  .ficha__grid { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); }
 }
 .ficha__huella { display: flex; flex-direction: column; gap: 8px; }
 .ficha__huella .radar__svg { max-width: 380px; }
@@ -775,3 +796,54 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 .historial--plegado .ficha,
 .historial--plegado .empty { display: none; }
 .historial--plegado { padding-block: clamp(12px, 1.2vw, 18px); }
+
+
+/* ── Efecto de escritura (pantalla pública) ─────────────────────
+   El texto se revela carácter por carácter, como cuando un LLM
+   responde. La velocidad se adapta: si se acumuló texto sin mostrar,
+   escribe más rápido para alcanzarlo en vez de quedarse atrás. */
+.cursor-escritura {
+  display: inline-block;
+  width: 0.5ch;
+  margin-left: 2px;
+  background: var(--brand);
+  animation: parpadeo 1s steps(2, start) infinite;
+  vertical-align: baseline;
+  /* Alto atado a la línea para que no deforme el renglón */
+  height: 1em;
+  transform: translateY(0.12em);
+}
+@keyframes parpadeo { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+/* ── Controles del operador ─────────────────────────────────────
+   El botón de grabar estaba suelto arriba, al lado del nombre del
+   equipo, lejos del resto de las acciones. Ahora los tres controles
+   van juntos y en el orden real de uso: grabar, analizar, finalizar. */
+
+.console__rec {
+  flex: 2 1 260px;
+  font-size: var(--fs-base);
+  padding: 15px 22px;
+  letter-spacing: 0.01em;
+}
+.console__actions .btn--ghost { flex: 1 1 130px; min-width: 120px; }
+
+.pitch-reloj {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  flex: none;
+}
+
+/* Pregunta que el orador ya respondió: se muestra tachada un momento para
+   que el jurado vea que el sistema la descartó, no que la perdió. */
+.preguntas__item--resuelta {
+  border-left-color: var(--green);
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: rgba(143, 166, 204, 0.5);
+  opacity: 0.75;
+}
+.preguntas__item--resuelta .preguntas__n { color: var(--green); }

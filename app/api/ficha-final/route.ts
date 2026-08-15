@@ -101,12 +101,19 @@ ${bloqueMedicion}
 TRANSCRIPCIÓN COMPLETA DEL PITCH:
 ${transcript}`;
 
-    const controlador = new AbortController();
-    const corte = setTimeout(() => controlador.abort(), TIMEOUT_MS);
-
-    let res: Response;
-    try {
-      res = await fetch(
+    /**
+     * Un reintento con espera.
+     *
+     * Esta llamada cae justo después de decenas de mediciones y marcados, así
+     * que es la más expuesta a chocar el rate limit de Gemini — y es la que
+     * menos se puede perder: es la ficha del equipo. Si el primer intento
+     * falla por saturación, se espera y se prueba de nuevo.
+     */
+    const pedir = async (): Promise<Response> => {
+      const controlador = new AbortController();
+      const corte = setTimeout(() => controlador.abort(), TIMEOUT_MS);
+      try {
+        return await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
         {
         method: "POST",
@@ -120,21 +127,45 @@ ${transcript}`;
             maxOutputTokens: 2400,
           },
         }),
-        }
-      );
+          }
+        );
+      } finally {
+        clearTimeout(corte);
+      }
+    };
+
+    let res: Response;
+    try {
+      res = await pedir();
+      if (!res.ok && (res.status === 429 || res.status >= 500)) {
+        await new Promise((r) => setTimeout(r, 2500));
+        res = await pedir();
+      }
     } catch (e: any) {
-      clearTimeout(corte);
       return NextResponse.json(
-        { error: e?.name === "AbortError" ? "La generación de la ficha tardó demasiado." : "No se pudo contactar al modelo." },
+        {
+          error: e?.name === "AbortError"
+            ? "La generación de la ficha tardó demasiado."
+            : "No se pudo contactar al modelo.",
+          detail: e?.message?.slice(0, 200),
+        },
         { status: 504 }
       );
     }
-    clearTimeout(corte);
 
     if (!res.ok) {
-      const detail = await res.text();
+      const detail = await res.text().catch(() => "");
+      // El mensaje de Google viene anidado; se extrae lo legible.
+      let motivo = detail.slice(0, 300);
+      try {
+        const j = JSON.parse(detail);
+        motivo = j?.error?.message || motivo;
+      } catch {}
       return NextResponse.json(
-        { error: "Error en Gemini API", detail: detail.slice(0, 400) },
+        {
+          error: res.status === 429 ? "Gemini rechazó por límite de uso" : "Error en Gemini API",
+          detail: motivo,
+        },
         { status: res.status }
       );
     }
