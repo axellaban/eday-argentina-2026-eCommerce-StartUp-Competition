@@ -1,5 +1,5 @@
 /**
- * Qué modelo de Gemini usar.
+ * Qué modelo de Gemini usar, según para qué.
  *
  * El nombre estaba hardcodeado como "gemini-2.5-flash" en las cuatro rutas.
  * El día del evento Google contestó:
@@ -11,29 +11,51 @@
  * cuenta. Con el nombre clavado en el código, el sistema entero quedaba mudo:
  * ni indicadores, ni preguntas, ni fichas.
  *
- * En vez de volver a clavar otro nombre —que va a envejecer igual— el modelo
- * se descubre preguntándole a la propia API qué tiene habilitado esa key, y se
- * elige el mejor candidato. Se resuelve una vez por instancia y se cachea.
+ * En vez de volver a clavar otro nombre —que va a envejecer igual— el modelo se
+ * descubre preguntándole a la propia API qué tiene habilitado esa key.
  *
- * Si querés forzar uno, GEMINI_MODEL en el entorno gana sobre todo lo demás.
+ * ## Dos perfiles, porque son dos trabajos distintos
+ *
+ * - "rapido": la medición en vivo, el marcado y el feedback corto. Corren cada
+ *   12 o 24 segundos mientras la persona habla, contra una rúbrica anclada y
+ *   con tope de 12 puntos de movimiento por lectura. Ahí lo que importa es la
+ *   latencia y la consistencia, no la sofisticación: un modelo lite alcanza y
+ *   contesta antes.
+ *
+ * - "calidad": la ficha final. Es UNA llamada por equipo, es el documento que
+ *   queda y es lo que el jurado lee para decidir un puntaje. La diferencia de
+ *   costo en veinte pitches son centavos; la de calidad se lee.
+ *
+ * Overrides del entorno, por si hay que forzar algo sin tocar código:
+ *   GEMINI_MODEL          → fuerza los dos perfiles.
+ *   GEMINI_MODEL_CALIDAD  → fuerza sólo el de la ficha final.
  */
+
+export type Perfil = "rapido" | "calidad";
 
 /**
- * El modelo elegido a mano, en orden de preferencia.
+ * El modelo elegido a mano para cada perfil, en orden de preferencia.
  *
- * No se usa a ciegas: sólo se toma si aparece en la lista de modelos que la
- * key tiene habilitados. Si no está, se cae al ranking automático de abajo.
- * Así una preferencia que envejece no vuelve a dejar el evento sin IA.
+ * No se usan a ciegas: sólo se toma el primero que aparezca en la lista de
+ * modelos que la key tiene habilitados. Si ninguno está, se cae al ranking
+ * automático. Así una preferencia que envejece no vuelve a dejar el evento sin
+ * IA, que es exactamente lo que pasó con 2.5-flash.
  */
-const PREFERIDOS = ["gemini-3.1-flash-lite", "gemini-3-flash-lite", "gemini-3.1-flash"];
+const PREFERIDOS: Record<Perfil, string[]> = {
+  rapido: ["gemini-3.1-flash-lite", "gemini-3-flash-lite", "gemini-3.1-flash"],
+  calidad: ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"],
+};
 
-/** Si el descubrimiento falla, al menos se intenta con el alias movible. */
-const FALLBACK = "gemini-flash-latest";
+/** Si el descubrimiento falla, al menos se intenta con un alias movible. */
+const FALLBACK: Record<Perfil, string> = {
+  rapido: "gemini-flash-lite-latest",
+  calidad: "gemini-flash-latest",
+};
 
 /** Diez minutos: sobra para un evento y no se queda pegado para siempre. */
 const TTL_MS = 10 * 60 * 1000;
 
-let cache: { modelo: string; hasta: number } | null = null;
+const cache: Partial<Record<Perfil, { modelo: string; hasta: number }>> = {};
 
 /**
  * Familias que no sirven para esto, por más que digan soportar generateContent.
@@ -54,27 +76,27 @@ export interface Candidato {
 }
 
 /**
- * Ordena los modelos disponibles por qué tan bien encajan acá.
+ * Ordena los modelos disponibles por qué tan bien encajan en cada perfil.
  *
- * Lo que se necesita es un modelo rápido y barato que sepa devolver JSON con
- * schema: mide seis indicadores cada 12 segundos mientras alguien habla. Un
- * modelo "pro" sería más caro y más lento sin ganar nada para esta tarea.
+ * Lo único que cambia entre perfiles es el signo del bonus "lite": para lo que
+ * corre en vivo es una ventaja, para la ficha final es un descuento de
+ * calidad. Todo lo demás —flash sobre pro, versión más alta, penalizar preview
+ * y nombres con fecha— vale igual para los dos.
  */
-export function puntuar(nombre: string): number {
+export function puntuar(nombre: string, perfil: Perfil = "rapido"): number {
   const n = nombre.replace(/^models\//, "");
   if (EXCLUIR.test(n)) return -1;
 
   let p = 0;
 
-  // Flash es exactamente el perfil que se necesita.
+  // Flash es el perfil que se necesita en los dos casos: pro es más caro y más
+  // lento sin ganar nada para tareas tan acotadas.
   if (/flash/.test(n)) p += 40;
   else if (/pro/.test(n)) p += 10;
 
-  // Entre flash y flash-lite, gana flash: lite ahorra plata pero acá el costo
-  // ya es de centavos y la calidad de la medición es lo que se proyecta.
-  if (/lite/.test(n)) p -= 6;
+  if (/lite/.test(n)) p += perfil === "rapido" ? 6 : -6;
 
-  // Versión: 3 le gana a 2.5, que le gana a 2.0.
+  // Versión: 3.7 le gana a 3.1, que le gana a 2.5.
   const v = n.match(/gemini-(\d+(?:\.\d+)?)/);
   if (v) p += parseFloat(v[1]) * 6;
 
@@ -99,7 +121,10 @@ export function puntuar(nombre: string): number {
  * esperando hasta el tope de la función, con el equipo presentando y los
  * indicadores congelados.
  */
-export async function candidatosGemini(apiKey: string): Promise<Candidato[]> {
+export async function candidatosGemini(
+  apiKey: string,
+  perfil: Perfil = "rapido"
+): Promise<Candidato[]> {
   const corte = new AbortController();
   const reloj = setTimeout(() => corte.abort(), 5000);
   let res: Response;
@@ -118,52 +143,57 @@ export async function candidatosGemini(apiKey: string): Promise<Candidato[]> {
     .filter((m: any) => (m.supportedGenerationMethods || []).includes("generateContent"))
     .map((m: any) => {
       const nombre = String(m.name || "").replace(/^models\//, "");
-      return { nombre, puntaje: puntuar(nombre) };
+      return { nombre, puntaje: puntuar(nombre, perfil) };
     })
     .filter((c: Candidato) => c.puntaje >= 0)
     .sort((a: Candidato, b: Candidato) => b.puntaje - a.puntaje);
 }
 
 /**
- * El modelo a usar ahora. Resuelve una vez y cachea.
+ * El modelo a usar ahora para ese perfil. Resuelve una vez y cachea.
  *
  * Nunca tira: si el descubrimiento falla se devuelve el fallback y que la
  * llamada real dé el error de verdad, con su mensaje.
  */
-export async function modeloGemini(apiKey: string): Promise<string> {
-  const forzado = (process.env.GEMINI_MODEL || "").trim();
+export async function modeloGemini(apiKey: string, perfil: Perfil = "rapido"): Promise<string> {
+  const forzado =
+    (perfil === "calidad" ? (process.env.GEMINI_MODEL_CALIDAD || "").trim() : "") ||
+    (process.env.GEMINI_MODEL || "").trim();
   if (forzado) return forzado;
 
-  if (cache && Date.now() < cache.hasta) return cache.modelo;
+  const guardado = cache[perfil];
+  if (guardado && Date.now() < guardado.hasta) return guardado.modelo;
 
-  let elegido = FALLBACK;
+  let elegido = FALLBACK[perfil];
   try {
-    const lista = await candidatosGemini(apiKey);
+    const lista = await candidatosGemini(apiKey, perfil);
     const disponibles = new Set(lista.map((c) => c.nombre));
-    const preferido = PREFERIDOS.find((m) => disponibles.has(m));
+    const preferido = PREFERIDOS[perfil].find((m) => disponibles.has(m));
     if (preferido) elegido = preferido;
     else if (lista.length) elegido = lista[0].nombre;
   } catch {
     // Se queda con el fallback.
   }
 
-  cache = { modelo: elegido, hasta: Date.now() + TTL_MS };
+  cache[perfil] = { modelo: elegido, hasta: Date.now() + TTL_MS };
   return elegido;
 }
 
 /**
- * Olvida el modelo cacheado.
+ * Olvida los modelos cacheados.
  *
  * Se llama cuando Google devuelve 404 sobre el modelo elegido: significa que
  * dejó de existir a mitad de camino y hay que volver a preguntar en vez de
- * seguir pegándole a un nombre muerto hasta que venza el TTL.
+ * seguir pegándole a un nombre muerto hasta que venza el TTL. Se limpian los
+ * dos perfiles porque un apagón de Google no suele venir solo.
  */
 export function olvidarModelo(): void {
-  cache = null;
+  delete cache.rapido;
+  delete cache.calidad;
 }
 
-/** URL de generateContent para el modelo que corresponda. */
-export async function urlGemini(apiKey: string): Promise<string> {
-  const modelo = await modeloGemini(apiKey);
+/** URL de generateContent para el modelo que corresponda a ese perfil. */
+export async function urlGemini(apiKey: string, perfil: Perfil = "rapido"): Promise<string> {
+  const modelo = await modeloGemini(apiKey, perfil);
   return `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
 }

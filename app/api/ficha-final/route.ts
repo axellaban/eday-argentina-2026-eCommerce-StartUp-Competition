@@ -116,7 +116,7 @@ ${transcript}`;
       const corte = setTimeout(() => controlador.abort(), TIMEOUT_MS);
       try {
         return await fetch(
-        await urlGemini(apiKey),
+        await urlGemini(apiKey, "calidad"),
         {
         method: "POST",
         headers: { "Content-Type": "application/json" },

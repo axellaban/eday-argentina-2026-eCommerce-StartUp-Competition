@@ -32,6 +32,7 @@ export async function GET() {
     keyLargo: apiKey.length,
     keyConEspacios: bruta !== bruta.trim(),
     modeloForzado: (process.env.GEMINI_MODEL || "").trim() || null,
+    modeloForzadoCalidad: (process.env.GEMINI_MODEL_CALIDAD || "").trim() || null,
   };
 
   if (!apiKey) {
@@ -51,7 +52,10 @@ export async function GET() {
     // No es concluyente: manda la llamada real de abajo.
   }
 
-  const modelo = await modeloGemini(apiKey);
+  // Los dos perfiles: el rápido corre cada 12s en vivo, el de calidad escribe
+  // la ficha final. Se prueba el rápido, que es el que sostiene el evento.
+  const modelo = await modeloGemini(apiKey, "rapido");
+  const modeloCalidad = await modeloGemini(apiKey, "calidad");
 
   const t0 = Date.now();
   let res: Response;
@@ -69,7 +73,7 @@ export async function GET() {
     );
   } catch (e: any) {
     return NextResponse.json(
-      { ...base, modelo, disponibles, ok: false, motivo: `No se pudo contactar a Google: ${e?.message || "error de red"}` },
+      { ...base, modelo, modeloCalidad, disponibles, ok: false, motivo: `No se pudo contactar a Google: ${e?.message || "error de red"}` },
       { status: 504 }
     );
   }
@@ -83,6 +87,7 @@ export async function GET() {
       {
         ...base,
         modelo,
+        modeloCalidad,
         disponibles,
         ok: false,
         status: res.status,
@@ -98,10 +103,11 @@ export async function GET() {
   return NextResponse.json({
     ...base,
     modelo,
+    modeloCalidad,
     disponibles,
     ok: true,
     status: 200,
     ms,
-    motivo: `Gemini responde bien con ${modelo} en ${ms}ms.`,
+    motivo: `Gemini responde bien. En vivo: ${modelo} (${ms}ms). Ficha final: ${modeloCalidad}.`,
   });
 }

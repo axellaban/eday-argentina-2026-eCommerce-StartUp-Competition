@@ -59,6 +59,7 @@ Environment Variables).
 |---|---|---|
 | `DEEPGRAM_API_KEY` | Tokens efímeros de transcripción | No se puede grabar |
 | `GEMINI_API_KEY` | Análisis del pitch e indicadores | Falla el análisis |
+| `GEMINI_MODEL`, `GEMINI_MODEL_CALIDAD` | Forzar el modelo | Se descubre solo contra la API |
 | `PUSHER_APP_ID`, `PUSHER_SECRET`, `NEXT_PUBLIC_PUSHER_KEY` | Tiempo real | La pantalla pública no recibe nada (el copiloto lo avisa en rojo) |
 | `NEXT_PUBLIC_PUSHER_CLUSTER` | Cluster de Pusher | Default `sa1` |
 | `ADMIN_PASSWORD` | Contraseña del operador | **El panel queda abierto** y muestra un aviso |
@@ -67,6 +68,23 @@ Environment Variables).
 
 `DEEPGRAM_API_KEY` nunca llega al navegador: el servidor pide un token efímero a
 `/v1/auth/grant` y sólo manda ese token.
+
+### El modelo de Gemini no está hardcodeado
+
+Estaba clavado en `gemini-2.5-flash` hasta que Google empezó a contestar *"no
+longer available to new users"* a las API keys nuevas y se cayó todo el
+análisis a la vez. Ahora [`lib/gemini.ts`](lib/gemini.ts) le pregunta a la API
+qué modelos tiene habilitados la key y elige, con dos perfiles:
+
+| Perfil | Lo usa | Por qué |
+|---|---|---|
+| `rapido` | `eval-metrics`, `highlights`, `answer` | Corren cada 12-24s mientras la persona habla: importa la latencia |
+| `calidad` | `ficha-final` | Una llamada por equipo, y es el documento que lee el jurado |
+
+Si Google devuelve 404 sobre el modelo elegido, se descarta el cacheado y la
+próxima llamada vuelve a resolver. `GET /api/gemini-check` (con la contraseña
+del operador) dice cuáles quedaron elegidos, qué tiene habilitado la key y qué
+contestó Google.
 
 ### Persistencia
 
