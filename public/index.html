@@ -982,8 +982,54 @@
       border-radius: 9px; padding: 18px 20px;
     }
     .ai-ficha + .ai-ficha { margin-top: 14px; }
-    .ai-ficha__nombre { font-family:'Poppins',sans-serif; font-size: 1.15rem; font-weight: 800; color: #fff; }
-    .ai-ficha__proy { font-size: .74rem; color: rgba(200,245,218,.55); margin-bottom: 12px; }
+    .ai-ficha__nombre { font-family:'Poppins',sans-serif; font-size: clamp(1.05rem, .95rem + .5vw, 1.35rem); font-weight: 800; color: #fff; line-height: 1.2; }
+    .ai-ficha__proy { font-size: .78rem; color: rgba(200,245,218,.6); }
+
+    /* Encabezado de la ficha: la misma información que la ficha del jurado
+       humano (inicial, equipo, proyecto, puntaje), con los números de la IA
+       en su escala 0-100 en vez de los 1-5 de la planilla. */
+    .ai-ficha__head {
+      display: flex; align-items: center; gap: 14px;
+      padding-bottom: 14px; margin-bottom: 14px;
+      border-bottom: 1px solid rgba(34,197,94,.14);
+    }
+    .ai-ficha__letra {
+      flex: 0 0 auto;
+      width: 44px; height: 44px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 800;
+      color: #22C55E; background: rgba(34,197,94,.12);
+      border: 1.5px solid rgba(34,197,94,.35);
+    }
+    .ai-ficha__id { flex: 1; min-width: 0; }
+    .ai-ficha__score { flex: 0 0 auto; text-align: right; }
+    .ai-ficha__num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(1.5rem, 1.2rem + 1vw, 2.1rem); font-weight: 800;
+      line-height: 1; color: #22C55E;
+    }
+    .ai-ficha__den {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .6rem; letter-spacing: .1em; text-transform: uppercase;
+      color: rgba(200,245,218,.45); margin-top: 4px;
+    }
+    .ai-ficha__pills { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+    .ai-ficha__pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .68rem; font-weight: 600;
+      padding: 5px 10px; border-radius: 999px;
+      border: 1px solid; white-space: nowrap;
+    }
+    .ai-ficha__pill strong { font-weight: 800; }
+    .ai-ficha__sinmedir {
+      font-family: 'JetBrains Mono', monospace; font-size: .68rem;
+      color: rgba(200,245,218,.4); margin-bottom: 14px; display: block;
+    }
+    @media (max-width: 520px) {
+      .ai-ficha__head { flex-wrap: wrap; }
+      .ai-ficha__score { width: 100%; text-align: left; }
+      .ai-ficha__den { margin-top: 2px; }
+    }
     .ai-ficha__cuerpo { font-family: 'Poppins', sans-serif; font-size: .86rem; line-height: 1.7; color: rgba(223,247,233,.9); }
     .ai-ficha__cuerpo strong { color: #fff; }
 
@@ -1111,10 +1157,10 @@
     </div>
   </header>
 
-  <div class="part-connector" style="--c-from: var(--brand); --c-to: var(--purple);"></div>
-
-
-  <!-- ══ TOGGLE · HUMAN JUDGE / AI JUDGE ══ -->
+  <!-- ══ TOGGLE · HUMAN JUDGE / AI JUDGE ══
+       Va pegado al header, antes del conector: es un control de la página
+       entera, no el arranque del contenido. Con el conector arriba quedaba
+       una línea colgando de la nada por encima del switch. -->
   <div class="judge-switch" role="tablist" aria-label="Modo de evaluación">
     <button class="judge-opt is-on" id="optHumano" role="tab" aria-selected="true" onclick="setModo('humano')">
       <span class="judge-ico">👤</span> Human Judge
@@ -1123,6 +1169,8 @@
       <span class="judge-ico">◍</span> AI Judge
     </button>
   </div>
+
+  <div class="part-connector" style="--c-from: var(--brand); --c-to: var(--purple);"></div>
 
 <div id="vistaHumano">
   <!-- ══ CONNECTION STATUS BANNER ══ -->
@@ -1262,6 +1310,12 @@
     </div>
   </div>
 
+  <!-- Las fichas de la IA ahora viven en la vista AI Judge, que es su lugar:
+       acá abajo duplicaban lo mismo dentro de la pantalla del jurado humano.
+       Se oculta el bloque entero en vez de borrarlo — el JS lo sigue
+       poblando sin errores y volver a mostrarlo es sacar este `hidden`. -->
+  <div id="modFichasHumano" hidden>
+
   <div class="part-connector" style="--c-from: var(--gold); --c-to: var(--brand);"></div>
 
   <!-- ══ SEPARADOR FICHAS ══ -->
@@ -1319,6 +1373,8 @@
       <div id="fichasContainer" style="display:flex;flex-direction:column;gap:20px;"></div>
     </div>
   </div>
+
+  </div><!-- /modFichasHumano -->
 </div><!-- /vistaHumano -->
 
 <!-- ══ VISTA · AI JUDGE ══════════════════════════════════════════
@@ -2486,22 +2542,68 @@ async function refrescarAI() {
     return;
   }
 
-  lista.innerHTML = terminadas.map(s => {
-    let cuerpo;
-    if (s.analysis) {
-      cuerpo = buildFichaBody(parseFichaRaw(s.analysis), '#22C55E');
-    } else if (s.analysisError) {
-      cuerpo = `<p style="color:#FB923C;">No se pudo generar la ficha: ${escaparAI(s.analysisError)}</p>` +
-               (s.transcript ? `<p style="opacity:.7;margin-top:10px;">${escaparAI(s.transcript.slice(0, 600))}…</p>` : '');
-    } else {
-      cuerpo = '<p style="opacity:.6;">Ficha en generación…</p>';
-    }
-    return `<article class="ai-ficha">
-      <div class="ai-ficha__nombre">${escaparAI(s.team || 'Equipo')}</div>
-      <div class="ai-ficha__proy">${escaparAI(s.project || '')}</div>
-      <div class="ai-ficha__cuerpo">${cuerpo}${bloquePreguntasFicha(s.preguntas)}</div>
-    </article>`;
-  }).join('');
+  lista.innerHTML = terminadas.map(s => fichaCompletaAI(s)).join('');
+}
+
+/**
+ * La ficha completa de un equipo que ya cerró.
+ *
+ * Tiene que quedar tan completa como la del jurado humano: inicial, equipo,
+ * proyecto, puntaje, los 6 indicadores desglosados y el análisis con sus
+ * secciones y veredicto. La diferencia es la escala — la IA mide 0-100
+ * durante el pitch, la planilla puntúa 1-5 después.
+ */
+function fichaCompletaAI(s) {
+  const equipo = s.team || 'Equipo';
+  const inicial = equipo.replace(/(equipo|grupo|alumno)\s*/i, '').trim().charAt(0).toUpperCase() || '·';
+
+  const m = s.metrics || null;
+  const valores = m ? AI_KEYS.map(k => Number(m[k])).filter(v => Number.isFinite(v)) : [];
+  const media = valores.length ? Math.round(valores.reduce((a, b) => a + b, 0) / valores.length) : null;
+
+  const pills = m
+    ? `<div class="ai-ficha__pills">${CRITERIA.map((nombre, i) => {
+        const v = Number(m[AI_KEYS[i]]);
+        if (!Number.isFinite(v)) return '';
+        const c = colorMedidor(v);
+        return `<span class="ai-ficha__pill" style="color:${c};border-color:${c}44;background:${c}12;">${nombre} <strong>${Math.round(v)}</strong></span>`;
+      }).join('')}</div>`
+    // Un pitch puede cerrarse sin ninguna medición (se cortó el micrófono, se
+    // cerró solo al arrancar el siguiente equipo). Mejor decirlo que mostrar
+    // seis medidores en 50 como si la IA hubiera evaluado algo.
+    : '<span class="ai-ficha__sinmedir">// sin mediciones registradas durante el pitch</span>';
+
+  let cuerpo;
+  if (s.analysis) {
+    cuerpo = buildFichaBody(parseFichaRaw(s.analysis), '#22C55E');
+  } else if (s.analysisError) {
+    cuerpo = `<p style="color:#FB923C;">No se pudo generar la ficha: ${escaparAI(s.analysisError)}</p>` +
+             (s.transcript ? `<p style="opacity:.7;margin-top:10px;">${escaparAI(s.transcript.slice(0, 600))}…</p>` : '');
+  } else {
+    cuerpo = '<p style="opacity:.6;">Ficha en generación…</p>';
+  }
+
+  const lecturas = Number(s.lecturas) || 0;
+  const meta = [
+    lecturas ? `${lecturas} lectura${lecturas === 1 ? '' : 's'} de IA` : '',
+    s.timestamp || '',
+  ].filter(Boolean).join(' · ');
+
+  return `<article class="ai-ficha">
+    <header class="ai-ficha__head">
+      <div class="ai-ficha__letra">${escaparAI(inicial)}</div>
+      <div class="ai-ficha__id">
+        <div class="ai-ficha__nombre">${escaparAI(equipo)}</div>
+        <div class="ai-ficha__proy">${escaparAI(s.project || meta || '')}</div>
+      </div>
+      <div class="ai-ficha__score">
+        <div class="ai-ficha__num">${media === null ? '—' : media}</div>
+        <div class="ai-ficha__den">${media === null ? 'sin medir' : '/ 100 · medición IA'}</div>
+      </div>
+    </header>
+    ${pills}
+    <div class="ai-ficha__cuerpo">${cuerpo}${bloquePreguntasFicha(s.preguntas)}</div>
+  </article>`;
 }
 
 /**
