@@ -35,8 +35,18 @@ const TTL_MS = 10 * 60 * 1000;
 
 let cache: { modelo: string; hasta: number } | null = null;
 
-/** Familias que no sirven para esto, por más que soporten generateContent. */
-const EXCLUIR = /embedding|aqa|imagen|veo|image-generation|tts|audio|live|robotics|learnlm/i;
+/**
+ * Familias que no sirven para esto, por más que digan soportar generateContent.
+ *
+ * La lista real de una key mostró por qué hace falta ser estricto: además de
+ * los sospechosos de siempre aparecían `gemini-3.1-flash-image`, un
+ * `-video-understanding-eap` y `computer-use`, todos con puntaje alto por
+ * llamarse "flash" y tener número de versión grande. Un modelo de imagen o uno
+ * en early access no puede terminar eligiéndose solo para medir indicadores en
+ * vivo durante el evento.
+ */
+const EXCLUIR =
+  /embedding|aqa|imagen|veo|image|tts|audio|live|robotics|learnlm|gemma|eap\b|computer-use|customtools|omni|video-understanding|nano-banana|lyria/i;
 
 export interface Candidato {
   nombre: string;
