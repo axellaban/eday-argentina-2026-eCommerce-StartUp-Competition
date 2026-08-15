@@ -25,6 +25,8 @@ export interface TeamSession {
   project: string;
   transcript: string;
   analysis?: string;
+  /** Motivo por el que no se pudo generar la ficha, si falló. */
+  analysisError?: string;
   metrics?: Record<string, number>;
   isFinished: boolean;
   timestamp: string;

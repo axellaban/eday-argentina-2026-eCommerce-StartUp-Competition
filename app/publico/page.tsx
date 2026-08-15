@@ -14,6 +14,7 @@ interface TeamSession {
   project: string;
   transcript: string;
   analysis?: string;
+  analysisError?: string;
   metrics?: Metrics;
   timestamp: string;
   isFinished?: boolean;
@@ -498,18 +499,44 @@ export default function PublicoPage() {
                 </div>
               </div>
 
-              {s.transcript && (
-                <div className="ficha__body">
-                  <span className="ficha__tag">Transcripción completa</span>
-                  {s.transcript}
-                </div>
-              )}
+              {/* La huella del equipo al cerrar y su evaluación: eso es lo que
+                  el jurado y la sala quieren ver cuando alguien termina. El
+                  transcript es material de consulta, va al final y plegado. */}
+              <div className="ficha__grid">
+                {s.metrics && (
+                  <div className="ficha__huella">
+                    <span className="ficha__tag">Huella final</span>
+                    <Radar valores={s.metrics} />
+                  </div>
+                )}
 
-              {s.analysis && (
-                <div className="ficha__body ficha__body--ai">
-                  <span className="ficha__tag" style={{ color: "var(--brand)" }}>💡 Evaluación de la IA</span>
-                  <FichaTexto raw={s.analysis} />
+                <div className="ficha__eval">
+                  {s.analysis ? (
+                    <div className="ficha__body ficha__body--ai" style={{ maxHeight: "none" }}>
+                      <span className="ficha__tag" style={{ color: "var(--brand)" }}>
+                        💡 Evaluación de la IA
+                      </span>
+                      <FichaTexto raw={s.analysis} />
+                    </div>
+                  ) : (
+                    <div className="notice notice--warn">
+                      <span>▲</span>
+                      <span>
+                        No se generó la ficha de este equipo.
+                        {s.analysisError ? ` Motivo: ${s.analysisError}` : ""}
+                      </span>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {s.transcript && (
+                <details className="ficha__detalle">
+                  <summary className="ficha__resumen">
+                    Ver transcripción completa ({s.transcript.split(/\s+/).length} palabras)
+                  </summary>
+                  <div className="ficha__body" style={{ marginTop: 10 }}>{s.transcript}</div>
+                </details>
               )}
             </article>
           ))

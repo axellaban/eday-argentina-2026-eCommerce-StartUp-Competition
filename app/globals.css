@@ -717,3 +717,33 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
   color: var(--brand);
   flex: none;
 }
+
+/* ── Ficha terminada: huella + evaluación adelante, transcript al final ── */
+
+.ficha__grid { display: grid; gap: var(--gap); align-items: start; }
+@media (min-width: 1100px) {
+  .ficha__grid { grid-template-columns: minmax(300px, 380px) 1fr; }
+}
+.ficha__huella { display: flex; flex-direction: column; gap: 8px; }
+.ficha__huella .radar__svg { max-width: 380px; }
+.ficha__huella .radar__label { font-size: 15px; }
+.ficha__huella .radar__valor { font-size: 17px; }
+
+.ficha__detalle { margin-top: var(--gap); }
+.ficha__resumen {
+  cursor: pointer;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  padding: 8px 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ficha__resumen::-webkit-details-marker { display: none; }
+.ficha__resumen::before { content: "▸"; transition: transform 0.2s var(--ease-out); }
+.ficha__detalle[open] .ficha__resumen::before { transform: rotate(90deg); }
+.ficha__resumen:hover { color: var(--brand); }

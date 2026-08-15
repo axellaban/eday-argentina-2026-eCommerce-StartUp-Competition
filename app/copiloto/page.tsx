@@ -464,6 +464,7 @@ export default function CopilotoPage() {
     // formato que las fichas de referencia del dashboard. Si falla, seguimos
     // con lo que haya del análisis en vivo: nunca perdemos el pitch por esto.
     let ficha = aiAnalysis;
+    let fichaError = "";
     try {
       setHealth({ tone: "warn", msg: "Generando ficha final con la IA…" });
       const res = await fetch("/api/ficha-final", {
@@ -475,11 +476,13 @@ export default function CopilotoPage() {
       if (res.ok && data.raw) {
         ficha = data.raw;
         setAiAnalysis(data.raw);
-      } else if (data.error) {
-        setHealth({ tone: "warn", msg: `Ficha automática no generada: ${data.error}` });
+      } else {
+        fichaError = data.error || `El generador de fichas respondió ${res.status}.`;
+        setHealth({ tone: "bad", msg: `Ficha no generada: ${fichaError}` });
       }
-    } catch {
-      setHealth({ tone: "warn", msg: "No se pudo generar la ficha automática." });
+    } catch (e: any) {
+      fichaError = e?.message || "Error de red al generar la ficha.";
+      setHealth({ tone: "bad", msg: `Ficha no generada: ${fichaError}` });
     }
 
     try {
@@ -492,7 +495,10 @@ export default function CopilotoPage() {
           project: projectName,
           textChunk: interimText,
           analysis: ficha,
-          metrics,
+          // Si no salió la ficha, el motivo viaja hasta la pantalla pública:
+          // vale más un aviso visible que un hueco silencioso.
+          analysisError: ficha ? "" : fichaError,
+          metrics: metricsRef.current,
         }),
       });
       const data = await res.json().catch(() => ({}));

@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, team, project, textChunk, analysis, metrics } = body;
+    const { action, team, project, textChunk, analysis, analysisError, metrics } = body;
 
     if (!team) {
       return NextResponse.json({ error: "Falta el nombre del equipo" }, { status: 400 });
@@ -65,6 +65,7 @@ export async function POST(req: Request) {
     }
 
     if (analysis) session.analysis = analysis;
+    if (analysisError !== undefined) session.analysisError = analysisError;
     if (metrics) session.metrics = metrics;
 
     let broadcastError: string | null = null;
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
         project: session.project,
         transcript: session.transcript,
         analysis: session.analysis,
+        analysisError: session.analysisError,
         metrics: session.metrics,
         timestamp: session.timestamp,
         isFinished: true,
