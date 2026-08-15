@@ -62,7 +62,7 @@ Environment Variables).
 | `PUSHER_APP_ID`, `PUSHER_SECRET`, `NEXT_PUBLIC_PUSHER_KEY` | Tiempo real | La pantalla pública no recibe nada (el copiloto lo avisa en rojo) |
 | `NEXT_PUBLIC_PUSHER_CLUSTER` | Cluster de Pusher | Default `sa1` |
 | `ADMIN_PASSWORD` | Contraseña del operador | **El panel queda abierto** y muestra un aviso |
-| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Persistencia durable | El historial no sobrevive entre invocaciones en Vercel |
+| `KV_REST_API_URL` + `KV_REST_API_TOKEN`<br>o `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Persistencia durable | El historial no sobrevive entre invocaciones en Vercel |
 
 `DEEPGRAM_API_KEY` nunca llega al navegador: el servidor pide un token efímero a
 `/v1/auth/grant` y sólo manda ese token.
@@ -70,10 +70,18 @@ Environment Variables).
 ### Persistencia
 
 En Vercel el filesystem es de solo lectura fuera de `/tmp` y cada request puede
-caer en otra instancia. Sin `KV_REST_API_*` las fichas se transmiten por Pusher
-pero **no quedan guardadas de forma durable**: quien abra `/publico` después de
-un pitch puede no ver el historial. Con Vercel KV o Upstash Redis configurado,
-sí. `GET /api/fichas` devuelve `durable: true|false` para poder verificarlo.
+caer en otra instancia. Sin las variables de KV las fichas se transmiten por
+Pusher pero **no quedan guardadas de forma durable**: quien abra `/publico`
+después de un pitch puede no ver el historial. Con Vercel KV o Upstash Redis
+configurado, sí.
+
+Sirven los dos pares indistintamente — `KV_REST_API_URL` + `KV_REST_API_TOKEN`
+(Vercel KV) o `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (Upstash
+directo). Lo que no sirve es cargar el token sin la URL: `isDurable()` pide las
+dos y con una sola sigue en modo no durable, en silencio.
+
+Para verificarlo, `GET /api/fichas` devuelve `durable: true|false`. Ojo que
+Vercel no aplica variables nuevas a un deploy ya hecho: hay que redeployar.
 
 ## Desarrollo
 
