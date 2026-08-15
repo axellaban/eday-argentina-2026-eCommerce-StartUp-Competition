@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { INDICATORS_PROMPT_BLOCK } from "@/lib/criteria";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 45;
+
+/** Sin esto, si Gemini se cuelga el botón queda en "Analizando…" para siempre. */
+const TIMEOUT_MS = 30_000;
 
 const COMPETITION_PROMPT = `Sos el EVALUADOR COPILOTO Y JURADO ASISTENTE de la eCommerce StartUp Competition Argentina 2026 (eCommerce Institute).
 
@@ -53,16 +57,30 @@ ${transcript}
 ÚLTIMA PREGUNTA / PUNTO A EVALUAR:
 ${question || "(Analizar pitch acumulado)"}`;
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: `${COMPETITION_PROMPT}\n\n${userPrompt}` }] }],
-        }),
-      }
-    );
+    const controlador = new AbortController();
+    const corte = setTimeout(() => controlador.abort(), TIMEOUT_MS);
+
+    let res: Response;
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controlador.signal,
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: `${COMPETITION_PROMPT}\n\n${userPrompt}` }] }],
+          }),
+        }
+      );
+    } catch (e: any) {
+      clearTimeout(corte);
+      return NextResponse.json(
+        { error: e?.name === "AbortError" ? "El análisis tardó demasiado. Probá de nuevo." : "No se pudo contactar al modelo." },
+        { status: 504 }
+      );
+    }
+    clearTimeout(corte);
 
     if (!res.ok) {
       const errText = await res.text();

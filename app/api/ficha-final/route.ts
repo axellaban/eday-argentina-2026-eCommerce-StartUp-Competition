@@ -4,6 +4,9 @@ import { INDICATORS } from "@/lib/criteria";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/** El operador está esperando para pasar al siguiente equipo: no puede colgarse. */
+const TIMEOUT_MS = 45_000;
+
 /**
  * Genera la ficha de evaluación completa de un equipo al terminar su pitch.
  *
@@ -80,11 +83,17 @@ PROYECTO: ${project}
 TRANSCRIPCIÓN COMPLETA DEL PITCH:
 ${transcript}`;
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
+    const controlador = new AbortController();
+    const corte = setTimeout(() => controlador.abort(), TIMEOUT_MS);
+
+    let res: Response;
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controlador.signal,
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: `${FICHA_PROMPT}\n\n${userPrompt}` }] }],
           generationConfig: {
@@ -93,8 +102,16 @@ ${transcript}`;
             maxOutputTokens: 2400,
           },
         }),
-      }
-    );
+        }
+      );
+    } catch (e: any) {
+      clearTimeout(corte);
+      return NextResponse.json(
+        { error: e?.name === "AbortError" ? "La generación de la ficha tardó demasiado." : "No se pudo contactar al modelo." },
+        { status: 504 }
+      );
+    }
+    clearTimeout(corte);
 
     if (!res.ok) {
       const detail = await res.text();
