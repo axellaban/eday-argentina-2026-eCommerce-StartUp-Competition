@@ -2152,7 +2152,15 @@ const DEMO_FICHAS = [
 // evento llegaba nunca a la pantalla del jurado.
 async function fetchFichasEnVivo() {
   try {
-    const res = await fetch('/api/fichas?t=' + Date.now(), { cache: 'no-store' });
+    /**
+     * Sin `?t=` a propósito: con el parámetro anti-cache cada visitante pegaba
+     * directo a la base. En una sala con cien celulares abiertos eso son miles
+     * de lecturas de Redis por minuto contra un plan gratuito. La respuesta
+     * queda cacheada unos segundos en el CDN, así que el gasto no depende de
+     * cuánta gente esté mirando. El operador sí usa `?t=`, porque después de
+     * borrar una sesión necesita ver el estado real.
+     */
+    const res = await fetch('/api/fichas');
     if (!res.ok) return [];
     const data = await res.json();
     const sesiones = Array.isArray(data.finishedSessions) ? data.finishedSessions : [];
@@ -2307,6 +2315,23 @@ const SECTION_DOTS = {
   'VEREDICTO': '#00AAFF',
 };
 
+/**
+ * Formatea una línea de la ficha: negritas de markdown y nada más.
+ *
+ * El texto se escapa ANTES de meterle las etiquetas. Viene de un LLM que a su
+ * vez trabaja sobre lo que se dijo en el escenario, así que no es contenido
+ * confiable: alcanzaba con que alguien dictara una etiqueta y el modelo la
+ * copiara para que se inyectara en el dashboard. Escapando primero y
+ * reemplazando `**` después, lo único que puede generar etiquetas es este
+ * código.
+ */
+function lineaFicha(texto, colorFuerte) {
+  return escaparAI(texto).replace(
+    /\*\*([^*]+)\*\*/g,
+    `<strong style="color:${colorFuerte}">$1</strong>`
+  );
+}
+
 function buildFichaBody(sections, accentColor) {
   let html = '';
   sections.forEach(sec => {
@@ -2317,7 +2342,7 @@ function buildFichaBody(sections, accentColor) {
       if (isVeredicto) {
         const bodyText = sec.lines
           .filter(l => l.trim())
-          .map(l => l.replace(/^[•\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'))
+          .map(l => lineaFicha(l.replace(/^[•\-\*]\s+/, ''), 'inherit'))
           .join(' ');
         html += `
           <div class="ficha-veredicto" style="background:linear-gradient(135deg, ${dotColor}12, rgba(19,22,35,0.45)); border:1px solid ${dotColor}33; box-shadow: 0 4px 20px ${dotColor}08;">
@@ -2332,7 +2357,7 @@ function buildFichaBody(sections, accentColor) {
 
       html += `<div class="ficha-section-title">
         <span class="ficha-section-dot" style="background:${dotColor};box-shadow:0 0 6px ${dotColor};"></span>
-        ${sec.title}
+        ${escaparAI(sec.title)}
       </div>`;
     }
 
@@ -2340,13 +2365,13 @@ function buildFichaBody(sections, accentColor) {
       const l = line.trim();
       if (!l) return;
       if (/^[•\-\*]\s+/.test(l)) {
-        const content = l.replace(/^[•\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text);">$1</strong>');
+        const content = lineaFicha(l.replace(/^[•\-\*]\s+/, ''), 'var(--text)');
         html += `<div class="ficha-bullet">
           <span class="ficha-arrow" style="color:${dotColor};">›</span>
           <span>${content}</span>
         </div>`;
       } else {
-        const content = l.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:var(--text);">$1</strong>');
+        const content = lineaFicha(l, 'var(--text)');
         html += `<p style="margin:6px 0;">${content}</p>`;
       }
     });
@@ -2612,14 +2637,20 @@ function segmentarAI(texto, marcas) {
   return seg;
 }
 
-function pintarLeyendaAI() {
+/**
+ * Recibe los segmentos ya calculados en vez de recontar las marcas.
+ *
+ * Contando sobre la lista cruda, la leyenda decía "3" donde se veían 2: las
+ * marcas que se solapan entre sí se descartan al segmentar, y las que citan un
+ * tramo que ya no está en el texto también. El número tiene que ser el de lo
+ * que la persona ve resaltado, no el de lo que el modelo propuso.
+ */
+function pintarLeyendaAI(segmentos) {
   const box = document.getElementById('aiLeyenda');
   if (!box) return;
   const conteo = {};
-  aiMarcas.forEach((m) => {
-    if (AI_MARCAS_PUBLICAS[m.tipo] && aiTextoObjetivo.includes(m.cita)) {
-      conteo[m.tipo] = (conteo[m.tipo] || 0) + 1;
-    }
+  (segmentos || []).forEach((s) => {
+    if (s.tipo) conteo[s.tipo] = (conteo[s.tipo] || 0) + 1;
   });
   const tipos = Object.keys(conteo);
   box.hidden = tipos.length === 0;
@@ -2634,7 +2665,7 @@ function pintarTranscriptAI(conCursor) {
   if (!box) return;
   if (!aiTextoMostrado) {
     box.innerHTML = '<span class="ai-vacio">esperando audio del orador…</span>';
-    pintarLeyendaAI();
+    pintarLeyendaAI([]);
     return;
   }
   const pegadoAbajo = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
@@ -2648,16 +2679,19 @@ function pintarTranscriptAI(conCursor) {
   if (conCursor || !aiMarcas.length) {
     box.textContent = aiTextoMostrado;
     if (conCursor) box.insertAdjacentHTML('beforeend', '<span class="ai-caret"></span>');
+    // Mientras escribe no se toca la leyenda: se actualiza al asentarse.
+    if (!aiMarcas.length) pintarLeyendaAI([]);
   } else {
-    box.innerHTML = segmentarAI(aiTextoMostrado, aiMarcas)
+    const segmentos = segmentarAI(aiTextoMostrado, aiMarcas);
+    box.innerHTML = segmentos
       .map((s) => s.tipo
         ? `<mark class="ai-hl ai-hl--${s.tipo}" title="${AI_MARCAS_PUBLICAS[s.tipo].label}">${escaparAI(s.texto)}</mark>`
         : escaparAI(s.texto))
       .join('');
+    pintarLeyendaAI(segmentos);
   }
 
   if (pegadoAbajo) box.scrollTop = box.scrollHeight;
-  pintarLeyendaAI();
 }
 
 // Se recuerda el último estado para poder repintarlo cuando cambia sólo el
@@ -2693,6 +2727,7 @@ function repintarEstadoAI() {
 let aiVivo = false;
 let aiPusher = null;
 let aiConfigVivo = null;
+let aiConectando = false;
 /** Ya llegó al menos una medición por el canal para este equipo. */
 let aiMetricsEnVivo = false;
 
@@ -2714,16 +2749,33 @@ function reprogramarPoll(ms) {
 }
 
 async function conectarVivo() {
-  if (aiPusher || typeof Pusher === 'undefined') return;
+  /**
+   * El candado tiene que tomarse ANTES del await.
+   *
+   * `aiPusher` recién se asigna después de pedir la config, así que dos
+   * cambios de vista seguidos —tocar AI Judge, volver, tocar de nuevo— pasaban
+   * los dos por el chequeo antes de que ninguno hubiera asignado nada, y esa
+   * pestaña terminaba con dos conexiones abiertas. Con el tope de conexiones
+   * simultáneas del plan, un par de personas jugando con el toggle alcanzaban
+   * para hacer ruido.
+   */
+  if (aiPusher || aiConectando || typeof Pusher === 'undefined') return;
+  aiConectando = true;
 
-  const cfg = await configVivo();
-  // Si el modo cambió mientras se pedía la config, no abrir nada.
-  if (!cfg || !cfg.configurado || aiModo !== 'ai') return;
-
+  // `cfg` se declara acá afuera a propósito: lo necesitan las suscripciones de
+  // más abajo, y con un `const` dentro del try quedaba fuera de alcance. La
+  // conexión se abría, el estado decía "tiempo real", y ningún evento llegaba
+  // nunca porque el bind explotaba en silencio.
+  let cfg = null;
   try {
+    cfg = await configVivo();
+    // Si el modo cambió mientras se pedía la config, no abrir nada.
+    if (!cfg || !cfg.configurado || aiModo !== 'ai') return;
     aiPusher = new Pusher(cfg.key, { cluster: cfg.cluster, forceTLS: true });
   } catch {
     return;
+  } finally {
+    aiConectando = false;
   }
 
   aiPusher.connection.bind('connected', () => {
@@ -2803,6 +2855,7 @@ function cabeceraVivo(equipo, proyecto) {
 
 function desconectarVivo() {
   aiVivo = false;
+  aiConectando = false;
   if (!aiPusher) return;
   try {
     aiPusher.disconnect();
@@ -2814,7 +2867,7 @@ async function refrescarAI() {
   if (aiModo !== 'ai') return;
   let data;
   try {
-    const res = await fetch('/api/fichas?t=' + Date.now(), { cache: 'no-store' });
+    const res = await fetch('/api/fichas');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     data = await res.json();
   } catch (e) {

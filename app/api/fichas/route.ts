@@ -24,12 +24,29 @@ export async function GET(req: Request) {
     .sort((a, b) => b.updatedAt - a.updatedAt);
   const activeSession = data.activeTeam ? data.sessions[data.activeTeam] : null;
 
-  return NextResponse.json({
-    activeSession,
-    finishedSessions: finishedList,
-    allSessions: data.sessions,
-    durable: isDurable(),
-  });
+  /**
+   * Tres segundos de cache en el CDN.
+   *
+   * Esta ruta la consulta el home de cada persona que esté mirando. Sin cache,
+   * cada consulta es una lectura de Redis: con la sala llena son miles por
+   * minuto contra un plan gratuito, y si se agota la cuota se cae la
+   * persistencia en pleno evento. Con el cache, el gasto no depende de cuánta
+   * gente esté mirando.
+   *
+   * Tres segundos no se notan: el canal en vivo ya entrega lo urgente al
+   * instante, y esto es la red de seguridad. El operador saltea el cache
+   * agregando `?t=`, que hace única la URL, porque después de borrar una
+   * sesión necesita ver el estado real.
+   */
+  return NextResponse.json(
+    {
+      activeSession,
+      finishedSessions: finishedList,
+      allSessions: data.sessions,
+      durable: isDurable(),
+    },
+    { headers: { "Cache-Control": "public, max-age=0, s-maxage=3, stale-while-revalidate=10" } }
+  );
 }
 
 export async function POST(req: Request) {
@@ -59,9 +76,24 @@ export async function POST(req: Request) {
 
     if (project) session.project = project;
 
+    /**
+     * Agregar el chunk, pero sólo si no está ya.
+     *
+     * Los chunks se mandan apenas Deepgram cierra una frase y el sync manda
+     * todo el texto cada 12s. Si un chunk se demora en la red y aterriza
+     * DESPUÉS del sync que ya lo incluía, se agregaba de nuevo: la frase
+     * quedaba repetida en la pantalla pública y en el AI Judge.
+     *
+     * Si la frase se dijo dos veces seguidas de verdad, el próximo sync trae el
+     * texto completo con las dos y, por ser más largo, lo restituye acá abajo.
+     * Descartar de más se corrige solo; duplicar no.
+     */
     if (textChunk) {
-      session.transcript += (session.transcript ? " " : "") + textChunk;
-      session.updatedAt = Date.now();
+      const chunk = String(textChunk);
+      if (!session.transcript.endsWith(chunk)) {
+        session.transcript += (session.transcript ? " " : "") + chunk;
+        session.updatedAt = Date.now();
+      }
     }
 
     /**

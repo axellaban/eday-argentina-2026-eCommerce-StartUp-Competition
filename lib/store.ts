@@ -18,6 +18,23 @@ import path from "path";
  *      menos sobrevive dentro de la misma instancia tibia en vez de tirar EROFS.
  *
  * `isDurable()` expone cuál está activo para que la UI pueda avisarlo.
+ *
+ * ## Limitación conocida: no hay escritura atómica
+ *
+ * Cada POST hace leer-modificar-escribir sobre el objeto entero. Dos requests
+ * que se pisan —un chunk de transcripción y el sync de cada 12s, que es el
+ * único cruce que ocurre seguido— terminan con el último que escribe pisando
+ * al otro.
+ *
+ * No se arregló a propósito, porque el diseño de arriba lo absorbe: el sync
+ * reenvía el texto completo, las métricas, las preguntas y las marcas cada 12
+ * segundos, así que cualquier escritura perdida vuelve sola en el ciclo
+ * siguiente. Lo peor que pasa es que un dato quede desactualizado unos
+ * segundos.
+ *
+ * Si alguna vez esto tiene que soportar dos operadores a la vez, hay que pasar
+ * a escrituras atómicas (JSON.SET de Redis o un script Lua) en vez de guardar
+ * el blob completo.
  */
 
 export interface TeamSession {

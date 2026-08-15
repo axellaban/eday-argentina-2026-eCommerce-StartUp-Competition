@@ -672,7 +672,9 @@ export default function CopilotoPage() {
   const cargarGuardadas = useCallback(async () => {
     setCargandoGuardadas(true);
     try {
-      const res = await fetch("/api/fichas", { cache: "no-store" });
+      // Con `?t=` para saltear el cache del CDN: después de borrar una sesión
+      // el operador tiene que ver el estado real, no uno de hace tres segundos.
+      const res = await fetch(`/api/fichas?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const todas: Record<string, any> = data.allSessions || {};

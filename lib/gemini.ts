@@ -80,12 +80,27 @@ export function puntuar(nombre: string): number {
   return p;
 }
 
-/** Pide la lista de modelos de la key y los ordena de mejor a peor. */
+/**
+ * Pide la lista de modelos de la key y los ordena de mejor a peor.
+ *
+ * Con su propio corte a los 5 segundos. Esta llamada pasó a estar delante de
+ * cada análisis, y el AbortController de las rutas sólo cubre la llamada al
+ * modelo: si el endpoint de modelos se colgaba, la ruta entera se quedaba
+ * esperando hasta el tope de la función, con el equipo presentando y los
+ * indicadores congelados.
+ */
 export async function candidatosGemini(apiKey: string): Promise<Candidato[]> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-    { cache: "no-store" }
-  );
+  const corte = new AbortController();
+  const reloj = setTimeout(() => corte.abort(), 5000);
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+      { cache: "no-store", signal: corte.signal }
+    );
+  } finally {
+    clearTimeout(reloj);
+  }
   if (!res.ok) return [];
   const j = await res.json();
 
