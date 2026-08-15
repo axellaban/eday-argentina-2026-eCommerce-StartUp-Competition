@@ -20,6 +20,12 @@ export async function middleware(req: NextRequest) {
   if (pathname === "/api/fichas" && (method === "GET" || method === "HEAD")) {
     return NextResponse.next();
   }
+  // El home necesita la key pública de Pusher para escuchar el canal. No es un
+  // secreto: sólo permite suscribirse y oír; publicar requiere PUSHER_SECRET,
+  // que nunca sale del servidor.
+  if (pathname === "/api/pusher-config" && (method === "GET" || method === "HEAD")) {
+    return NextResponse.next();
+  }
 
   const ok = await isValidSession(req.cookies.get(AUTH_COOKIE)?.value);
   if (ok) return NextResponse.next();

@@ -11,6 +11,19 @@ const nextConfig = {
           source: "/",
           destination: "/index.html",
         },
+        /**
+         * /ai es el mismo dashboard, arrancado en la vista AI Judge.
+         *
+         * No es una página aparte: duplicar el HTML sería duplicar todo el
+         * dashboard. Es la misma, y el JS mira el pathname para saber en qué
+         * modo abrir. Sirve para poder mandar a la sala directo a la vista de
+         * la IA, y para que la elección quede en la URL en vez de en el
+         * navegador de cada uno.
+         */
+        {
+          source: "/ai",
+          destination: "/index.html",
+        },
       ],
     };
   },

@@ -9,6 +9,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Canal en tiempo real para la vista AI Judge. Va con defer y el código
+       tolera que no cargue: si el CDN está bloqueado, esa vista se queda con
+       el refresco por consulta y el resto del dashboard ni se entera. -->
+  <script defer src="https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js"></script>
 
   <style>
     /* ── Reset & Base ── */
@@ -2317,7 +2321,17 @@ function resetAI() {
 // pitch hablado.
 
 const AI_KEYS = ['mercado', 'producto', 'innovacion', 'ejecucion', 'equipo', 'percepcion'];
+
+/**
+ * Cada cuánto se consulta al servidor.
+ *
+ * Con el canal en vivo conectado, la consulta pasa a ser sólo una red de
+ * seguridad —para lo que no viaja por el canal, como las preguntas de cierre,
+ * y para tapar cualquier evento perdido— así que se espacia. Sin canal, es la
+ * única fuente y va rápido.
+ */
 const AI_INTERVALO_MS = 5000;
+const AI_INTERVALO_CON_VIVO_MS = 15000;
 
 let aiModo        = 'humano';
 let aiPollTimer   = null;
@@ -2330,9 +2344,26 @@ let aiTextoObjetivo  = '';
 let aiTextoMostrado  = '';
 let aiEscrituraTimer = null;
 
-function setModo(modo) {
+function setModo(modo, sinTocarUrl) {
   aiModo = modo === 'ai' ? 'ai' : 'humano';
   const esAI = aiModo === 'ai';
+
+  /**
+   * La URL manda.
+   *
+   * Antes el modo se guardaba en localStorage, y eso tenía un costo escondido:
+   * cualquiera que hubiera tocado AI Judge una vez volvía a entrar en esa
+   * vista sin quererlo, abriendo una conexión del canal en vivo sólo para
+   * mirar la planilla. Con la URL, el estado es explícito: / es el jurado
+   * humano, /ai es la IA. Además se puede compartir el link directo y el botón
+   * de atrás del navegador funciona.
+   */
+  if (!sinTocarUrl) {
+    const destino = esAI ? '/ai' : '/';
+    if (location.pathname !== destino) {
+      history.pushState({ modo: aiModo }, '', destino);
+    }
+  }
 
   document.getElementById('vistaHumano').hidden = esAI;
   document.getElementById('vistaIA').hidden     = !esAI;
@@ -2347,8 +2378,6 @@ function setModo(modo) {
   bHum.setAttribute('aria-selected', String(!esAI));
   bIA.setAttribute('aria-selected', String(esAI));
 
-  try { localStorage.setItem('edayModo', aiModo); } catch (e) {}
-
   clearInterval(aiPollTimer);
   aiPollTimer = null;
 
@@ -2356,7 +2385,9 @@ function setModo(modo) {
     construirMedidoresAI();
     refrescarAI();
     aiPollTimer = setInterval(refrescarAI, AI_INTERVALO_MS);
+    conectarVivo();
   } else {
+    desconectarVivo();
     // El radar de Chart.js sigue vivo en un canvas oculto y se descuadra al
     // volver: se destruye y se rearma con las medidas correctas.
     if (aiRadarChart) { aiRadarChart.destroy(); aiRadarChart = null; }
@@ -2496,9 +2527,154 @@ function pintarTranscriptAI(conCursor) {
   if (pegadoAbajo) box.scrollTop = box.scrollHeight;
 }
 
+// Se recuerda el último estado para poder repintarlo cuando cambia sólo el
+// modo de conexión: si no, el cartel decía "consultando" hasta el próximo
+// refresco aunque el canal en vivo ya estuviera conectado.
+let aiEstadoActual = { on: false, texto: 'conectando…' };
+
 function estadoAI(encendido, texto) {
-  document.getElementById('aiDot').classList.toggle('on', !!encendido);
-  document.getElementById('aiStatusText').textContent = texto;
+  aiEstadoActual = { on: !!encendido, texto };
+  repintarEstadoAI();
+}
+
+function repintarEstadoAI() {
+  document.getElementById('aiDot').classList.toggle('on', aiEstadoActual.on);
+  document.getElementById('aiStatusText').textContent =
+    aiEstadoActual.texto + (aiVivo ? ' · tiempo real' : ' · actualiza cada 5s');
+}
+
+// ═══════════════════════════════════════════════
+// CANAL EN VIVO (Pusher) — sólo mientras se mira AI Judge
+// ═══════════════════════════════════════════════
+/**
+ * La conexión se abre al entrar a AI Judge y se cierra al salir.
+ *
+ * Importa que sea así y no al cargar la página: el plan de Pusher tiene un
+ * tope de conexiones simultáneas, y quien entra al home a mirar la planilla
+ * del jurado humano no tiene por qué ocupar una.
+ *
+ * La consulta periódica NUNCA se apaga, sólo se espacia. Es lo que trae las
+ * preguntas de cierre —que no viajan por el canal— y lo que repara la pantalla
+ * si un evento se pierde o si la conexión se cae del todo.
+ */
+let aiVivo = false;
+let aiPusher = null;
+let aiConfigVivo = null;
+/** Ya llegó al menos una medición por el canal para este equipo. */
+let aiMetricsEnVivo = false;
+
+async function configVivo() {
+  if (aiConfigVivo) return aiConfigVivo;
+  try {
+    const res = await fetch('/api/pusher-config');
+    if (!res.ok) return null;
+    aiConfigVivo = await res.json();
+    return aiConfigVivo;
+  } catch {
+    return null;
+  }
+}
+
+function reprogramarPoll(ms) {
+  clearInterval(aiPollTimer);
+  aiPollTimer = setInterval(refrescarAI, ms);
+}
+
+async function conectarVivo() {
+  if (aiPusher || typeof Pusher === 'undefined') return;
+
+  const cfg = await configVivo();
+  // Si el modo cambió mientras se pedía la config, no abrir nada.
+  if (!cfg || !cfg.configurado || aiModo !== 'ai') return;
+
+  try {
+    aiPusher = new Pusher(cfg.key, { cluster: cfg.cluster, forceTLS: true });
+  } catch {
+    return;
+  }
+
+  aiPusher.connection.bind('connected', () => {
+    aiVivo = true;
+    repintarEstadoAI();
+    reprogramarPoll(AI_INTERVALO_CON_VIVO_MS);
+  });
+
+  /**
+   * Si la conexión se cae —o si el evento llegó al tope de conexiones
+   * simultáneas y Pusher rechaza— se vuelve a consultar rápido. La pantalla
+   * pierde el tiempo real, no los datos.
+   */
+  const degradar = () => {
+    if (!aiVivo && aiPollTimer) return;
+    aiVivo = false;
+    repintarEstadoAI();
+    reprogramarPoll(AI_INTERVALO_MS);
+  };
+  aiPusher.connection.bind('disconnected', degradar);
+  aiPusher.connection.bind('unavailable', degradar);
+  aiPusher.connection.bind('failed', degradar);
+  aiPusher.connection.bind('error', degradar);
+
+  const canal = aiPusher.subscribe(cfg.channel);
+  const ev = cfg.events || {};
+
+  // Cada frase cerrada, apenas la persona termina de decirla.
+  canal.bind(ev.transcript || 'live-transcript', (d) => {
+    if (!d || !d.textChunk) return;
+    const cambio = aiEquipoVisto !== d.team;
+    cabeceraVivo(d.team, d.project);
+    fijarTextoAI(cambio ? d.textChunk : `${aiTextoObjetivo} ${d.textChunk}`.trim(), cambio);
+  });
+
+  // Texto completo: repara lo que se haya perdido.
+  canal.bind(ev.sync || 'sync-transcript', (d) => {
+    if (!d || typeof d.fullText !== 'string') return;
+    const cambio = aiEquipoVisto !== d.team;
+    cabeceraVivo(d.team, d.project);
+    // El sync viaja recortado por el límite de 10 KB de Pusher, así que sólo
+    // reemplaza si de verdad trae más texto del que ya hay en pantalla.
+    if (cambio || d.fullText.length >= aiTextoObjetivo.length) {
+      fijarTextoAI(d.fullText, cambio);
+    }
+  });
+
+  canal.bind(ev.metrics || 'live-metrics', (d) => {
+    if (!d || !d.metrics) return;
+    if (d.team) cabeceraVivo(d.team, d.project);
+    aiMetricsEnVivo = true;
+    pintarMedidoresAI(d.metrics);
+    pintarRadarAI(d.metrics);
+  });
+
+  // Al cerrar un equipo hay ficha nueva: se pide todo de una, sin esperar.
+  canal.bind(ev.finish || 'finish-pitch', () => {
+    aiEquipoVisto = null;
+    aiMetricsEnVivo = false;
+    refrescarAI();
+  });
+}
+
+/** Cabecera del pitch en curso, actualizada desde el canal. */
+function cabeceraVivo(equipo, proyecto) {
+  if (!equipo) return;
+  // Equipo nuevo: las mediciones del anterior ya no valen, y hasta que llegue
+  // la primera lectura del nuevo manda lo que diga el servidor.
+  if (aiEquipoVisto !== equipo) aiMetricsEnVivo = false;
+  aiEquipoVisto = equipo;
+  document.getElementById('aiEquipo').textContent = equipo;
+  if (proyecto !== undefined && proyecto !== null) {
+    document.getElementById('aiProyecto').textContent = proyecto || '';
+  }
+  estadoAI(true, 'en vivo · midiendo');
+}
+
+function desconectarVivo() {
+  aiVivo = false;
+  if (!aiPusher) return;
+  try {
+    aiPusher.disconnect();
+  } catch {}
+  aiPusher = null;
 }
 
 async function refrescarAI() {
@@ -2527,9 +2703,27 @@ async function refrescarAI() {
     const n = Number(activa.lecturas) || 0;
     document.getElementById('aiLecturas').textContent = n ? `${n} lectura${n === 1 ? '' : 's'} de IA` : 'calibrando…';
 
-    fijarTextoAI(activa.transcript || '', cambioEquipo);
-    pintarMedidoresAI(activa.metrics);
-    pintarRadarAI(activa.metrics);
+    /**
+     * Con el canal en vivo conectado, esta consulta va detrás: el servidor
+     * recibe el texto y las mediciones cada 12s, mientras que por el canal
+     * llegan al instante. Si se aplicara a ciegas, cada 15 segundos el
+     * transcript se acortaría y las barras saltarían para atrás.
+     *
+     * Por eso el texto sólo se pisa si el servidor trae MÁS que lo que hay en
+     * pantalla, y las mediciones sólo si todavía no llegó ninguna en vivo.
+     */
+    const delServidor = activa.transcript || '';
+    if (cambioEquipo || delServidor.length > aiTextoObjetivo.length) {
+      fijarTextoAI(delServidor, cambioEquipo);
+    }
+
+    if (cambioEquipo) aiMetricsEnVivo = false;
+    if (!aiMetricsEnVivo) {
+      pintarMedidoresAI(activa.metrics);
+      pintarRadarAI(activa.metrics);
+    }
+
+    // Las preguntas no viajan por el canal: siempre salen de acá.
     pintarPreguntasAI(activa.preguntas);
   } else {
     aiEquipoVisto = null;
@@ -2659,11 +2853,14 @@ function escaparAI(t) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// El modo elegido sobrevive al refresco: si el operador dejó el home en AI
-// Judge proyectado en la sala, un F5 no lo devuelve a la planilla.
-try {
-  if (localStorage.getItem('edayModo') === 'ai') setModo('ai');
-} catch (e) {}
+// Modo inicial según la URL: /ai abre directo en la vista de la IA, y un F5
+// no devuelve la proyección a la planilla.
+if (location.pathname.replace(/\/+$/, '') === '/ai') setModo('ai', true);
+
+// Y el botón de atrás del navegador cambia de vista en vez de salir del sitio.
+window.addEventListener('popstate', () => {
+  setModo(location.pathname.replace(/\/+$/, '') === '/ai' ? 'ai' : 'humano', true);
+});
 
 // ═══════════════════════════════════════════════
 // INIT
