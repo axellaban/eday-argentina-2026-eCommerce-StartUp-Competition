@@ -603,3 +603,117 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
   padding: 15px 17px;
 }
 .ficha-sec--veredicto .ficha-sec__parrafo { color: var(--text); }
+
+/* ── Radar de indicadores ───────────────────────────────────────
+   Marcas finas, rejilla recesiva, y la identidad de cada forma
+   apoyada en color + trazo (la silueta va punteada). */
+
+.radar { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.radar__svg { width: 100%; height: auto; max-width: 560px; display: block; }
+
+.radar__anillo { fill: none; stroke: rgba(255, 255, 255, 0.05); stroke-width: 1; }
+.radar__anillo--borde { stroke: rgba(255, 255, 255, 0.10); }
+.radar__neutro { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 1; stroke-dasharray: 3 4; }
+.radar__eje { stroke: rgba(255, 255, 255, 0.07); stroke-width: 1; }
+
+.radar__silueta {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+  opacity: 0.6;
+  stroke-linejoin: round;
+}
+
+.radar__area {
+  fill: url(#radarFill);
+  stroke: var(--brand);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 10px rgba(0, 168, 255, 0.35));
+}
+.radar__punto { fill: var(--brand); stroke: var(--navy-900); stroke-width: 2; }
+
+.radar__label {
+  fill: var(--text-2);
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Poppins', sans-serif;
+}
+.radar__valor {
+  fill: var(--text-3);
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.radar__leyenda {
+  display: flex;
+  gap: 18px;
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  font-family: 'JetBrains Mono', monospace;
+}
+.radar__leyenda-item { display: inline-flex; align-items: center; gap: 7px; }
+.radar__leyenda-item--mute { color: var(--text-3); }
+.radar__muestra { stroke-width: 2.5; }
+.radar__muestra--ahora { stroke: var(--brand); }
+.radar__muestra--antes { stroke: var(--text-3); stroke-dasharray: 4 4; }
+
+/* Radar + medidores lado a lado en pantalla grande, apilados en mobile */
+.analisis { display: grid; gap: var(--gap); align-items: center; }
+@media (min-width: 1100px) {
+  .analisis { grid-template-columns: minmax(400px, 520px) 1fr; }
+}
+
+/* ── Heatmap del transcript (sólo panel del operador) ───────────
+   Los colores pasaron el validador contra el fondo oscuro de la app:
+   banda de luminosidad, croma, separación CVD (ΔE 9.4) y contraste.
+   Aun así el tipo nunca queda sólo en el color: hay leyenda con
+   ícono y etiqueta, y cada marca lleva un borde propio. */
+
+.hl-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 11px; }
+.hl-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  color: var(--text-2);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-pill);
+  padding: 4px 11px;
+}
+.hl-legend__swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+
+.hl {
+  border-radius: 3px;
+  padding: 1px 2px;
+  border-bottom: 2px solid;
+  /* El tinte es suave a propósito: el texto tiene que seguir legible.
+     El color saturado vive en el borde y en la leyenda, no bajo las letras. */
+}
+.hl--dato  { background: rgba(25, 158, 112, 0.16); border-color: #199e70; }
+.hl--demo  { background: rgba(57, 135, 229, 0.16); border-color: #3987e5; }
+.hl--flojo { background: rgba(217, 89, 38, 0.16);  border-color: #d95926; }
+
+.preguntas { display: flex; flex-direction: column; gap: 9px; margin-top: 9px; }
+.preguntas__item {
+  display: flex;
+  gap: 10px;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--text-2);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--brand);
+  border-radius: 9px;
+  padding: 10px 13px;
+}
+.preguntas__n {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  color: var(--brand);
+  flex: none;
+}

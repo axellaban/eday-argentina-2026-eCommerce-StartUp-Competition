@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import FichaTexto from "../components/FichaTexto";
+import TranscriptMarcado, { LeyendaMarcas, Marca, TipoMarca } from "../components/TranscriptMarcado";
 
 const TEAMS_DEFAULT = [
   { name: "Ceci Escudero", project: "Pipeline de 4 Agentes para Generación de Contenido LinkedIn (GIT)" },
@@ -24,6 +25,8 @@ const INTERVALO_ANALISIS_MS = 12_000;
 const INTERVALO_SYNC_MS = 12_000;
 /** Mínimo de caracteres nuevos para gastar una llamada al LLM. */
 const MIN_TEXTO_NUEVO = 90;
+/** El marcado del transcript es para leer, no para mirar: va más espaciado. */
+const INTERVALO_MARCAS_MS = 24_000;
 
 /** Reintentos automáticos si Deepgram corta la conexión a mitad del pitch. */
 const MAX_REINTENTOS_MIC = 4;
@@ -48,6 +51,8 @@ export default function CopilotoPage() {
   const [ultimoAnalisis, setUltimoAnalisis] = useState<string>("");
   const [metrics, setMetrics] = useState<Record<string, number> | null>(null);
   const [micCaido, setMicCaido] = useState(false);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [preguntas, setPreguntas] = useState<string[]>([]);
 
   const [health, setHealth] = useState<Health>(null);
   const [authWarning, setAuthWarning] = useState(false);
@@ -64,6 +69,8 @@ export default function CopilotoPage() {
   const textoRef = useRef("");
   const largoAnalizadoRef = useRef(0);
   const enVueloRef = useRef(false);
+  const marcasEnVueloRef = useRef(false);
+  const largoMarcadoRef = useRef(0);
   const metricsRef = useRef<Record<string, number> | null>(null);
   const detenidoAdredeRef = useRef(false);
   const reintentosRef = useRef(0);
@@ -213,7 +220,32 @@ export default function CopilotoPage() {
     }
   }, []);
 
-  // ── Los dos latidos que corren mientras se graba ──────────────
+  /**
+   * Marca el transcript para el jurado y propone preguntas de cierre.
+   * Vive sólo acá: nunca se transmite a la pantalla pública.
+   */
+  const marcarTranscript = useCallback(async (texto: string) => {
+    if (texto.length < 200 || marcasEnVueloRef.current) return;
+    marcasEnVueloRef.current = true;
+    try {
+      const res = await fetch("/api/highlights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ team: teamRef.current, project: projectRef.current, transcript: texto }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return;                       // El marcado es un extra: si falla, no molesta.
+      if (Array.isArray(data.marcas)) setMarcas(data.marcas);
+      if (Array.isArray(data.preguntas)) setPreguntas(data.preguntas);
+      largoMarcadoRef.current = texto.length;
+    } catch {
+      // silencioso a propósito
+    } finally {
+      marcasEnVueloRef.current = false;
+    }
+  }, []);
+
+  // ── Los latidos que corren mientras se graba ──────────────────
 
   // 1) El LLM re-evalúa los indicadores cada tanto: es lo que hace que las
   //    barras suban y bajen solas mientras la persona habla.
@@ -227,7 +259,18 @@ export default function CopilotoPage() {
     return () => clearInterval(t);
   }, [isRecording, autoAnalisis, analizarIndicadores]);
 
-  // 2) Reenvío del transcript completo, para que la pantalla pública se
+  // 2) Marcado del transcript para el jurado, más espaciado que la medición.
+  useEffect(() => {
+    if (!isRecording || !autoAnalisis) return;
+    const t = setInterval(() => {
+      const texto = textoRef.current;
+      if (texto.length - largoMarcadoRef.current < MIN_TEXTO_NUEVO * 2) return;
+      marcarTranscript(texto);
+    }, INTERVALO_MARCAS_MS);
+    return () => clearInterval(t);
+  }, [isRecording, autoAnalisis, marcarTranscript]);
+
+  // 3) Reenvío del transcript completo, para que la pantalla pública se
   //    corrija sola si perdió algún evento.
   useEffect(() => {
     if (!isRecording) return;
@@ -242,7 +285,10 @@ export default function CopilotoPage() {
     setAiAnalysis("");
     setMetrics(null);
     setUltimoAnalisis("");
+    setMarcas([]);
+    setPreguntas([]);
     largoAnalizadoRef.current = 0;
+    largoMarcadoRef.current = 0;
 
     // Recuperar borrador si es el mismo equipo
     let recuperado: string[] = [];
@@ -400,7 +446,7 @@ export default function CopilotoPage() {
       });
       const data = await res.json();
       setAiAnalysis(data.text || data.error || "Análisis completado.");
-      await analizarIndicadores(texto);
+      await Promise.all([analizarIndicadores(texto), marcarTranscript(texto)]);
     } catch {
       setAiAnalysis("Error en la conexión con la IA de evaluación.");
     } finally {
@@ -566,16 +612,27 @@ export default function CopilotoPage() {
               </div>
             )}
 
+            {marcas.length > 0 && (
+              <LeyendaMarcas
+                conteo={{
+                  dato: marcas.filter((m) => m.tipo === "dato").length,
+                  demo: marcas.filter((m) => m.tipo === "demo").length,
+                  flojo: marcas.filter((m) => m.tipo === "flojo").length,
+                }}
+              />
+            )}
+
             <div className="transcript transcript--op" ref={transcriptBoxRef}>
               {transcript.length === 0 && !interimText ? (
                 <div className="transcript__empty">
                   {isRecording ? "Escuchando…" : "Tocá Grabar para empezar a transcribir."}
                 </div>
               ) : (
-                <>
-                  {transcript.map((line, i) => <p key={i}>{line}</p>)}
-                  {interimText && <p className="transcript__interim">{interimText}…</p>}
-                </>
+                <TranscriptMarcado
+                  texto={transcript.join(" ")}
+                  interim={interimText}
+                  marcas={marcas}
+                />
               )}
             </div>
 
@@ -612,6 +669,22 @@ export default function CopilotoPage() {
                 ? `Re-analizando indicadores cada ${INTERVALO_ANALISIS_MS / 1000}s · último: ${ultimoAnalisis || "—"}`
                 : "Análisis automático en pausa"}
             </div>
+
+            {preguntas.length > 0 && (
+              <div style={{ margin: "var(--gap) 0" }}>
+                <span className="ficha__tag" style={{ color: "var(--brand)" }}>
+                  Preguntas sugeridas para el cierre
+                </span>
+                <div className="preguntas">
+                  {preguntas.map((q, i) => (
+                    <div className="preguntas__item" key={i}>
+                      <span className="preguntas__n">{i + 1}</span>
+                      <span>{q}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div
               className={`ficha__body${aiAnalysis ? " ficha__body--ai" : ""}`}

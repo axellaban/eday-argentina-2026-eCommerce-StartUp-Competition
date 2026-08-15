@@ -5,6 +5,7 @@ import PusherClient from "pusher-js";
 import { INDICATORS, neutralMetrics } from "@/lib/criteria";
 import { PUSHER_CHANNEL, PUSHER_CLUSTER, PUSHER_EVENTS, PUSHER_KEY } from "@/lib/pusher-config";
 import FichaTexto from "../components/FichaTexto";
+import Radar from "../components/Radar";
 
 type Metrics = Record<string, number>;
 
@@ -307,6 +308,21 @@ export default function PublicoPage() {
     URL.revokeObjectURL(url);
   };
 
+  /**
+   * Silueta de referencia del radar: la lectura de hace ~1 minuto. Con la
+   * cadencia de 12s son 5 lecturas atrás. Deja ver cuánto se movió el equipo
+   * durante el pitch, no sólo dónde está parado ahora.
+   */
+  const LECTURAS_ATRAS = 5;
+  const silueta = (() => {
+    const claves = Object.keys(historia);
+    if (claves.length === 0) return null;
+    const largo = historia[claves[0]]?.length || 0;
+    if (largo < 3) return null;
+    const idx = Math.max(0, largo - 1 - LECTURAS_ATRAS);
+    return Object.fromEntries(claves.map((k) => [k, historia[k][idx] ?? 50]));
+  })();
+
   /** Hubo texto nuevo hace menos de 6s: está entrando audio de verdad. */
   const escuchando = ultimaFrase !== null && ahora - ultimaFrase < 6000;
 
@@ -376,7 +392,10 @@ export default function PublicoPage() {
           </div>
         </div>
 
-        <div className="meters">
+        <div className="analisis">
+          <Radar valores={vistos} silueta={silueta} />
+
+          <div className="meters">
           {INDICATORS.map((ind) => {
             // El valor animado es el que se dibuja; el real, el que decide color y estado.
             const animado = vistos[ind.key] ?? 50;
@@ -446,6 +465,7 @@ export default function PublicoPage() {
               </div>
             );
           })}
+          </div>
         </div>
       </section>
 
