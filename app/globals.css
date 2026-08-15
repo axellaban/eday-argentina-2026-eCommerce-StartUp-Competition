@@ -226,6 +226,36 @@ button:disabled { cursor: not-allowed; }
 .btn--stop  { background: var(--red);   color: #fff;   box-shadow: 0 0 18px rgba(239,68,68,0.3); }
 .btn--block { width: 100%; padding: 15px 20px; font-size: var(--fs-base); }
 .btn--sm    { padding: 7px 13px; font-size: var(--fs-micro); border-radius: 9px; }
+/* Rojo lleno: sólo para el segundo click de un borrado, nunca para el primero.
+   La acción destructiva tiene que verse distinta de todo lo demás del panel. */
+.btn--danger { background: var(--red); color: #fff; box-shadow: 0 0 18px rgba(239,68,68,0.25); }
+
+/* ── Sesiones guardadas (paso 1 del copiloto) ───────────────── */
+
+.guardadas {
+  margin-top: var(--gap);
+  padding-top: var(--gap);
+  border-top: 1px solid var(--line);
+}
+.guardadas__lista { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.guardada {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.guardada__id { flex: 1; min-width: 0; }
+.guardada__nombre { display: block; font-weight: 700; font-size: var(--fs-sm); }
+.guardada__meta {
+  display: block; margin-top: 2px;
+  font-size: var(--fs-micro); color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .guardada { flex-wrap: wrap; }
+  .guardada__meta { white-space: normal; }
+}
 
 /* ── Formularios ────────────────────────────────────────────── */
 

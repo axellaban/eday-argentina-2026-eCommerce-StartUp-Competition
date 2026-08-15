@@ -38,6 +38,17 @@ const borradorKey = (equipo: string) => `${BORRADOR_KEY}.${equipo}`;
 
 type Health = { tone: "ok" | "warn" | "bad"; msg: string } | null;
 
+/** Lo que hace falta saber de una sesión guardada para decidir si se borra. */
+type SesionGuardada = {
+  team: string;
+  project?: string;
+  timestamp?: string;
+  isFinished: boolean;
+  largo: number;
+  tieneFicha: boolean;
+  esActiva: boolean;
+};
+
 export default function CopilotoPage() {
   const [step, setStep] = useState<"setup" | "live" | "session">("setup");
   const [selectedTeam, setSelectedTeam] = useState(TEAMS_DEFAULT[0].name);
@@ -62,6 +73,12 @@ export default function CopilotoPage() {
 
   const [health, setHealth] = useState<Health>(null);
   const [authWarning, setAuthWarning] = useState(false);
+
+  // Sesiones ya guardadas, para poder limpiar los ensayos antes del evento.
+  const [guardadas, setGuardadas] = useState<SesionGuardada[]>([]);
+  const [cargandoGuardadas, setCargandoGuardadas] = useState(false);
+  const [porBorrar, setPorBorrar] = useState<string | null>(null);
+  const [durable, setDurable] = useState<boolean | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -602,6 +619,73 @@ export default function CopilotoPage() {
     setStep("session");
   };
 
+  /**
+   * Sesiones guardadas en la base.
+   *
+   * Se leen cada vez que se vuelve al paso 1: es el único momento en que hay
+   * tiempo real para limpiar. Durante el pitch nadie va a estar borrando nada.
+   */
+  const cargarGuardadas = useCallback(async () => {
+    setCargandoGuardadas(true);
+    try {
+      const res = await fetch("/api/fichas", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const todas: Record<string, any> = data.allSessions || {};
+      const activo: string | null = data.activeSession?.team || null;
+
+      setDurable(Boolean(data.durable));
+      setGuardadas(
+        Object.values(todas)
+          .map((s: any) => ({
+            team: s.team,
+            project: s.project || "",
+            timestamp: s.timestamp || "",
+            isFinished: Boolean(s.isFinished),
+            largo: (s.transcript || "").length,
+            tieneFicha: Boolean(s.analysis),
+            esActiva: s.team === activo,
+          }))
+          .sort((a, b) => a.team.localeCompare(b.team))
+      );
+    } catch {
+      setGuardadas([]);
+    } finally {
+      setCargandoGuardadas(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (step === "setup") cargarGuardadas();
+  }, [step, cargarGuardadas]);
+
+  const borrar = useCallback(
+    async (equipo: string | "TODAS") => {
+      const url =
+        equipo === "TODAS" ? "/api/fichas?all=1" : `/api/fichas?team=${encodeURIComponent(equipo)}`;
+      try {
+        const res = await fetch(url, { method: "DELETE" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setHealth({ tone: "bad", msg: data.error || `No se pudo borrar (HTTP ${res.status}).` });
+          return;
+        }
+        setHealth({
+          tone: "ok",
+          msg:
+            equipo === "TODAS"
+              ? `Se borraron ${data.borradas} sesión(es). La base quedó limpia.`
+              : `Sesión de ${equipo} borrada.`,
+        });
+        setPorBorrar(null);
+        cargarGuardadas();
+      } catch (e: any) {
+        setHealth({ tone: "bad", msg: e?.message || "Error de red al borrar." });
+      }
+    },
+    [cargarGuardadas]
+  );
+
   const chipClass = health ? `chip chip--${health.tone} chip--msg` : "";
 
   return (
@@ -679,6 +763,89 @@ export default function CopilotoPage() {
           <button className="btn btn--primary btn--block" onClick={startSession}>
             🎙️ Iniciar evaluación de {activeTeamName}
           </button>
+
+          {/* Sesiones guardadas. Vive acá y no en el home a propósito: el home
+              es público y no tiene contraseña, así que un botón de borrar ahí
+              lo podría tocar cualquiera desde la sala. Lo que se borra desde
+              este panel desaparece del AI Judge en el siguiente refresco. */}
+          <div className="guardadas">
+            <div className="section-head">
+              <div style={{ minWidth: 0 }}>
+                <div className="eyebrow">Sesiones guardadas</div>
+                <div className="soft" style={{ fontSize: "var(--fs-xs)", marginTop: 2 }}>
+                  {durable === false
+                    ? "Sin base configurada: esto no sobrevive a un redeploy."
+                    : "Lo que borrás acá desaparece del dashboard y de la pantalla pública."}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn--ghost btn--sm" onClick={cargarGuardadas} disabled={cargandoGuardadas}>
+                  {cargandoGuardadas ? "…" : "↻"}
+                </button>
+                {guardadas.length > 0 &&
+                  (porBorrar === "TODAS" ? (
+                    <>
+                      <button className="btn btn--danger btn--sm" onClick={() => borrar("TODAS")}>
+                        Sí, borrar las {guardadas.length}
+                      </button>
+                      <button className="btn btn--ghost btn--sm" onClick={() => setPorBorrar(null)}>
+                        Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <button className="btn btn--ghost btn--sm" onClick={() => setPorBorrar("TODAS")}>
+                      Borrar todas
+                    </button>
+                  ))}
+              </div>
+            </div>
+
+            {guardadas.length === 0 ? (
+              <div className="soft" style={{ fontSize: "var(--fs-sm)", padding: "10px 0" }}>
+                {cargandoGuardadas ? "Buscando…" : "No hay ninguna sesión guardada todavía."}
+              </div>
+            ) : (
+              <ul className="guardadas__lista">
+                {guardadas.map((s) => (
+                  <li className="guardada" key={s.team}>
+                    <div className="guardada__id">
+                      <span className="guardada__nombre">{s.team}</span>
+                      <span className="guardada__meta">
+                        {[
+                          s.project,
+                          s.esActiva ? "● presentando ahora" : s.isFinished ? "cerrada" : "sin cerrar",
+                          s.tieneFicha ? "con ficha" : "sin ficha",
+                          `${s.largo.toLocaleString("es-AR")} caracteres`,
+                          s.timestamp,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </div>
+                    {porBorrar === s.team ? (
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button className="btn btn--danger btn--sm" onClick={() => borrar(s.team)}>
+                          Sí, borrar
+                        </button>
+                        <button className="btn btn--ghost btn--sm" onClick={() => setPorBorrar(null)}>
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => setPorBorrar(s.team)}
+                        aria-label={`Borrar la sesión de ${s.team}`}
+                        style={{ flexShrink: 0 }}
+                      >
+                        Borrar
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
