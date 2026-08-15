@@ -1117,6 +1117,26 @@
       background: rgba(34,197,94,.035);
     }
 
+    /* Resaltado del transcript. Fondo pleno y no subrayado: proyectado en una
+       sala se tiene que ver desde el fondo. El texto va oscuro sobre el color
+       para que el contraste aguante en cualquier proyector. */
+    .ai-hl {
+      background: #34D399; color: #04121F;
+      padding: 1px 4px; border-radius: 4px;
+      font-weight: 600;
+    }
+    .ai-hl--dato { background: #34D399; }
+    .ai-hl--demo { background: #60A5FA; }
+    .ai-leyenda {
+      display: flex; flex-wrap: wrap; gap: 16px;
+      margin: 14px 0 10px;
+      font-family: 'JetBrains Mono', monospace; font-size: .68rem;
+      color: rgba(200,245,218,.6);
+    }
+    .ai-leyenda__item { display: inline-flex; align-items: center; gap: 6px; }
+    .ai-leyenda__punto { width: 9px; height: 9px; border-radius: 3px; }
+    .ai-leyenda strong { color: #DFF7E9; }
+
     .ai-empty { color: rgba(200,245,218,.4); font-style: italic; padding: 26px 0; text-align: center; font-size: .82rem; }
 
     /* Los orbes de color son del lenguaje visual del modo humano: en la
@@ -1451,6 +1471,7 @@
       </div>
       <h2 class="ai-equipo" id="aiEquipo">—</h2>
       <div class="ai-proyecto" id="aiProyecto"></div>
+      <div class="ai-leyenda" id="aiLeyenda" hidden></div>
       <div class="ai-transcript" id="aiTranscript">
         <span class="ai-vacio">esperando audio del orador…</span>
       </div>
@@ -2545,17 +2566,93 @@ function arrancarEscrituraAI() {
   }, 32);
 }
 
+/**
+ * Marcas del transcript.
+ *
+ * Van SÓLO "dato" (evidencia dura) y "demo" (mostrado en vivo). El copiloto
+ * también marca "flojo" —afirmaciones sin respaldo— y eso se queda en el panel
+ * del operador a propósito: resaltar en naranja la frase de alguien mientras
+ * esa persona está en el escenario, en una pantalla que ve toda la sala, es
+ * señalarle públicamente un error que además el modelo puede estar cometiendo.
+ * El jurado necesita esa señal; el auditorio no.
+ */
+const AI_MARCAS_PUBLICAS = {
+  dato: { label: 'Evidencia dura', color: '#34D399' },
+  demo: { label: 'Demo en vivo',   color: '#60A5FA' },
+};
+
+let aiMarcas = [];
+
+/** Parte el texto en tramos marcados y sin marcar, sin solapes. */
+function segmentarAI(texto, marcas) {
+  const rangos = [];
+  marcas.forEach((m) => {
+    if (!AI_MARCAS_PUBLICAS[m.tipo]) return;
+    const i = texto.indexOf(m.cita);
+    if (i === -1) return;                                   // cita que ya no existe: se descarta
+    const desde = i, hasta = i + m.cita.length;
+    if (rangos.some((r) => desde < r.hasta && hasta > r.desde)) return;  // gana la primera
+    rangos.push({ desde, hasta, tipo: m.tipo });
+  });
+  rangos.sort((a, b) => a.desde - b.desde);
+
+  const seg = [];
+  let cur = 0;
+  rangos.forEach((r) => {
+    if (r.desde > cur) seg.push({ texto: texto.slice(cur, r.desde) });
+    seg.push({ texto: texto.slice(r.desde, r.hasta), tipo: r.tipo });
+    cur = r.hasta;
+  });
+  if (cur < texto.length) seg.push({ texto: texto.slice(cur) });
+  return seg;
+}
+
+function pintarLeyendaAI() {
+  const box = document.getElementById('aiLeyenda');
+  if (!box) return;
+  const conteo = {};
+  aiMarcas.forEach((m) => {
+    if (AI_MARCAS_PUBLICAS[m.tipo] && aiTextoObjetivo.includes(m.cita)) {
+      conteo[m.tipo] = (conteo[m.tipo] || 0) + 1;
+    }
+  });
+  const tipos = Object.keys(conteo);
+  box.hidden = tipos.length === 0;
+  box.innerHTML = tipos.map((t) => {
+    const { label, color } = AI_MARCAS_PUBLICAS[t];
+    return `<span class="ai-leyenda__item"><span class="ai-leyenda__punto" style="background:${color}"></span>${label} <strong>${conteo[t]}</strong></span>`;
+  }).join('');
+}
+
 function pintarTranscriptAI(conCursor) {
   const box = document.getElementById('aiTranscript');
   if (!box) return;
   if (!aiTextoMostrado) {
     box.innerHTML = '<span class="ai-vacio">esperando audio del orador…</span>';
+    pintarLeyendaAI();
     return;
   }
   const pegadoAbajo = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  box.textContent = aiTextoMostrado;
-  if (conCursor) box.insertAdjacentHTML('beforeend', '<span class="ai-caret"></span>');
+
+  /**
+   * Mientras escribe va en texto plano y recién al terminar se resaltan las
+   * marcas. Segmentar contra catorce citas en cada frame de la animación —cada
+   * 32ms sobre un transcript de diez mil caracteres— es trabajo tirado: las
+   * marcas llegan cada 24 segundos y no cambian entre letra y letra.
+   */
+  if (conCursor || !aiMarcas.length) {
+    box.textContent = aiTextoMostrado;
+    if (conCursor) box.insertAdjacentHTML('beforeend', '<span class="ai-caret"></span>');
+  } else {
+    box.innerHTML = segmentarAI(aiTextoMostrado, aiMarcas)
+      .map((s) => s.tipo
+        ? `<mark class="ai-hl ai-hl--${s.tipo}" title="${AI_MARCAS_PUBLICAS[s.tipo].label}">${escaparAI(s.texto)}</mark>`
+        : escaparAI(s.texto))
+      .join('');
+  }
+
   if (pegadoAbajo) box.scrollTop = box.scrollHeight;
+  pintarLeyendaAI();
 }
 
 // Se recuerda el último estado para poder repintarlo cuando cambia sólo el
@@ -2690,7 +2787,7 @@ function cabeceraVivo(equipo, proyecto) {
   if (!equipo) return;
   // Equipo nuevo: las mediciones del anterior ya no valen, y hasta que llegue
   // la primera lectura del nuevo manda lo que diga el servidor.
-  if (aiEquipoVisto !== equipo) aiMetricsEnVivo = false;
+  if (aiEquipoVisto !== equipo) { aiMetricsEnVivo = false; aiMarcas = []; }
   aiEquipoVisto = equipo;
   document.getElementById('aiEquipo').textContent = equipo;
   if (proyecto !== undefined && proyecto !== null) {
@@ -2754,14 +2851,20 @@ async function refrescarAI() {
       pintarRadarAI(activa.metrics);
     }
 
-    // Las preguntas no viajan por el canal: siempre salen de acá.
+    // Ni las preguntas ni las marcas viajan por el canal: salen siempre de acá.
     pintarPreguntasAI(activa.preguntas);
+    const marcasNuevas = Array.isArray(activa.marcas) ? activa.marcas : [];
+    if (marcasNuevas.length !== aiMarcas.length || cambioEquipo) {
+      aiMarcas = marcasNuevas;
+      if (!aiEscrituraTimer) pintarTranscriptAI(false);
+    }
   } else {
     aiEquipoVisto = null;
     estadoAI(false, terminadas.length ? 'en pausa · sin pitch activo' : 'esperando el primer pitch');
     document.getElementById('aiEquipo').textContent   = '—';
     document.getElementById('aiProyecto').textContent = '';
     document.getElementById('aiLecturas').textContent = '';
+    aiMarcas = [];
     fijarTextoAI('', true);
     pintarMedidoresAI(null);
     pintarRadarAI(null);

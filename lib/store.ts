@@ -37,6 +37,15 @@ export interface TeamSession {
    * esta lista ya calculada. Así ningún visitante puede gastar tokens.
    */
   preguntas?: string[];
+  /**
+   * Marcas del transcript: qué tramos son evidencia dura, cuáles demo en vivo
+   * y cuáles afirmaciones sin respaldo.
+   *
+   * Se guardan las tres, pero el home muestra sólo "dato" y "demo": ver el
+   * comentario en public/index.html sobre por qué "flojo" no va a una pantalla
+   * pública mientras la persona está en el escenario.
+   */
+  marcas?: { cita: string; tipo: string }[];
   metrics?: Record<string, number>;
   isFinished: boolean;
   timestamp: string;

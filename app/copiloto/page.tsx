@@ -95,6 +95,9 @@ export default function CopilotoPage() {
   const lecturasRef = useRef(0);
   const marcasEnVueloRef = useRef(false);
   const preguntasRef = useRef<string[]>([]);
+  // Espejo de las marcas para leerlas dentro de los intervalos, igual que las
+  // preguntas: el estado de React no se ve desde adentro de un setInterval.
+  const marcasRef = useRef<Marca[]>([]);
   const largoMarcadoRef = useRef(0);
   const metricsRef = useRef<Record<string, number> | null>(null);
   const detenidoAdredeRef = useRef(false);
@@ -286,7 +289,10 @@ export default function CopilotoPage() {
         setHealth({ tone: "warn", msg: data.error || "No se pudieron marcar el transcript ni las preguntas." });
         return;
       }
-      if (Array.isArray(data.marcas)) setMarcas(data.marcas);
+      if (Array.isArray(data.marcas)) {
+        marcasRef.current = data.marcas;
+        setMarcas(data.marcas);
+      }
       if (Array.isArray(data.preguntas)) {
         preguntasRef.current = data.preguntas;
         setPreguntas(data.preguntas);
@@ -358,6 +364,7 @@ export default function CopilotoPage() {
           // Viajan de arrimo en el sync que ya existía: el home las muestra en
           // la vista AI Judge sin pedirle nada al modelo.
           preguntas: preguntasRef.current,
+          marcas: marcasRef.current,
         }),
       }).catch(() => {});
     }, INTERVALO_SYNC_MS);
@@ -370,6 +377,7 @@ export default function CopilotoPage() {
     setMetrics(null);
     setUltimoAnalisis("");
     setMarcas([]);
+    marcasRef.current = [];
     setPreguntas([]);
     setResueltas([]);
     preguntasRef.current = [];
@@ -602,8 +610,9 @@ export default function CopilotoPage() {
           metrics: metricsRef.current,
           fullText: texto,
           lecturas: lecturasRef.current,
-          // Última foto de las preguntas: quedan pegadas a la ficha del equipo.
+          // Última foto de preguntas y marcas: quedan pegadas a la ficha.
           preguntas: preguntasRef.current,
+          marcas: marcasRef.current,
         }),
       });
       const data = await res.json().catch(() => ({}));

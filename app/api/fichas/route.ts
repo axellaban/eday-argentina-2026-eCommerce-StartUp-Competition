@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, team, project, textChunk, fullText, analysis, analysisError, metrics, lecturas, preguntas } = body;
+    const { action, team, project, textChunk, fullText, analysis, analysisError, metrics, lecturas, preguntas, marcas } = body;
 
     if (!team) {
       return NextResponse.json({ error: "Falta el nombre del equipo" }, { status: 400 });
@@ -90,6 +90,13 @@ export async function POST(req: Request) {
         .map((p: unknown) => String(p || "").trim())
         .filter(Boolean)
         .slice(0, 6);
+    }
+
+    if (Array.isArray(marcas)) {
+      session.marcas = marcas
+        .filter((m: any) => m && typeof m.cita === "string" && m.cita.length >= 12)
+        .map((m: any) => ({ cita: String(m.cita), tipo: String(m.tipo) }))
+        .slice(0, 14);
     }
 
     if (analysis) session.analysis = analysis;
