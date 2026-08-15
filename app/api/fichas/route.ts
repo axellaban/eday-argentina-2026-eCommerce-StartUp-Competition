@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, team, project, textChunk, fullText, analysis, analysisError, metrics, lecturas } = body;
+    const { action, team, project, textChunk, fullText, analysis, analysisError, metrics, lecturas, preguntas } = body;
 
     if (!team) {
       return NextResponse.json({ error: "Falta el nombre del equipo" }, { status: 400 });
@@ -79,6 +79,18 @@ export async function POST(req: Request) {
     }
 
     if (typeof lecturas === "number") session.lecturas = lecturas;
+
+    /**
+     * La lista viene ya depurada por /api/highlights (saca las respondidas,
+     * suma de a dos, tope de seis). Acá sólo se guarda, con un tope duro por
+     * las dudas: es lo único que el home va a leer.
+     */
+    if (Array.isArray(preguntas)) {
+      session.preguntas = preguntas
+        .map((p: unknown) => String(p || "").trim())
+        .filter(Boolean)
+        .slice(0, 6);
+    }
 
     if (analysis) session.analysis = analysis;
     if (analysisError !== undefined) session.analysisError = analysisError;

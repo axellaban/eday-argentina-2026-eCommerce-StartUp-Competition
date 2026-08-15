@@ -29,6 +29,14 @@ export interface TeamSession {
   analysisError?: string;
   /** Cuántas veces alcanzó a medir el LLM durante el pitch. */
   lecturas?: number;
+  /**
+   * Preguntas de cierre que la IA fue armando durante el pitch.
+   *
+   * Las genera /api/highlights desde el copiloto y viajan acá sólo para que
+   * el home las pueda leer: la vista AI Judge no llama nunca al modelo, lee
+   * esta lista ya calculada. Así ningún visitante puede gastar tokens.
+   */
+  preguntas?: string[];
   metrics?: Record<string, number>;
   isFinished: boolean;
   timestamp: string;

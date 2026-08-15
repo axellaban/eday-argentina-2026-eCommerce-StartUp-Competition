@@ -320,6 +320,9 @@ export default function CopilotoPage() {
           project: projectRef.current,
           fullText: textoRef.current,
           lecturas: lecturasRef.current,
+          // Viajan de arrimo en el sync que ya existía: el home las muestra en
+          // la vista AI Judge sin pedirle nada al modelo.
+          preguntas: preguntasRef.current,
         }),
       }).catch(() => {});
     }, INTERVALO_SYNC_MS);
@@ -564,6 +567,8 @@ export default function CopilotoPage() {
           metrics: metricsRef.current,
           fullText: texto,
           lecturas: lecturasRef.current,
+          // Última foto de las preguntas: quedan pegadas a la ficha del equipo.
+          preguntas: preguntasRef.current,
         }),
       });
       const data = await res.json().catch(() => ({}));

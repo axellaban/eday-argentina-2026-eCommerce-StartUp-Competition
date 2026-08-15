@@ -987,6 +987,52 @@
     .ai-ficha__cuerpo { font-family: 'Poppins', sans-serif; font-size: .86rem; line-height: 1.7; color: rgba(223,247,233,.9); }
     .ai-ficha__cuerpo strong { color: #fff; }
 
+    /* Preguntas de cierre. Entran de a poco, así que cada una aparece con un
+       fade corto: se nota que el sistema acaba de sumar una sin que haya que
+       mirar fijo la lista. */
+    .ai-preguntas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; counter-reset: q; }
+    .ai-pregunta {
+      counter-increment: q;
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 13px 16px;
+      background: rgba(34,197,94,.05);
+      border: 1px solid rgba(34,197,94,.16);
+      border-left: 3px solid #22C55E;
+      border-radius: 8px;
+      font-family: 'Poppins', sans-serif;
+      font-size: clamp(.86rem, .8rem + .3vw, 1.02rem);
+      line-height: 1.55;
+      color: rgba(223,247,233,.94);
+      animation: aiPreguntaEntra .45s ease both;
+    }
+    .ai-pregunta::before {
+      content: counter(q);
+      flex: 0 0 auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem; font-weight: 700;
+      color: #04070A; background: #22C55E;
+      width: 20px; height: 20px; border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    @keyframes aiPreguntaEntra {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { .ai-pregunta { animation: none; } }
+
+    /* Dentro de una ficha ya cerrada van más discretas: ahí el protagonista
+       es el veredicto, no lo que se podría haber preguntado. */
+    .ai-ficha__preguntas {
+      margin-top: 14px; padding-top: 12px;
+      border-top: 1px dashed rgba(34,197,94,.2);
+    }
+    .ai-ficha__preguntas .ai-tag { display: block; margin-bottom: 8px; }
+    .ai-ficha__preguntas .ai-pregunta {
+      font-size: .82rem; padding: 9px 12px; animation: none;
+      background: rgba(34,197,94,.035);
+    }
+
     .ai-empty { color: rgba(200,245,218,.4); font-style: italic; padding: 26px 0; text-align: center; font-size: .82rem; }
 
     /* Los orbes de color y los conectores degradados son del lenguaje visual
@@ -1317,6 +1363,18 @@
         <div class="ai-radar-box"><canvas id="aiRadar"></canvas></div>
         <div class="ai-meters" id="aiMeters"></div>
       </div>
+    </section>
+
+    <!-- Preguntas de cierre.
+         Se arman solas en el copiloto mientras el orador habla: acá sólo se
+         leen del mismo poll, sin botón y sin llamar nunca al modelo. La
+         tarjeta aparece únicamente si hay preguntas. -->
+    <section class="ai-card" id="aiPreguntasCard" hidden>
+      <div class="ai-card__head">
+        <span class="ai-tag">preguntas_para_el_cierre</span>
+        <span class="ai-meta">generadas en vivo</span>
+      </div>
+      <ol class="ai-preguntas" id="aiPreguntas"></ol>
     </section>
 
     <!-- Fichas -->
@@ -2405,6 +2463,7 @@ async function refrescarAI() {
     fijarTextoAI(activa.transcript || '', cambioEquipo);
     pintarMedidoresAI(activa.metrics);
     pintarRadarAI(activa.metrics);
+    pintarPreguntasAI(activa.preguntas);
   } else {
     aiEquipoVisto = null;
     estadoAI(false, terminadas.length ? 'en pausa · sin pitch activo' : 'esperando el primer pitch');
@@ -2414,6 +2473,7 @@ async function refrescarAI() {
     fijarTextoAI('', true);
     pintarMedidoresAI(null);
     pintarRadarAI(null);
+    pintarPreguntasAI([]);
   }
 
   // ── Fichas ya cerradas ──
@@ -2439,9 +2499,46 @@ async function refrescarAI() {
     return `<article class="ai-ficha">
       <div class="ai-ficha__nombre">${escaparAI(s.team || 'Equipo')}</div>
       <div class="ai-ficha__proy">${escaparAI(s.project || '')}</div>
-      <div class="ai-ficha__cuerpo">${cuerpo}</div>
+      <div class="ai-ficha__cuerpo">${cuerpo}${bloquePreguntasFicha(s.preguntas)}</div>
     </article>`;
   }).join('');
+}
+
+/**
+ * Preguntas del pitch en curso.
+ *
+ * Se repintan sólo cuando la lista cambió de verdad. Si se reconstruyera el
+ * <ol> en cada poll, las seis preguntas volverían a hacer la animación de
+ * entrada cada 5 segundos y la tarjeta parecería estar titilando sola.
+ */
+let aiPreguntasVistas = '';
+
+function pintarPreguntasAI(preguntas) {
+  const card = document.getElementById('aiPreguntasCard');
+  const lista = document.getElementById('aiPreguntas');
+  const limpias = (Array.isArray(preguntas) ? preguntas : [])
+    .map(p => String(p || '').trim())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  const firma = limpias.join('␟');
+  if (firma === aiPreguntasVistas) return;
+  aiPreguntasVistas = firma;
+
+  card.hidden = limpias.length === 0;
+  lista.innerHTML = limpias.map(p => `<li class="ai-pregunta">${escaparAI(p)}</li>`).join('');
+}
+
+function bloquePreguntasFicha(preguntas) {
+  const limpias = (Array.isArray(preguntas) ? preguntas : [])
+    .map(p => String(p || '').trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  if (!limpias.length) return '';
+  return `<div class="ai-ficha__preguntas">
+    <span class="ai-tag">preguntas_para_el_cierre</span>
+    <ol class="ai-preguntas">${limpias.map(p => `<li class="ai-pregunta">${escaparAI(p)}</li>`).join('')}</ol>
+  </div>`;
 }
 
 function escaparAI(t) {
