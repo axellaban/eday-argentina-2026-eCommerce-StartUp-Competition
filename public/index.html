@@ -823,6 +823,206 @@
       .live-badge { font-size: 0.68rem; padding: 4px 10px; }
     }
 
+
+    /* ══════════════════════════════════════════════════════════
+       TOGGLE HUMAN / AI JUDGE + VISTA AI
+       ══════════════════════════════════════════════════════════ */
+
+    .judge-switch {
+      display: flex;
+      gap: 4px;
+      padding: 5px;
+      margin: 0 auto 4px;
+      width: fit-content;
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      backdrop-filter: blur(12px);
+    }
+    .judge-opt {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 11px 26px;
+      border: none; border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82rem; font-weight: 700; letter-spacing: .02em;
+      cursor: pointer;
+      transition: color .2s, background .25s cubic-bezier(.22,1,.36,1);
+      white-space: nowrap;
+    }
+    .judge-opt:hover { color: var(--text2); }
+    .judge-opt.is-on {
+      background: var(--brand);
+      color: #04121F;
+      box-shadow: 0 3px 16px rgba(0,168,255,.35);
+    }
+    .judge-ico { font-size: 1em; }
+
+    /* ── Modo AI: el fondo entero cambia a terminal ── */
+    body[data-modo="ai"] {
+      background: #04070A;
+      background-image:
+        linear-gradient(rgba(34,197,94,.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34,197,94,.045) 1px, transparent 1px),
+        radial-gradient(900px 500px at 50% -10%, rgba(34,197,94,.10), transparent 70%);
+      background-size: 44px 44px, 44px 44px, 100% 100%;
+      background-attachment: fixed;
+      color: #C8F5DA;
+    }
+    body[data-modo="ai"] .judge-switch {
+      background: rgba(34,197,94,.06);
+      border-color: rgba(34,197,94,.28);
+    }
+    body[data-modo="ai"] .judge-opt { color: rgba(200,245,218,.55); }
+    body[data-modo="ai"] .judge-opt.is-on {
+      background: #22C55E; color: #04120A;
+      box-shadow: 0 3px 18px rgba(34,197,94,.45);
+    }
+    body[data-modo="ai"] .header,
+    body[data-modo="ai"] footer {
+      background: rgba(6,18,12,.6);
+      border-color: rgba(34,197,94,.18);
+    }
+    body[data-modo="ai"] .header-title,
+    body[data-modo="ai"] .header-sub { font-family: 'JetBrains Mono', monospace; }
+
+    .ai-shell { display: flex; flex-direction: column; gap: 20px; font-family: 'JetBrains Mono', monospace; }
+
+    .ai-prompt {
+      display: flex; align-items: center; gap: 10px;
+      font-size: .92rem; letter-spacing: .02em;
+    }
+    .ai-prompt__sig { color: #22C55E; font-weight: 800; }
+    .ai-prompt__cmd { color: #C8F5DA; }
+    .ai-prompt__cursor {
+      display: inline-block; width: .55ch; height: 1.05em;
+      background: #22C55E; animation: aiBlink 1s steps(2,start) infinite;
+    }
+    @keyframes aiBlink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+    .ai-status {
+      display: inline-flex; align-items: center; gap: 9px;
+      font-size: .72rem; color: rgba(200,245,218,.65);
+      text-transform: uppercase; letter-spacing: .1em;
+    }
+    .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; }
+    .ai-dot.on { background: #22C55E; box-shadow: 0 0 10px #22C55E; animation: aiPulse 1.6s ease-in-out infinite; }
+    @keyframes aiPulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+    .ai-card {
+      background: rgba(6,20,14,.55);
+      border: 1px solid rgba(34,197,94,.22);
+      border-radius: 12px;
+      padding: clamp(16px,2vw,26px);
+      box-shadow: 0 0 0 1px rgba(34,197,94,.05), 0 18px 50px rgba(0,0,0,.5);
+    }
+    .ai-card__head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+      padding-bottom: 12px; margin-bottom: 16px;
+      border-bottom: 1px dashed rgba(34,197,94,.22);
+    }
+    .ai-tag {
+      color: #22C55E; font-size: .7rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .12em;
+    }
+    .ai-tag::before { content: "// "; opacity: .55; }
+    .ai-meta { color: rgba(200,245,218,.5); font-size: .7rem; }
+
+    .ai-equipo {
+      font-family: 'Poppins', sans-serif;
+      font-size: clamp(1.5rem, 1.1rem + 1.9vw, 2.9rem);
+      font-weight: 800; color: #fff; line-height: 1.1;
+    }
+    .ai-proyecto { color: rgba(200,245,218,.6); font-size: .82rem; margin-top: 4px; }
+
+    .ai-transcript {
+      margin-top: 18px;
+      min-height: clamp(180px, 30vh, 380px);
+      max-height: 46vh; overflow-y: auto;
+      background: rgba(0,0,0,.45);
+      border: 1px solid rgba(34,197,94,.14);
+      border-radius: 9px;
+      padding: clamp(14px,1.6vw,22px);
+      font-size: clamp(.95rem, .8rem + .55vw, 1.5rem);
+      line-height: 1.75; color: #DFF7E9;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .ai-vacio { color: rgba(200,245,218,.35); font-style: italic; }
+    .ai-caret {
+      display: inline-block; width: .5ch; height: 1em;
+      background: #22C55E; vertical-align: text-bottom;
+      animation: aiBlink 1s steps(2,start) infinite;
+    }
+
+    .ai-split { display: grid; gap: 22px; align-items: center; }
+    @media (min-width: 1000px) { .ai-split { grid-template-columns: minmax(0,420px) minmax(0,1fr); } }
+    .ai-radar-box { position: relative; height: clamp(280px, 34vw, 420px); }
+
+    .ai-meters { display: grid; gap: 12px; }
+    @media (min-width: 640px) { .ai-meters { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+    .ai-meter {
+      background: rgba(0,0,0,.3);
+      border: 1px solid rgba(34,197,94,.14);
+      border-radius: 9px; padding: 12px 14px;
+    }
+    .ai-meter__top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 9px; }
+    .ai-meter__name { font-size: .74rem; color: rgba(200,245,218,.8); font-weight: 700; letter-spacing: .02em; }
+    .ai-meter__val { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .ai-meter__track { position: relative; height: 8px; background: rgba(255,255,255,.06); border-radius: 99px; overflow: hidden; }
+    .ai-meter__mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.22); z-index: 2; }
+    .ai-meter__fill { height: 100%; border-radius: 99px; transition: width 1.2s cubic-bezier(.22,1,.36,1), background .8s; }
+
+    .ai-ficha {
+      background: rgba(0,0,0,.28);
+      border: 1px solid rgba(34,197,94,.16);
+      border-left: 3px solid #22C55E;
+      border-radius: 9px; padding: 18px 20px;
+    }
+    .ai-ficha + .ai-ficha { margin-top: 14px; }
+    .ai-ficha__nombre { font-family:'Poppins',sans-serif; font-size: 1.15rem; font-weight: 800; color: #fff; }
+    .ai-ficha__proy { font-size: .74rem; color: rgba(200,245,218,.55); margin-bottom: 12px; }
+    .ai-ficha__cuerpo { font-family: 'Poppins', sans-serif; font-size: .86rem; line-height: 1.7; color: rgba(223,247,233,.9); }
+    .ai-ficha__cuerpo strong { color: #fff; }
+
+    .ai-empty { color: rgba(200,245,218,.4); font-style: italic; padding: 26px 0; text-align: center; font-size: .82rem; }
+
+    /* Los orbes de color y los conectores degradados son del lenguaje visual
+       del modo humano: en la terminal ensucian. */
+    body[data-modo="ai"] .ambient-orb,
+    body[data-modo="ai"] .part-connector { display: none; }
+    body[data-modo="ai"] .ai-ficha__cuerpo .ficha-section-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .7rem; letter-spacing: .1em; text-transform: uppercase;
+      color: #22C55E; margin: 16px 0 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    body[data-modo="ai"] .ai-ficha__cuerpo .ficha-veredicto { margin-top: 14px; }
+
+    /* El header es compartido por las dos vistas: en modo terminal se le
+       apagan los azules de marca para que no queden dos paletas peleando. */
+    body[data-modo="ai"] .live-badge {
+      background: rgba(34,197,94,.10);
+      border-color: rgba(34,197,94,.3);
+      color: #22C55E;
+    }
+    body[data-modo="ai"] .live-dot { background: #22C55E; box-shadow: 0 0 8px #22C55E; }
+    body[data-modo="ai"] .header-title { color: #DFF7E9; }
+    body[data-modo="ai"] .header-title span,
+    body[data-modo="ai"] .header-title em { color: #22C55E; }
+    body[data-modo="ai"] .header-sub { color: rgba(200,245,218,.55); }
+    body[data-modo="ai"] .btn-ghost {
+      border-color: rgba(34,197,94,.28);
+      color: rgba(200,245,218,.8);
+    }
+    body[data-modo="ai"] .btn-ghost:hover { border-color: #22C55E; color: #22C55E; }
+
+    @media (max-width: 560px) {
+      .judge-opt { padding: 10px 16px; font-size: .74rem; }
+    }
+
   </style>
 </head>
 <body>
@@ -867,6 +1067,18 @@
 
   <div class="part-connector" style="--c-from: var(--brand); --c-to: var(--purple);"></div>
 
+
+  <!-- ══ TOGGLE · HUMAN JUDGE / AI JUDGE ══ -->
+  <div class="judge-switch" role="tablist" aria-label="Modo de evaluación">
+    <button class="judge-opt is-on" id="optHumano" role="tab" aria-selected="true" onclick="setModo('humano')">
+      <span class="judge-ico">👤</span> Human Judge
+    </button>
+    <button class="judge-opt" id="optIA" role="tab" aria-selected="false" onclick="setModo('ai')">
+      <span class="judge-ico">◍</span> AI Judge
+    </button>
+  </div>
+
+<div id="vistaHumano">
   <!-- ══ CONNECTION STATUS BANNER ══ -->
   <div id="connBanner" class="conn-banner" style="display:none;">
     <span class="conn-icon" id="connIcon"></span>
@@ -1061,6 +1273,62 @@
       <div id="fichasContainer" style="display:flex;flex-direction:column;gap:20px;"></div>
     </div>
   </div>
+</div><!-- /vistaHumano -->
+
+<!-- ══ VISTA · AI JUDGE ══════════════════════════════════════════
+     Lo mismo que ve la sala en /publico, pero acá con estética de
+     terminal: es "así puntuó la máquina" contra "así puntuó el humano".
+     Los datos salen de GET /api/fichas, que es público, así que esta
+     vista no necesita el canal en tiempo real: refresca sola cada 5s. -->
+<div id="vistaIA" hidden>
+
+  <div class="ai-shell">
+    <div class="ai-prompt">
+      <span class="ai-prompt__sig">$</span>
+      <span class="ai-prompt__cmd">eday --judge=ai --live</span>
+      <span class="ai-prompt__cursor"></span>
+    </div>
+
+    <!-- Estado -->
+    <div class="ai-status" id="aiStatus">
+      <span class="ai-dot" id="aiDot"></span>
+      <span id="aiStatusText">conectando…</span>
+    </div>
+
+    <!-- Pitch en curso -->
+    <section class="ai-card">
+      <div class="ai-card__head">
+        <span class="ai-tag">presentando_ahora</span>
+        <span class="ai-meta" id="aiLecturas"></span>
+      </div>
+      <h2 class="ai-equipo" id="aiEquipo">—</h2>
+      <div class="ai-proyecto" id="aiProyecto"></div>
+      <div class="ai-transcript" id="aiTranscript">
+        <span class="ai-vacio">esperando audio del orador…</span>
+      </div>
+    </section>
+
+    <!-- Indicadores -->
+    <section class="ai-card">
+      <div class="ai-card__head">
+        <span class="ai-tag">indicadores · 0-100 · 50 = neutro</span>
+      </div>
+      <div class="ai-split">
+        <div class="ai-radar-box"><canvas id="aiRadar"></canvas></div>
+        <div class="ai-meters" id="aiMeters"></div>
+      </div>
+    </section>
+
+    <!-- Fichas -->
+    <section class="ai-card">
+      <div class="ai-card__head">
+        <span class="ai-tag">fichas_generadas</span>
+        <span class="ai-meta" id="aiFichasCount">0</span>
+      </div>
+      <div id="aiFichasList"></div>
+    </section>
+  </div>
+</div><!-- /vistaIA -->
 
 
   <footer style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px 0 24px;margin-top:20px;border-top:1px solid var(--border);">
@@ -1256,7 +1524,23 @@ async function loadData(showLoader = false) {
     for (const nombre of SHEET_NAME_CANDIDATES) {
       const url = `${csvUrl(nombre)}&cachebust=${Date.now()}`;
       try {
-        const res = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache, no-store' } });
+        // Sin corte, si Google se cuelga la promesa nunca resuelve: son cuatro
+        // intentos en fila y el overlay de carga se queda tapando la pantalla
+        // para siempre, incluido el toggle de AI Judge. Cada intento tiene su
+        // propio límite y, si se agotan, cae al catch de abajo y muestra el
+        // banner de error con los datos que ya tenía.
+        const corte = new AbortController();
+        const reloj = setTimeout(() => corte.abort(), 8000);
+        let res;
+        try {
+          res = await fetch(url, {
+            cache: 'no-store',
+            signal: corte.signal,
+            headers: { 'Cache-Control': 'no-cache, no-store' }
+          });
+        } finally {
+          clearTimeout(reloj);
+        }
         if (!res.ok) { lastError = new Error(`HTTP ${res.status} — El servidor de Google respondió con error`); continue; }
 
         if (isFirstLoad || showLoader) {
@@ -1265,6 +1549,13 @@ async function loadData(showLoader = false) {
         const candidato = parseCSV(await res.text());
         if (candidato.length > 0) { parsed = candidato; break; }
       } catch (err) {
+        if (err?.name === 'AbortError') {
+          // Si Google no contesta, no contesta para ninguna variante del
+          // nombre de hoja: probar las otras tres sólo suma 24 segundos de
+          // pantalla tapada.
+          lastError = new Error('Google Sheets no respondió en 8 segundos.');
+          break;
+        }
         lastError = err;
       }
     }
@@ -1312,9 +1603,30 @@ async function loadData(showLoader = false) {
     );
   }
 
-  renderAll();
-  overlay.style.display = 'none';
-  isFirstLoad = false;
+  /**
+   * El overlay se saca SIEMPRE, pase lo que pase.
+   *
+   * Antes `renderAll()` estaba suelto acá: si algo adentro tiraba una
+   * excepción — el caso real es que no cargue Chart.js desde el CDN, porque
+   * el wifi del venue bloquea jsdelivr — la línea de abajo nunca corría y la
+   * pantalla se quedaba tapada por el cartel de "Conectando a Google Sheets…"
+   * para siempre, sin manera de llegar ni al toggle de AI Judge.
+   */
+  try {
+    renderAll();
+  } catch (e) {
+    console.error('Falló el render del dashboard:', e);
+    showBanner('error',
+      'El dashboard cargó los datos pero no pudo dibujar los gráficos',
+      (e && e.message === 'Chart is not defined')
+        ? 'No se pudo cargar la librería de gráficos (CDN bloqueado). Los datos y las fichas siguen disponibles.'
+        : (e && e.message) || 'Error inesperado al renderizar.',
+      'Render parcial'
+    );
+  } finally {
+    overlay.style.display = 'none';
+    isFirstLoad = false;
+  }
 }
 
 function DEMO_DATA() {
@@ -1865,6 +2177,283 @@ function resetAI() {
   document.getElementById('aiFichas').style.display = 'none';
   loadFichas();
 }
+
+// ═══════════════════════════════════════════════
+// MODO AI JUDGE
+// ═══════════════════════════════════════════════
+// El mismo evento visto por dos jurados. "Human Judge" es la planilla del
+// jurado humano (Google Sheets); "AI Judge" es lo que la máquina está midiendo
+// en vivo, con la misma información que se proyecta en /publico.
+//
+// Esta vista no usa Pusher a propósito: el canal en tiempo real está pensado
+// para la pantalla de la sala (una conexión), y el home lo puede estar mirando
+// medio auditorio desde el celular. Un GET a /api/fichas cada 5s es barato,
+// no consume conexiones concurrentes y alcanza de sobra para el ritmo de un
+// pitch hablado.
+
+const AI_KEYS = ['mercado', 'producto', 'innovacion', 'ejecucion', 'equipo', 'percepcion'];
+const AI_INTERVALO_MS = 5000;
+
+let aiModo        = 'humano';
+let aiPollTimer   = null;
+let aiRadarChart  = null;
+let aiMetersListo = false;
+let aiEquipoVisto = null;
+
+// Efecto máquina de escribir: el texto no aparece de golpe, se revela.
+let aiTextoObjetivo  = '';
+let aiTextoMostrado  = '';
+let aiEscrituraTimer = null;
+
+function setModo(modo) {
+  aiModo = modo === 'ai' ? 'ai' : 'humano';
+  const esAI = aiModo === 'ai';
+
+  document.getElementById('vistaHumano').hidden = esAI;
+  document.getElementById('vistaIA').hidden     = !esAI;
+
+  if (esAI) document.body.dataset.modo = 'ai';
+  else      delete document.body.dataset.modo;
+
+  const bHum = document.getElementById('optHumano');
+  const bIA  = document.getElementById('optIA');
+  bHum.classList.toggle('is-on', !esAI);
+  bIA.classList.toggle('is-on', esAI);
+  bHum.setAttribute('aria-selected', String(!esAI));
+  bIA.setAttribute('aria-selected', String(esAI));
+
+  try { localStorage.setItem('edayModo', aiModo); } catch (e) {}
+
+  clearInterval(aiPollTimer);
+  aiPollTimer = null;
+
+  if (esAI) {
+    construirMedidoresAI();
+    refrescarAI();
+    aiPollTimer = setInterval(refrescarAI, AI_INTERVALO_MS);
+  } else {
+    // El radar de Chart.js sigue vivo en un canvas oculto y se descuadra al
+    // volver: se destruye y se rearma con las medidas correctas.
+    if (aiRadarChart) { aiRadarChart.destroy(); aiRadarChart = null; }
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function colorMedidor(v) {
+  if (v >= 66) return '#22C55E';
+  if (v >= 45) return '#A3E635';
+  return '#FB923C';
+}
+
+function construirMedidoresAI() {
+  if (aiMetersListo) return;
+  const cont = document.getElementById('aiMeters');
+  cont.innerHTML = CRITERIA.map((nombre, i) => `
+    <div class="ai-meter" id="aiMeter_${AI_KEYS[i]}">
+      <div class="ai-meter__top">
+        <span class="ai-meter__name">${nombre}</span>
+        <span class="ai-meter__val" data-val>50</span>
+      </div>
+      <div class="ai-meter__track">
+        <span class="ai-meter__mid"></span>
+        <div class="ai-meter__fill" data-fill style="width:50%;background:#A3E635;"></div>
+      </div>
+    </div>`).join('');
+  aiMetersListo = true;
+}
+
+function pintarMedidoresAI(metrics) {
+  construirMedidoresAI();
+  AI_KEYS.forEach(k => {
+    const box = document.getElementById('aiMeter_' + k);
+    if (!box) return;
+    const v = Math.max(0, Math.min(100, Number(metrics && metrics[k] != null ? metrics[k] : 50)));
+    const c = colorMedidor(v);
+    box.querySelector('[data-val]').textContent = Math.round(v);
+    box.querySelector('[data-val]').style.color = c;
+    const fill = box.querySelector('[data-fill]');
+    fill.style.width = v + '%';
+    fill.style.background = c;
+  });
+}
+
+function pintarRadarAI(metrics) {
+  const canvas = document.getElementById('aiRadar');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const valores = AI_KEYS.map(k => Math.max(0, Math.min(100, Number(metrics && metrics[k] != null ? metrics[k] : 50))));
+
+  if (aiRadarChart) {
+    aiRadarChart.data.datasets[0].data = valores;
+    aiRadarChart.update('none');
+    return;
+  }
+
+  aiRadarChart = new Chart(canvas.getContext('2d'), {
+    type: 'radar',
+    data: {
+      labels: CRITERIA_SHORT,
+      datasets: [{
+        label: 'Medición IA',
+        data: valores,
+        borderColor: '#22C55E',
+        backgroundColor: 'rgba(34,197,94,.16)',
+        borderWidth: 2,
+        pointBackgroundColor: '#22C55E',
+        pointBorderColor: '#04070A',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 700 },
+      plugins: { legend: { display: false } },
+      scales: {
+        r: {
+          min: 0, max: 100,
+          ticks: { display: false, stepSize: 25 },
+          grid:       { color: 'rgba(34,197,94,.16)' },
+          angleLines: { color: 'rgba(34,197,94,.16)' },
+          pointLabels: {
+            color: 'rgba(200,245,218,.85)',
+            font: { family: "'JetBrains Mono', monospace", size: window.innerWidth < 700 ? 10 : 12, weight: '700' }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Transcript con efecto de escritura ────────────────────────────
+function fijarTextoAI(texto, reiniciar) {
+  aiTextoObjetivo = texto || '';
+
+  // Cambio de equipo o texto que no continúa al anterior: se muestra entero,
+  // sin animar diez mil caracteres que nadie va a leer letra por letra.
+  if (reiniciar || !aiTextoObjetivo.startsWith(aiTextoMostrado)) {
+    aiTextoMostrado = aiTextoObjetivo;
+    pintarTranscriptAI(false);
+    return;
+  }
+  arrancarEscrituraAI();
+}
+
+function arrancarEscrituraAI() {
+  if (aiEscrituraTimer) return;
+  aiEscrituraTimer = setInterval(() => {
+    const pendiente = aiTextoObjetivo.length - aiTextoMostrado.length;
+    if (pendiente <= 0) {
+      clearInterval(aiEscrituraTimer);
+      aiEscrituraTimer = null;
+      pintarTranscriptAI(false);
+      return;
+    }
+    // Cuanto más atrasado está, más rápido escribe: nunca se queda colgado
+    // detrás del orador.
+    const paso = Math.max(1, Math.ceil(pendiente / 45));
+    aiTextoMostrado = aiTextoObjetivo.slice(0, aiTextoMostrado.length + paso);
+    pintarTranscriptAI(true);
+  }, 32);
+}
+
+function pintarTranscriptAI(conCursor) {
+  const box = document.getElementById('aiTranscript');
+  if (!box) return;
+  if (!aiTextoMostrado) {
+    box.innerHTML = '<span class="ai-vacio">esperando audio del orador…</span>';
+    return;
+  }
+  const pegadoAbajo = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  box.textContent = aiTextoMostrado;
+  if (conCursor) box.insertAdjacentHTML('beforeend', '<span class="ai-caret"></span>');
+  if (pegadoAbajo) box.scrollTop = box.scrollHeight;
+}
+
+function estadoAI(encendido, texto) {
+  document.getElementById('aiDot').classList.toggle('on', !!encendido);
+  document.getElementById('aiStatusText').textContent = texto;
+}
+
+async function refrescarAI() {
+  if (aiModo !== 'ai') return;
+  let data;
+  try {
+    const res = await fetch('/api/fichas?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    estadoAI(false, 'sin conexión con el copiloto');
+    return;
+  }
+
+  const activa    = data.activeSession || null;
+  const terminadas = Array.isArray(data.finishedSessions) ? data.finishedSessions : [];
+
+  // ── Pitch en curso ──
+  if (activa && activa.team) {
+    const cambioEquipo = aiEquipoVisto !== activa.team;
+    aiEquipoVisto = activa.team;
+
+    estadoAI(true, 'en vivo · midiendo');
+    document.getElementById('aiEquipo').textContent   = activa.team;
+    document.getElementById('aiProyecto').textContent = activa.project || '';
+    const n = Number(activa.lecturas) || 0;
+    document.getElementById('aiLecturas').textContent = n ? `${n} lectura${n === 1 ? '' : 's'} de IA` : 'calibrando…';
+
+    fijarTextoAI(activa.transcript || '', cambioEquipo);
+    pintarMedidoresAI(activa.metrics);
+    pintarRadarAI(activa.metrics);
+  } else {
+    aiEquipoVisto = null;
+    estadoAI(false, terminadas.length ? 'en pausa · sin pitch activo' : 'esperando el primer pitch');
+    document.getElementById('aiEquipo').textContent   = '—';
+    document.getElementById('aiProyecto').textContent = '';
+    document.getElementById('aiLecturas').textContent = '';
+    fijarTextoAI('', true);
+    pintarMedidoresAI(null);
+    pintarRadarAI(null);
+  }
+
+  // ── Fichas ya cerradas ──
+  document.getElementById('aiFichasCount').textContent =
+    terminadas.length ? `${terminadas.length} equipo${terminadas.length === 1 ? '' : 's'}` : '0';
+  const lista = document.getElementById('aiFichasList');
+
+  if (!terminadas.length) {
+    lista.innerHTML = '<div class="ai-empty">todavía no cerró ningún equipo</div>';
+    return;
+  }
+
+  lista.innerHTML = terminadas.map(s => {
+    let cuerpo;
+    if (s.analysis) {
+      cuerpo = buildFichaBody(parseFichaRaw(s.analysis), '#22C55E');
+    } else if (s.analysisError) {
+      cuerpo = `<p style="color:#FB923C;">No se pudo generar la ficha: ${escaparAI(s.analysisError)}</p>` +
+               (s.transcript ? `<p style="opacity:.7;margin-top:10px;">${escaparAI(s.transcript.slice(0, 600))}…</p>` : '');
+    } else {
+      cuerpo = '<p style="opacity:.6;">Ficha en generación…</p>';
+    }
+    return `<article class="ai-ficha">
+      <div class="ai-ficha__nombre">${escaparAI(s.team || 'Equipo')}</div>
+      <div class="ai-ficha__proy">${escaparAI(s.project || '')}</div>
+      <div class="ai-ficha__cuerpo">${cuerpo}</div>
+    </article>`;
+  }).join('');
+}
+
+function escaparAI(t) {
+  return String(t == null ? '' : t)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// El modo elegido sobrevive al refresco: si el operador dejó el home en AI
+// Judge proyectado en la sala, un F5 no lo devuelve a la planilla.
+try {
+  if (localStorage.getItem('edayModo') === 'ai') setModo('ai');
+} catch (e) {}
 
 // ═══════════════════════════════════════════════
 // INIT
