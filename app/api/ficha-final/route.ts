@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { INDICATORS } from "@/lib/criteria";
 import { motivoGemini } from "@/lib/gemini-error";
+import { urlGemini, olvidarModelo } from "@/lib/gemini";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -115,7 +116,7 @@ ${transcript}`;
       const corte = setTimeout(() => controlador.abort(), TIMEOUT_MS);
       try {
         return await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        await urlGemini(apiKey),
         {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -156,6 +157,9 @@ ${transcript}`;
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
+      // El modelo elegido dejó de existir: se tira el cache para que la
+      // próxima llamada vuelva a preguntar cuál está disponible.
+      if (res.status === 404) olvidarModelo();
       return NextResponse.json(
         { error: motivoGemini(res.status, detail), detail: detail.slice(0, 300) },
         { status: res.status }

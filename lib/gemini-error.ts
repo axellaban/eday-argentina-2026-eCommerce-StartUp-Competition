@@ -29,7 +29,7 @@ export function motivoGemini(status: number, cuerpo: string): string {
     return `Gemini denegó el acceso (403). ${mensaje || "La key no tiene permiso para este modelo."}`;
   }
   if (status === 404) {
-    return `Gemini no encontró el modelo (404). ${mensaje || ""} → puede que la key no tenga habilitado gemini-2.5-flash.`;
+    return `Gemini no encontró el modelo (404). ${mensaje || ""} → ese modelo dejó de existir para esta key; se vuelve a resolver solo en la próxima llamada.`;
   }
   return `Error de Gemini (${status})${mensaje ? `: ${mensaje}` : ""}`;
 }

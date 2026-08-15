@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { urlGemini } from "@/lib/gemini";
 import { INDICATORS_PROMPT_BLOCK } from "@/lib/criteria";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +64,7 @@ ${question || "(Analizar pitch acumulado)"}`;
     let res: Response;
     try {
       res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        await urlGemini(apiKey),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -151,3 +151,60 @@ export async function POST(req: Request) {
     );
   }
 }
+
+/**
+ * Borra sesiones guardadas.
+ *
+ * Existe porque los ensayos quedan mezclados con lo real: se prueba el
+ * micrófono con "Equipo Test", se corta un pitch a la mitad, se arranca dos
+ * veces el mismo equipo. Antes de que empiece el evento hay que poder dejar la
+ * base limpia sin entrar a Upstash a mano.
+ *
+ *   DELETE /api/fichas?team=Nombre  → borra esa sesión
+ *   DELETE /api/fichas?all=1        → borra todas
+ *
+ * Sólo el operador puede llamarlo: el middleware deja pasar sin contraseña
+ * únicamente el GET de esta ruta. La pantalla pública y el AI Judge del home
+ * leen del mismo store, así que lo borrado desaparece solo de ahí.
+ */
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const team = searchParams.get("team");
+    const todas = searchParams.get("all") === "1";
+
+    if (!team && !todas) {
+      return NextResponse.json(
+        { error: "Indicá ?team=Nombre o ?all=1." },
+        { status: 400 }
+      );
+    }
+
+    const data = await loadSessions();
+
+    if (todas) {
+      const borradas = Object.keys(data.sessions).length;
+      data.sessions = {};
+      data.activeTeam = null;
+      await saveSessions(data);
+      return NextResponse.json({ success: true, borradas, durable: isDurable() });
+    }
+
+    if (!data.sessions[team!]) {
+      return NextResponse.json({ error: "Ese equipo no está guardado." }, { status: 404 });
+    }
+
+    delete data.sessions[team!];
+    // Si era el que estaba presentando, deja de estarlo: si no, el home se
+    // queda mostrando "presentando ahora" un equipo que ya no existe.
+    if (data.activeTeam === team) data.activeTeam = null;
+
+    await saveSessions(data);
+    return NextResponse.json({ success: true, borradas: 1, team, durable: isDurable() });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e.message || "Error al borrar la sesión." },
+      { status: 500 }
+    );
+  }
+}
