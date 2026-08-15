@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { INDICATORS } from "@/lib/criteria";
+import { motivoGemini } from "@/lib/gemini-error";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -155,17 +156,8 @@ ${transcript}`;
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      // El mensaje de Google viene anidado; se extrae lo legible.
-      let motivo = detail.slice(0, 300);
-      try {
-        const j = JSON.parse(detail);
-        motivo = j?.error?.message || motivo;
-      } catch {}
       return NextResponse.json(
-        {
-          error: res.status === 429 ? "Gemini rechazó por límite de uso" : "Error en Gemini API",
-          detail: motivo,
-        },
+        { error: motivoGemini(res.status, detail), detail: detail.slice(0, 300) },
         { status: res.status }
       );
     }

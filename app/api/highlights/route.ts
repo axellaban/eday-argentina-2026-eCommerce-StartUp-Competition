@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { motivoGemini } from "@/lib/gemini-error";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -162,7 +163,7 @@ ${recortar(transcript)}`;
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       return NextResponse.json(
-        { error: "Error en Gemini API", detail: detail.slice(0, 300) },
+        { error: motivoGemini(res.status, detail), detail: detail.slice(0, 300) },
         { status: res.status }
       );
     }

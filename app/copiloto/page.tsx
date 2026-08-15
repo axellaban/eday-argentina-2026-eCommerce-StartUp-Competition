@@ -261,7 +261,14 @@ export default function CopilotoPage() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) return;                       // El marcado es un extra: si falla, no molesta.
+      if (!res.ok) {
+        // El marcado es un extra y no corta la grabación, pero callarlo del
+        // todo fue un error: si Gemini está rechazando, esto falla junto con
+        // los indicadores y el operador veía las barras quietas sin ninguna
+        // pista de por qué.
+        setHealth({ tone: "warn", msg: data.error || "No se pudieron marcar el transcript ni las preguntas." });
+        return;
+      }
       if (Array.isArray(data.marcas)) setMarcas(data.marcas);
       if (Array.isArray(data.preguntas)) {
         preguntasRef.current = data.preguntas;
@@ -320,6 +327,17 @@ export default function CopilotoPage() {
           project: projectRef.current,
           fullText: textoRef.current,
           lecturas: lecturasRef.current,
+          /**
+           * Los indicadores en curso.
+           *
+           * Iban sólo por Pusher, que le llega a /publico pero no queda
+           * guardado en ningún lado: el servidor recién los veía en el POST
+           * de finalizar. Así, el AI Judge del home —que lee del servidor,
+           * no del canal— mostraba los seis medidores clavados en 50
+           * durante todo el pitch y recién saltaban al valor real cuando el
+           * equipo cerraba.
+           */
+          metrics: metricsRef.current,
           // Viajan de arrimo en el sync que ya existía: el home las muestra en
           // la vista AI Judge sin pedirle nada al modelo.
           preguntas: preguntasRef.current,
