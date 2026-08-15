@@ -495,7 +495,7 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 @media (max-width: 640px) {
   .transcript--live { min-height: 46vh; max-height: 58vh; }
 }
-.transcript--op   { font-size: var(--fs-sm); flex: 1; min-height: 0; }
+.transcript--op   { font-size: var(--fs-sm); flex: 1; min-height: 0; line-height: 2; }
 .transcript p { margin-bottom: 9px; }
 .transcript__interim { color: var(--brand); font-style: italic; }
 .transcript__empty { color: var(--text-3); font-style: italic; text-align: center; padding: 12% 0; font-size: var(--fs-sm); }
@@ -626,7 +626,6 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 }
 
 .radar__area {
-  fill: url(#radarFill);
   stroke: var(--brand);
   stroke-width: 2.5;
   stroke-linejoin: round;
@@ -685,18 +684,31 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
   border-radius: var(--radius-pill);
   padding: 4px 11px;
 }
-.hl-legend__swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.hl-legend__swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; }
 
+/* Resaltador de verdad: fondo lleno y tinta oscura.
+   Por qué no un tinte suave sobre el fondo oscuro: se midió y NO funciona.
+   Al 28%, 34% y 40% de opacidad los tres tintes quedaban en 6.9, 8.2 y 9.6 de
+   separación en visión normal, bajo el piso de 15 — el navy los apaga y los
+   vuelve tres grises casi iguales. Con fondo claro la separación sube a 22.1
+   (10.5 en visión con daltonismo) y se distinguen de verdad.
+
+   Estos tres colores no cumplen la banda de luminosidad del validador, y está
+   bien que no: esa banda es para MARCAS sobre una superficie. Acá el color ES
+   la superficie y lo que importa es el contraste con la tinta, que va de
+   7.4:1 a 9.8:1. */
 .hl {
-  border-radius: 3px;
-  padding: 1px 2px;
-  border-bottom: 2px solid;
-  /* El tinte es suave a propósito: el texto tiene que seguir legible.
-     El color saturado vive en el borde y en la leyenda, no bajo las letras. */
+  border-radius: 4px;
+  padding: 2px 5px;
+  margin: 0 1px;
+  color: #04121F;
+  font-weight: 600;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
-.hl--dato  { background: rgba(25, 158, 112, 0.16); border-color: #199e70; }
-.hl--demo  { background: rgba(57, 135, 229, 0.16); border-color: #3987e5; }
-.hl--flojo { background: rgba(217, 89, 38, 0.16);  border-color: #d95926; }
+.hl--dato  { background: #34d399; }
+.hl--demo  { background: #60a5fa; }
+.hl--flojo { background: #fb923c; }
 
 .preguntas { display: flex; flex-direction: column; gap: 9px; margin-top: 9px; }
 .preguntas__item {

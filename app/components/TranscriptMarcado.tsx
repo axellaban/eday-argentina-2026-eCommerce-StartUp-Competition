@@ -18,9 +18,9 @@ export interface Marca {
 }
 
 export const TIPOS_MARCA: Record<TipoMarca, { label: string; icono: string; color: string }> = {
-  dato: { label: "Evidencia dura", icono: "◆", color: "#199e70" },
-  demo: { label: "Demo en vivo", icono: "▶", color: "#3987e5" },
-  flojo: { label: "Sin respaldo", icono: "▲", color: "#d95926" },
+  dato: { label: "Evidencia dura", icono: "◆", color: "#34d399" },
+  demo: { label: "Demo en vivo", icono: "▶", color: "#60a5fa" },
+  flojo: { label: "Sin respaldo", icono: "▲", color: "#fb923c" },
 };
 
 interface Segmento {
@@ -90,7 +90,6 @@ export default function TranscriptMarcado({
               key={i}
               className={`hl hl--${s.tipo}`}
               title={TIPOS_MARCA[s.tipo].label}
-              style={{ color: "inherit" }}
             >
               {s.texto}
             </mark>

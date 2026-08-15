@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useId } from "react";
 import { INDICATORS } from "@/lib/criteria";
 
 /**
@@ -57,12 +57,17 @@ export default function Radar({ valores, silueta, siluetaLabel = "Hace ~1 min" }
   const serie = INDICATORS.map((i) => valores[i.key] ?? 50);
   const serieSilueta = silueta ? INDICATORS.map((i) => silueta[i.key] ?? 50) : null;
 
+  // En la pantalla pública hay varios radares a la vez (el del pitch en curso
+  // y uno por equipo terminado). Con un id fijo, todos los <defs> compartían
+  // nombre: HTML inválido y el primer gradiente pisando a los demás.
+  const fillId = `radarFill-${useId().replace(/:/g, "")}`;
+
   return (
     <figure className="radar">
       <svg viewBox="0 0 560 420" className="radar__svg" role="img"
            aria-label="Radar de los 6 indicadores del equipo que presenta">
         <defs>
-          <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
+          <radialGradient id={fillId} cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.30" />
             <stop offset="100%" stopColor="var(--brand)" stopOpacity="0.12" />
           </radialGradient>
@@ -92,7 +97,7 @@ export default function Radar({ valores, silueta, siluetaLabel = "Hace ~1 min" }
         )}
 
         {/* Estado actual */}
-        <polygon points={poligono(serie)} className="radar__area" />
+        <polygon points={poligono(serie)} className="radar__area" style={{ fill: `url(#${fillId})` }} />
         {serie.map((v, i) => {
           const p = punto(v, i, serie.length);
           return <circle key={INDICATORS[i].key} cx={p.x} cy={p.y} r="5" className="radar__punto" />;
@@ -118,23 +123,25 @@ export default function Radar({ valores, silueta, siluetaLabel = "Hace ~1 min" }
         })}
       </svg>
 
-      {/* Con dos formas en pantalla hace falta leyenda: color + trazo */}
-      <figcaption className="radar__leyenda">
-        <span className="radar__leyenda-item">
-          <svg width="22" height="8" aria-hidden="true">
-            <line x1="1" y1="4" x2="21" y2="4" className="radar__muestra radar__muestra--ahora" />
-          </svg>
-          Ahora
-        </span>
-        {serieSilueta && (
+      {/* Leyenda sólo cuando hay dos formas. Con una sola serie sobra: el
+          título de la sección ya dice qué es, y un cartel que dice "Ahora"
+          bajo la huella de un equipo que ya terminó era directamente falso. */}
+      {serieSilueta && (
+        <figcaption className="radar__leyenda">
+          <span className="radar__leyenda-item">
+            <svg width="22" height="8" aria-hidden="true">
+              <line x1="1" y1="4" x2="21" y2="4" className="radar__muestra radar__muestra--ahora" />
+            </svg>
+            Ahora
+          </span>
           <span className="radar__leyenda-item radar__leyenda-item--mute">
             <svg width="22" height="8" aria-hidden="true">
               <line x1="1" y1="4" x2="21" y2="4" className="radar__muestra radar__muestra--antes" />
             </svg>
             {siluetaLabel}
           </span>
-        )}
-      </figcaption>
+        </figcaption>
+      )}
     </figure>
   );
 }

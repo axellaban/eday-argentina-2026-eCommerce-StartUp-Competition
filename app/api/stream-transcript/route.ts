@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { broadcast } from "@/lib/pusher";
-import { PUSHER_EVENTS } from "@/lib/pusher-config";
+import { MAX_TRANSCRIPT_EVENTO, PUSHER_EVENTS } from "@/lib/pusher-config";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,9 @@ export async function POST(req: Request) {
     const result = await broadcast(esSync ? PUSHER_EVENTS.sync : PUSHER_EVENTS.transcript, {
       team,
       project,
-      ...(esSync ? { fullText: contenido } : { textChunk: contenido, isFinal: !!isFinal }),
+      ...(esSync
+        ? { fullText: contenido.slice(-MAX_TRANSCRIPT_EVENTO), fullTextLargo: contenido.length }
+        : { textChunk: contenido, isFinal: !!isFinal }),
       timestamp: new Date().toLocaleTimeString("es-AR"),
     });
 

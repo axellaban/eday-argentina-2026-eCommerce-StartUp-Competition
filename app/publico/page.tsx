@@ -155,6 +155,10 @@ export default function PublicoPage() {
 
   const boxRef = useRef<HTMLDivElement | null>(null);
   const metricsRef = useRef<Metrics>(neutralMetrics());
+  /** Equipo del que viene el texto que estamos mostrando. */
+  const equipoActivoRef = useRef<string>("");
+  /** Espejo del texto acumulado, para leerlo dentro de los handlers de Pusher. */
+  const textoRef = useRef("");
 
   // Valores interpolados: lo que realmente se dibuja en pantalla.
   const vistos = useValoresAnimados(metrics);
@@ -178,6 +182,7 @@ export default function PublicoPage() {
   // Autoscroll de los subtítulos: era la razón principal por la que el
   // transcript "no aparecía completo" — el texto estaba, pero abajo del corte.
   useEffect(() => {
+    textoRef.current = texto;
     const box = boxRef.current;
     if (box) box.scrollTop = box.scrollHeight;
   }, [texto]);
@@ -220,8 +225,12 @@ export default function PublicoPage() {
         setActivePitch({ team: data.activeSession.team, project: data.activeSession.project });
         // Sólo adoptamos el texto del servidor si es más largo que el que
         // tenemos: si no, un GET viejo borraría lo recién llegado por Pusher.
+        const cambioEquipo = equipoActivoRef.current !== data.activeSession.team;
+        equipoActivoRef.current = data.activeSession.team;
         setTexto((prev) =>
-          (data.activeSession.transcript?.length || 0) > prev.length ? data.activeSession.transcript : prev
+          cambioEquipo || (data.activeSession.transcript?.length || 0) > prev.length
+            ? data.activeSession.transcript
+            : prev
         );
         if (data.activeSession.metrics) aplicarMetrics(data.activeSession.metrics);
       }
@@ -250,15 +259,23 @@ export default function PublicoPage() {
     const channel = pusher.subscribe(PUSHER_CHANNEL);
 
     channel.bind(PUSHER_EVENTS.transcript, (d: { team: string; project: string; textChunk: string }) => {
+      // Si cambió el equipo, el texto arranca de cero. Sin este corte, cuando
+      // el operador se olvida de tocar "Finalizar" y pasa al siguiente equipo,
+      // el pitch nuevo se iba sumando abajo del anterior en la misma pantalla.
+      setTexto((prev) => (equipoActivoRef.current !== d.team ? d.textChunk : (prev ? prev + " " : "") + d.textChunk));
+      equipoActivoRef.current = d.team;
       setActivePitch({ team: d.team, project: d.project });
-      setTexto((prev) => (prev ? prev + " " : "") + d.textChunk);
       setUltimaFrase(Date.now());
     });
 
     // Reemplaza el texto completo: corrige lo que se haya perdido.
     channel.bind(PUSHER_EVENTS.sync, (d: { team: string; project: string; fullText: string }) => {
+      const cambioEquipo = equipoActivoRef.current !== d.team;
+      equipoActivoRef.current = d.team;
       setActivePitch({ team: d.team, project: d.project });
-      setTexto((prev) => (d.fullText.length >= prev.length ? d.fullText : prev));
+      // Igual que arriba: el sync viene recortado, así que sólo reemplaza si
+      // efectivamente trae más texto del que ya tenemos.
+      setTexto((prev) => (cambioEquipo || d.fullText.length >= prev.length ? d.fullText : prev));
     });
 
     channel.bind(PUSHER_EVENTS.metrics, (d: { metrics: Metrics }) => {
@@ -266,13 +283,22 @@ export default function PublicoPage() {
     });
 
     channel.bind(PUSHER_EVENTS.finish, (d: TeamSession) => {
+      // El evento trae sólo la cola del transcript (límite de 10 KB de Pusher).
+      // Esta pantalla lo viene acumulando frase por frase desde el arranque,
+      // así que casi siempre tiene la versión más completa: gana la más larga.
+      const acumulado = textoRef.current;
+      const cerrada: TeamSession = {
+        ...d,
+        transcript: (d.transcript?.length || 0) >= acumulado.length ? d.transcript : acumulado,
+      };
       setFinished((prev) => {
-        const fusionadas = fusionar([d], prev);
+        const fusionadas = fusionar([cerrada], prev);
         guardarLocal(fusionadas);
         return fusionadas;
       });
       setActivePitch(null);
       setTexto("");
+      equipoActivoRef.current = "";
       aplicarMetrics(neutralMetrics());
       setHistoria({});
       setUltimaLectura(null);

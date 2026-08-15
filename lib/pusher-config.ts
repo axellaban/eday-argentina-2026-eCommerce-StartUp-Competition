@@ -26,6 +26,20 @@ export const PUSHER_EVENTS = {
   finish: "finish-pitch",
 } as const;
 
+/**
+ * Tope de transcript que viaja dentro de un evento.
+ *
+ * Pusher corta los mensajes de más de 10 KB. Un pitch de 10 minutos son unos
+ * 7.800 caracteres y la ficha suma otros 2.200: el evento de cierre quedaba en
+ * ~10.000 bytes, al borde. En las presentaciones más largas —justo las que más
+ * importan— el evento se habría perdido entero.
+ *
+ * Se manda sólo la cola. No se pierde nada: la pantalla pública viene
+ * acumulando el texto frase por frase desde que arrancó el pitch, así que ya
+ * tiene el transcript completo y se queda con el más largo de los dos.
+ */
+export const MAX_TRANSCRIPT_EVENTO = 5000;
+
 /** Cluster por defecto: sa1 (São Paulo), el más cercano para Argentina. */
 export const PUSHER_CLUSTER = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "sa1";
 

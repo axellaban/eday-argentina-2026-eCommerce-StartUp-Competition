@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { broadcast } from "@/lib/pusher";
-import { PUSHER_EVENTS } from "@/lib/pusher-config";
+import { MAX_TRANSCRIPT_EVENTO, PUSHER_EVENTS } from "@/lib/pusher-config";
 import { loadSessions, saveSessions, isDurable, TeamSession } from "@/lib/store";
 
 // El estado cambia en cada pitch: nunca cachear esta ruta.
@@ -78,7 +78,9 @@ export async function POST(req: Request) {
       const result = await broadcast(PUSHER_EVENTS.finish, {
         team: session.team,
         project: session.project,
-        transcript: session.transcript,
+        // Sólo la cola: el evento entero no puede pasar los 10 KB de Pusher.
+        transcript: session.transcript.slice(-MAX_TRANSCRIPT_EVENTO),
+        transcriptLargo: session.transcript.length,
         analysis: session.analysis,
         analysisError: session.analysisError,
         metrics: session.metrics,
@@ -88,6 +90,20 @@ export async function POST(req: Request) {
       if (!result.ok) broadcastError = result.error;
     } else {
       session.isFinished = false;
+
+      // Si había otro equipo activo, quedó sin cerrar: el operador pasó al
+      // siguiente sin tocar "Finalizar". Se cierra solo para que su
+      // transcripción no quede huérfana y aparezca en el historial.
+      if (data.activeTeam && data.activeTeam !== team && data.sessions[data.activeTeam]) {
+        const anterior = data.sessions[data.activeTeam];
+        anterior.isFinished = true;
+        anterior.updatedAt = Date.now();
+        if (!anterior.analysis && !anterior.analysisError) {
+          anterior.analysisError =
+            "El pitch se cerró automáticamente al empezar el equipo siguiente, sin generar ficha.";
+        }
+      }
+
       data.activeTeam = team;
     }
 
