@@ -16,6 +16,7 @@ interface TeamSession {
   analysis?: string;
   analysisError?: string;
   metrics?: Metrics;
+  lecturas?: number;
   timestamp: string;
   isFinished?: boolean;
 }
@@ -340,6 +341,12 @@ export default function PublicoPage() {
    * cadencia de 12s son 5 lecturas atrás. Deja ver cuánto se movió el equipo
    * durante el pitch, no sólo dónde está parado ahora.
    */
+  /** Lecturas reales del LLM sobre el pitch en curso. Cero = todavía no se midió. */
+  const lecturasHechas = (() => {
+    const claves = Object.keys(historia);
+    return claves.length ? historia[claves[0]]?.length || 0 : 0;
+  })();
+
   const LECTURAS_ATRAS = 5;
   const silueta = (() => {
     const claves = Object.keys(historia);
@@ -407,19 +414,22 @@ export default function PublicoPage() {
           </div>
           {/* Estado real del análisis, no una leyenda fija: se ve si está
               entrando audio y hace cuánto fue la última lectura del LLM. */}
+          {lecturasHechas === 0 && (
+            <span className="chip chip--mute">SIN MEDICIÓN AÚN</span>
+          )}
           <div className="live-state mono">
             <span className={`live-state__dot${escuchando ? " live-state__dot--on" : ""}`} />
             <span>{escuchando ? "Escuchando" : "En espera"}</span>
             <span className="live-state__sep">·</span>
             <span>
-              {ultimaLectura
-                ? `Última lectura hace ${Math.max(0, Math.round((ahora - ultimaLectura) / 1000))}s`
-                : "Sin lecturas aún"}
+              {lecturasHechas > 0
+                ? `${lecturasHechas} ${lecturasHechas === 1 ? "lectura" : "lecturas"} · última hace ${Math.max(0, Math.round((ahora - (ultimaLectura || ahora)) / 1000))}s`
+                : "Todavía sin medir"}
             </span>
           </div>
         </div>
 
-        <div className="analisis">
+        <div className={`analisis${lecturasHechas === 0 ? " analisis--sin-datos" : ""}`}>
           <Radar valores={vistos} silueta={silueta} />
 
           <div className="meters">
@@ -497,11 +507,18 @@ export default function PublicoPage() {
       </section>
 
       {/* ── Historial ── */}
-      <section className="card">
-        <div className="section-head">
+      <section className={`card${activePitch ? " historial--plegado" : ""}`}>
+        <div className="section-head" style={{ marginBottom: activePitch ? 0 : undefined, paddingBottom: activePitch ? 0 : undefined, borderBottom: activePitch ? "none" : undefined }}>
           <div>
             <div className="eyebrow" style={{ color: "var(--green)" }}>Fichas registradas</div>
-            <h3 style={{ marginTop: 2 }}>Equipos presentados ({finished.length})</h3>
+            <h3 style={{ marginTop: 2 }}>
+              Equipos presentados ({finished.length})
+              {activePitch && (
+                <span className="muted" style={{ fontSize: "var(--fs-xs)", fontWeight: 600, marginLeft: 10 }}>
+                  · se despliega al terminar el pitch
+                </span>
+              )}
+            </h3>
           </div>
           {finished.length > 0 && (
             <button className="btn btn--ghost btn--sm" onClick={descargarFichas}>
@@ -531,7 +548,12 @@ export default function PublicoPage() {
               <div className="ficha__grid">
                 {s.metrics && (
                   <div className="ficha__huella">
-                    <span className="ficha__tag">Huella final</span>
+                    <span className="ficha__tag">
+                      Huella final
+                      {typeof s.lecturas === "number" && s.lecturas > 0
+                        ? ` · ${s.lecturas} ${s.lecturas === 1 ? "lectura" : "lecturas"}`
+                        : ""}
+                    </span>
                     <Radar valores={s.metrics} />
                   </div>
                 )}

@@ -27,6 +27,8 @@ export interface TeamSession {
   analysis?: string;
   /** Motivo por el que no se pudo generar la ficha, si falló. */
   analysisError?: string;
+  /** Cuántas veces alcanzó a medir el LLM durante el pitch. */
+  lecturas?: number;
   metrics?: Record<string, number>;
   isFinished: boolean;
   timestamp: string;

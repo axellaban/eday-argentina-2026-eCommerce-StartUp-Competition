@@ -30,13 +30,16 @@
   --red:       #EF4444;
 
   /* Escala tipográfica fluida: un solo valor sirve de 360px a 4K */
-  --fs-micro:  clamp(0.62rem, 0.58rem + 0.2vw, 0.72rem);
-  --fs-xs:     clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
-  --fs-sm:     clamp(0.82rem, 0.78rem + 0.25vw, 0.94rem);
-  --fs-base:   clamp(0.92rem, 0.86rem + 0.3vw, 1.05rem);
-  --fs-lg:     clamp(1.05rem, 0.95rem + 0.5vw, 1.35rem);
-  --fs-xl:     clamp(1.25rem, 1.05rem + 0.9vw, 1.9rem);
-  --fs-2xl:    clamp(1.5rem, 1.15rem + 1.6vw, 2.6rem);
+  /* El techo importa: en un proyector de 1920 el clamp se planchaba y el
+     texto quedaba del mismo tamaño que en un notebook. Se sube el máximo para
+     que la pantalla de sala aproveche los píxeles que tiene. */
+  --fs-micro:  clamp(0.62rem, 0.58rem + 0.2vw, 0.86rem);
+  --fs-xs:     clamp(0.72rem, 0.68rem + 0.25vw, 1rem);
+  --fs-sm:     clamp(0.82rem, 0.76rem + 0.32vw, 1.12rem);
+  --fs-base:   clamp(0.92rem, 0.84rem + 0.4vw, 1.28rem);
+  --fs-lg:     clamp(1.05rem, 0.92rem + 0.65vw, 1.7rem);
+  --fs-xl:     clamp(1.25rem, 1rem + 1.15vw, 2.5rem);
+  --fs-2xl:    clamp(1.5rem, 1.1rem + 2vw, 3.6rem);
 
   --gap:       clamp(14px, 1.4vw, 24px);
   --pad:       clamp(16px, 1.8vw, 28px);
@@ -97,7 +100,7 @@ button:disabled { cursor: not-allowed; }
   flex-direction: column;
   gap: var(--gap);
 }
-.shell--wide { width: min(1600px, 100%); }
+.shell--wide { width: min(1900px, 100%); }
 
 .card {
   background: var(--surface);
@@ -487,8 +490,8 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 /* En la pantalla de sala el transcript es el protagonista: ocupa el alto que
    necesita para leerse de lejos y para que entren varias frases a la vez. */
 .transcript--live {
-  font-size: clamp(1.05rem, 0.8rem + 0.95vw, 1.8rem);
-  line-height: 1.7;
+  font-size: clamp(1.05rem, 0.75rem + 1.35vw, 2.6rem);
+  line-height: 1.6;
   min-height: clamp(300px, 50vh, 660px);
   max-height: 66vh;
 }
@@ -635,13 +638,13 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 
 .radar__label {
   fill: var(--text-2);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   font-family: 'Poppins', sans-serif;
 }
 .radar__valor {
-  fill: var(--text-3);
-  font-size: 16px;
+  fill: var(--text-2);
+  font-size: 19px;
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
 }
@@ -759,3 +762,16 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 .ficha__resumen::before { content: "▸"; transition: transform 0.2s var(--ease-out); }
 .ficha__detalle[open] .ficha__resumen::before { transform: rotate(90deg); }
 .ficha__resumen:hover { color: var(--brand); }
+
+/* Mientras el LLM todavía no midió nada, los indicadores están en 50 porque
+   es el arranque, no porque se haya medido un 50. Se muestran apagados para
+   que no se lean como un resultado. */
+.analisis--sin-datos { opacity: 0.45; filter: saturate(0.5); transition: opacity 0.6s var(--ease-out); }
+
+
+/* Mientras hay alguien presentando, el historial de equipos anteriores es
+   ruido que le roba alto a lo único que importa en ese momento. Se pliega
+   solo y vuelve cuando no hay pitch en curso. */
+.historial--plegado .ficha,
+.historial--plegado .empty { display: none; }
+.historial--plegado { padding-block: clamp(12px, 1.2vw, 18px); }

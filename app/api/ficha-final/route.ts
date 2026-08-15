@@ -69,6 +69,8 @@ export async function POST(req: Request) {
     const team = body.team || "Equipo";
     const project = body.project || "";
     const transcript = (body.transcript || "").trim();
+    const metrics: Record<string, number> | null = body.metrics || null;
+    const lecturas: number = Number(body.lecturas) || 0;
 
     if (transcript.length < 200) {
       return NextResponse.json(
@@ -77,9 +79,25 @@ export async function POST(req: Request) {
       );
     }
 
+    /**
+     * La medición en vivo entra al prompt.
+     *
+     * Sin esto la ficha y los indicadores se generaban por separado y podían
+     * contradecirse: un texto que elogia la ejecución al lado de un medidor de
+     * Ejecución en 37 se lee como que el sistema está roto. Ahora el veredicto
+     * escrito tiene que ser consistente con lo que la sala vio en pantalla.
+     */
+    const bloqueMedicion =
+      metrics && lecturas > 0
+        ? `\nMEDICIÓN EN VIVO AL CIERRE (0-100, 50 = neutro; ${lecturas} lecturas durante el pitch):
+${INDICATORS.map((i) => `- ${i.label}: ${metrics[i.key] ?? 50}`).join("\n")}
+
+Esta medición se proyectó en pantalla durante el pitch. Tu ficha tiene que ser COHERENTE con ella: no elogies un indicador que quedó bajo ni castigues uno que quedó alto. Si creés que la medición se equivocó en algún punto, decilo explícitamente en ÁREAS DE MEJORA en vez de contradecirla en silencio.\n`
+        : "";
+
     const userPrompt = `EQUIPO: ${team}
 PROYECTO: ${project}
-
+${bloqueMedicion}
 TRANSCRIPCIÓN COMPLETA DEL PITCH:
 ${transcript}`;
 

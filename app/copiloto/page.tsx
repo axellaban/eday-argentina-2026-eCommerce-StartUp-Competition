@@ -31,7 +31,10 @@ const INTERVALO_MARCAS_MS = 24_000;
 /** Reintentos automáticos si Deepgram corta la conexión a mitad del pitch. */
 const MAX_REINTENTOS_MIC = 4;
 
+/** Un borrador por equipo: antes había una sola clave y arrancar el equipo
+ *  siguiente pisaba el borrador del anterior a los 5 segundos. */
 const BORRADOR_KEY = "eday.copiloto.borrador";
+const borradorKey = (equipo: string) => `${BORRADOR_KEY}.${equipo}`;
 
 type Health = { tone: "ok" | "warn" | "bad"; msg: string } | null;
 
@@ -53,6 +56,7 @@ export default function CopilotoPage() {
   const [micCaido, setMicCaido] = useState(false);
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [preguntas, setPreguntas] = useState<string[]>([]);
+  const [lecturas, setLecturas] = useState(0);
 
   const [health, setHealth] = useState<Health>(null);
   const [authWarning, setAuthWarning] = useState(false);
@@ -69,6 +73,7 @@ export default function CopilotoPage() {
   const textoRef = useRef("");
   const largoAnalizadoRef = useRef(0);
   const enVueloRef = useRef(false);
+  const lecturasRef = useRef(0);
   const marcasEnVueloRef = useRef(false);
   const largoMarcadoRef = useRef(0);
   const metricsRef = useRef<Record<string, number> | null>(null);
@@ -109,8 +114,9 @@ export default function CopilotoPage() {
     if (step !== "live") return;
     const t = setInterval(() => {
       try {
+        if (!teamRef.current || !textoRef.current) return;
         localStorage.setItem(
-          BORRADOR_KEY,
+          borradorKey(teamRef.current),
           JSON.stringify({ team: teamRef.current, project: projectRef.current, texto: textoRef.current })
         );
       } catch {}
@@ -120,13 +126,16 @@ export default function CopilotoPage() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(BORRADOR_KEY);
-      if (!raw) return;
-      const b = JSON.parse(raw);
-      if (b?.texto && b.texto.length > 40) {
+      const pendientes = Object.keys(localStorage)
+        .filter((k) => k.startsWith(BORRADOR_KEY + "."))
+        .map((k) => {
+          try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch { return null; }
+        })
+        .filter((b) => b?.texto && b.texto.length > 40);
+      if (pendientes.length) {
         setHealth({
           tone: "warn",
-          msg: `Hay un borrador sin cerrar de ${b.team}. Se recupera al iniciar ese equipo.`,
+          msg: `Borradores sin cerrar: ${pendientes.map((b: any) => b.team).join(", ")}. Se recuperan al iniciar ese equipo.`,
         });
       }
     } catch {}
@@ -212,6 +221,8 @@ export default function CopilotoPage() {
       }
       if (data.broadcastError) setHealth({ tone: "bad", msg: data.broadcastError });
       setUltimoAnalisis(new Date().toLocaleTimeString("es-AR"));
+      lecturasRef.current += 1;
+      setLecturas(lecturasRef.current);
       largoAnalizadoRef.current = texto.length;
     } catch {
       setHealth({ tone: "warn", msg: "Error de red al analizar indicadores." });
@@ -275,7 +286,20 @@ export default function CopilotoPage() {
   useEffect(() => {
     if (!isRecording) return;
     const t = setInterval(() => {
-      if (textoRef.current) publicar({ mode: "sync", fullText: textoRef.current });
+      if (!textoRef.current) return;
+      publicar({ mode: "sync", fullText: textoRef.current });
+      // Y de paso repara el transcript del servidor: si algún chunk se perdió
+      // en el camino, el hueco se tapa acá.
+      fetch("/api/fichas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          team: teamRef.current,
+          project: projectRef.current,
+          fullText: textoRef.current,
+          lecturas: lecturasRef.current,
+        }),
+      }).catch(() => {});
     }, INTERVALO_SYNC_MS);
     return () => clearInterval(t);
   }, [isRecording, publicar]);
@@ -287,16 +311,18 @@ export default function CopilotoPage() {
     setUltimoAnalisis("");
     setMarcas([]);
     setPreguntas([]);
+    setLecturas(0);
+    lecturasRef.current = 0;
     largoAnalizadoRef.current = 0;
     largoMarcadoRef.current = 0;
 
     // Recuperar borrador si es el mismo equipo
     let recuperado: string[] = [];
     try {
-      const raw = localStorage.getItem(BORRADOR_KEY);
+      const raw = localStorage.getItem(borradorKey(activeTeamName));
       if (raw) {
         const b = JSON.parse(raw);
-        if (b?.team === activeTeamName && b?.texto) {
+        if (b?.texto) {
           recuperado = [b.texto];
           setHealth({ tone: "warn", msg: "Se recuperó el borrador de este equipo." });
         }
@@ -470,7 +496,13 @@ export default function CopilotoPage() {
       const res = await fetch("/api/ficha-final", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ team: activeTeamName, project: projectName, transcript: texto }),
+        body: JSON.stringify({
+          team: activeTeamName,
+          project: projectName,
+          transcript: texto,
+          metrics: metricsRef.current,
+          lecturas: lecturasRef.current,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.raw) {
@@ -499,6 +531,8 @@ export default function CopilotoPage() {
           // vale más un aviso visible que un hueco silencioso.
           analysisError: ficha ? "" : fichaError,
           metrics: metricsRef.current,
+          fullText: texto,
+          lecturas: lecturasRef.current,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -509,7 +543,7 @@ export default function CopilotoPage() {
       setHealth({ tone: "bad", msg: "No se pudo registrar la ficha." });
     }
 
-    try { localStorage.removeItem(BORRADOR_KEY); } catch {}
+    try { localStorage.removeItem(borradorKey(activeTeamName)); } catch {}
     setIsFinishing(false);
     setStep("session");
   };

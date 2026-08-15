@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, team, project, textChunk, analysis, analysisError, metrics } = body;
+    const { action, team, project, textChunk, fullText, analysis, analysisError, metrics, lecturas } = body;
 
     if (!team) {
       return NextResponse.json({ error: "Falta el nombre del equipo" }, { status: 400 });
@@ -63,6 +63,22 @@ export async function POST(req: Request) {
       session.transcript += (session.transcript ? " " : "") + textChunk;
       session.updatedAt = Date.now();
     }
+
+    /**
+     * Reparación del transcript.
+     *
+     * Los chunks llegan uno por uno y si un POST se pierde por un parpadeo de
+     * red, ese pedazo faltaba en el servidor para siempre: no había forma de
+     * recuperarlo. Cada tanto el copiloto manda el texto completo que tiene
+     * acumulado y, si es más largo que lo guardado, lo reemplaza. Cualquier
+     * hueco se tapa solo en el próximo ciclo.
+     */
+    if (typeof fullText === "string" && fullText.length > session.transcript.length) {
+      session.transcript = fullText;
+      session.updatedAt = Date.now();
+    }
+
+    if (typeof lecturas === "number") session.lecturas = lecturas;
 
     if (analysis) session.analysis = analysis;
     if (analysisError !== undefined) session.analysisError = analysisError;
