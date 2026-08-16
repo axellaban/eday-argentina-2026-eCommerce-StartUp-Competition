@@ -78,13 +78,39 @@ qué modelos tiene habilitados la key y elige, con dos perfiles:
 
 | Perfil | Lo usa | Por qué |
 |---|---|---|
-| `rapido` | `eval-metrics`, `highlights`, `answer` | Corren cada 12-24s mientras la persona habla: importa la latencia |
+| `rapido` | `eval-metrics`, `highlights` | Corren cada 12-24s mientras la persona habla: importa la latencia |
 | `calidad` | `ficha-final` | Una llamada por equipo, y es el documento que lee el jurado |
 
 Si Google devuelve 404 sobre el modelo elegido, se descarta el cacheado y la
 próxima llamada vuelve a resolver. `GET /api/gemini-check` (con la contraseña
 del operador) dice cuáles quedaron elegidos, qué tiene habilitado la key y qué
 contestó Google.
+
+#### Cambiar de modelo cambia la forma de la respuesta
+
+El modelo del perfil `calidad` **razona antes de contestar**, y eso trae dos
+cosas que el del perfil `rapido` no tiene:
+
+1. El razonamiento viene como una **parte aparte** dentro de `content.parts`,
+   marcada con `thought: true`, antes de la respuesta. Leer `parts[0].text`
+   —que era lo que hacían las cuatro rutas— devuelve el razonamiento, no la
+   ficha. Para eso está `textoGemini()`, que junta todas las partes salteando
+   las de razonamiento. Usalo siempre; no leas `parts[0]` a mano.
+2. El razonamiento **comparte `maxOutputTokens`** con la respuesta. Con el tope
+   en 2400 la ficha salía cortada justo antes del VEREDICTO, que es la última
+   sección. Por eso ahora son 8000 con un techo de razonamiento de 1024.
+
+Las dos juntas hacían que la ficha se descartara entera con un "El modelo no
+devolvió la ficha en el formato esperado", con todo lo demás del sistema
+andando bien. Para no tener que ensayar un pitch entero para detectarlo:
+
+```
+GET /api/gemini-check?ficha=1
+```
+
+genera una ficha real sobre un transcript de juguete y devuelve si llegó el
+veredicto, en cuántas partes vino la respuesta, cuántas eran de razonamiento y
+por qué cortó el modelo.
 
 ### `GET /api/fichas` viene en dos tamaños
 

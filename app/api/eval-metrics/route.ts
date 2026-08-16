@@ -3,7 +3,7 @@ import { broadcast } from "@/lib/pusher";
 import { PUSHER_EVENTS } from "@/lib/pusher-config";
 import { INDICATORS, neutralMetrics } from "@/lib/criteria";
 import { motivoGemini } from "@/lib/gemini-error";
-import { urlGemini, olvidarModelo } from "@/lib/gemini";
+import { urlGemini, olvidarModelo, textoGemini } from "@/lib/gemini";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -180,7 +180,7 @@ Devolvé el nuevo estado de los 6 indicadores.`;
     }
 
     const data = await res.json();
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const rawText = textoGemini(data);
 
     let crudas: Record<string, number>;
     try {

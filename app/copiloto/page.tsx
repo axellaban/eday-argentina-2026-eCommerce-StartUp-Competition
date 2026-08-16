@@ -59,7 +59,6 @@ export default function CopilotoPage() {
   const [transcript, setTranscript] = useState<string[]>([]);
   const [interimText, setInterimText] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState("");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const [autoAnalisis, setAutoAnalisis] = useState(true);
   const [ultimoAnalisis, setUltimoAnalisis] = useState<string>("");
@@ -593,41 +592,6 @@ export default function CopilotoPage() {
     await abrirMicrofono(false);
   };
 
-  /** Análisis narrativo completo, a pedido del operador. */
-  const analizarPitch = async () => {
-    setIsAnalyzing(true);
-    const texto = textoRef.current;
-    try {
-      const res = await fetch("/api/answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          team: activeTeamName,
-          project: projectName,
-          transcript: texto,
-          question: "Evaluar presentación del equipo y sugerir notas",
-        }),
-      });
-      const data = await res.json();
-      setAiAnalysis(data.text || data.error || "Análisis completado.");
-      /**
-       * El marcado va sobre el texto YA CERRADO, no sobre `texto`.
-       *
-       * `texto` incluye la frase que Deepgram todavía está corrigiendo. Las
-       * marcas que citaran ese tramo pasaban la validación del servidor
-       * —porque se validan contra el mismo texto que se mandó— pero después no
-       * se encontraban en el transcript definitivo y se descartaban solas al
-       * pintar. Se gastaba la llamada para que las frases más recientes, que
-       * son justo las que el jurado está mirando, quedaran sin resaltar.
-       */
-      await Promise.all([analizarIndicadores(texto), marcarTranscript(textoFinalRef.current)]);
-    } catch {
-      setAiAnalysis("Error en la conexión con la IA de evaluación.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   const finishSession = async () => {
     stopAudio();
     setIsFinishing(true);
@@ -658,6 +622,12 @@ export default function CopilotoPage() {
       if (res.ok && data.raw) {
         ficha = data.raw;
         setAiAnalysis(data.raw);
+        // La ficha puede venir sin el veredicto final: se guarda igual —es el
+        // 90% del documento— pero el operador tiene que saberlo, porque es lo
+        // único que se arregla volviendo a generarla.
+        if (data.incompleta) {
+          setHealth({ tone: "warn", msg: data.motivo || "La ficha quedó incompleta." });
+        }
       } else {
         // El endpoint manda el motivo real en `detail` (ej. "quota exceeded").
         // Antes se descartaba y en pantalla quedaba un "Error en Gemini API"
@@ -989,9 +959,14 @@ export default function CopilotoPage() {
               )}
             </div>
 
-            {/* Todos los controles juntos y en el orden en que se usan:
-                primero grabar, después analizar, al final cerrar. El de grabar
-                manda, porque es el que decide si el sistema está capturando. */}
+            {/* Dos botones y nada más: grabar y cerrar.
+                Había un tercero, "Analizar", que pedía un análisis narrativo a
+                mitad del pitch. Sobraba: los indicadores y las preguntas ya se
+                recalculan solos cada 12 y 24 segundos, y el veredicto escrito
+                lo genera "Finalizar" con un modelo mejor y un formato que el
+                dashboard sabe dibujar. Peor todavía, si la ficha final fallaba
+                se guardaba ese análisis a medio pitch EN SU LUGAR, con otro
+                formato y sin decir que era parcial. */}
             <div className="console__actions">
               <button
                 className={`btn console__rec ${isRecording ? "btn--stop" : "btn--rec"}`}
@@ -999,14 +974,6 @@ export default function CopilotoPage() {
                 disabled={isFinishing}
               >
                 {isRecording ? "⏹  Detener micrófono" : "🎙  Grabar micrófono"}
-              </button>
-
-              <button
-                className="btn btn--ghost"
-                onClick={analizarPitch}
-                disabled={isAnalyzing || isFinishing}
-              >
-                {isAnalyzing ? "✨ Analizando…" : "✨ Analizar"}
               </button>
 
               <button className="btn btn--ghost" onClick={finishSession} disabled={isFinishing}>
@@ -1076,7 +1043,7 @@ export default function CopilotoPage() {
                 <div className="transcript__empty" style={{ padding: "8% 0" }}>
                   Los 6 indicadores se mueven solos en la pantalla pública.
                   <br />
-                  Tocá &laquo;Analizar pitch&raquo; para el veredicto escrito.
+                  La ficha escrita se genera al tocar &laquo;Finalizar&raquo;.
                 </div>
               )}
             </div>

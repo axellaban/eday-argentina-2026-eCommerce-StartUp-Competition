@@ -1051,7 +1051,14 @@
       font-size: .6rem; letter-spacing: .1em; text-transform: uppercase;
       color: rgba(200,245,218,.45); margin-top: 4px;
     }
-    .ai-ficha__pills { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+    /* Radar y píldoras en fila; en pantalla angosta el radar se centra arriba
+       y las píldoras pasan abajo, que es como se lee mejor en un celular. */
+    .ai-ficha__medicion {
+      display: flex; align-items: center; gap: 18px;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .ai-ficha__radar { flex-shrink: 0; display: block; }
+    .ai-ficha__pills { display: flex; flex-wrap: wrap; gap: 7px; flex: 1; min-width: 190px; }
     .ai-ficha__pill {
       font-family: 'JetBrains Mono', monospace;
       font-size: .68rem; font-weight: 600;
@@ -1067,6 +1074,7 @@
       .ai-ficha__head { flex-wrap: wrap; }
       .ai-ficha__score { width: 100%; text-align: left; }
       .ai-ficha__den { margin-top: 2px; }
+      .ai-ficha__medicion { justify-content: center; gap: 12px; }
     }
     .ai-ficha__cuerpo { font-family: 'Poppins', sans-serif; font-size: .86rem; line-height: 1.7; color: rgba(223,247,233,.9); }
     .ai-ficha__cuerpo strong { color: #fff; }
@@ -2972,6 +2980,67 @@ async function refrescarAI() {
 }
 
 /**
+ * Radar de una ficha cerrada, dibujado a mano en SVG.
+ *
+ * No usa Chart.js a propósito, aunque el radar del pitch en curso sí lo use.
+ * La lista de fichas se reconstruye entera con innerHTML en cada refresco: un
+ * canvas de Chart.js por ficha significaría destruir y rearmar N gráficos cada
+ * cinco segundos, y cada instancia que quedara sin destruir es una fuga con su
+ * propio listener de resize. Un SVG es texto: se reemplaza con el resto del
+ * HTML y no deja nada atrás.
+ *
+ * Las etiquetas son los emojis de cada indicador, los mismos de las píldoras
+ * de al lado. Los nombres completos no entran en 190px y en un radar chico lo
+ * que se lee es la FORMA: dónde está fuerte y dónde tiene el hundimiento.
+ */
+function radarFichaAI(m, tam) {
+  const lado = tam || 190;
+  const c = lado / 2;
+  const r = c - 24;                       // aire para los emojis del borde
+  const n = AI_KEYS.length;
+  const angulo = (i) => (Math.PI * 2 * i) / n - Math.PI / 2;
+  const punto = (i, radio) => [
+    (c + Math.cos(angulo(i)) * radio).toFixed(1),
+    (c + Math.sin(angulo(i)) * radio).toFixed(1),
+  ];
+  const poligono = (radio) =>
+    AI_KEYS.map((_, i) => punto(i, radio).join(',')).join(' ');
+
+  const valores = AI_KEYS.map((k) => {
+    const v = Number(m && m[k]);
+    return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 50;
+  });
+
+  const anillos = [25, 50, 75, 100]
+    .map((p) => `<polygon points="${poligono((r * p) / 100)}" fill="none" stroke="rgba(34,197,94,.18)" stroke-width="1"/>`)
+    .join('');
+
+  const ejes = AI_KEYS.map((_, i) =>
+    `<line x1="${c}" y1="${c}" x2="${punto(i, r)[0]}" y2="${punto(i, r)[1]}" stroke="rgba(34,197,94,.18)" stroke-width="1"/>`
+  ).join('');
+
+  const forma = valores.map((v, i) => punto(i, (r * v) / 100).join(',')).join(' ');
+
+  const vertices = valores.map((v, i) => {
+    const [x, y] = punto(i, (r * v) / 100);
+    return `<circle cx="${x}" cy="${y}" r="2.6" fill="${colorMedidor(v)}"/>`;
+  }).join('');
+
+  const etiquetas = AI_KEYS.map((_, i) => {
+    const [x, y] = punto(i, r + 13);
+    // El emoji es el primer token del nombre del indicador.
+    const emoji = escaparAI(String(CRITERIA[i] || '').trim().split(' ')[0]);
+    return `<text x="${x}" y="${y}" font-size="11" text-anchor="middle" dominant-baseline="central">${emoji}</text>`;
+  }).join('');
+
+  return `<svg class="ai-ficha__radar" viewBox="0 0 ${lado} ${lado}" width="${lado}" height="${lado}" role="img" aria-label="Radar de los 6 indicadores">
+    ${anillos}${ejes}
+    <polygon points="${forma}" fill="rgba(34,197,94,.16)" stroke="#22C55E" stroke-width="2" stroke-linejoin="round"/>
+    ${vertices}${etiquetas}
+  </svg>`;
+}
+
+/**
  * La ficha completa de un equipo que ya cerró.
  *
  * Tiene que quedar tan completa como la del jurado humano: inicial, equipo,
@@ -2987,13 +3056,24 @@ function fichaCompletaAI(s) {
   const valores = m ? AI_KEYS.map(k => Number(m[k])).filter(v => Number.isFinite(v)) : [];
   const media = valores.length ? Math.round(valores.reduce((a, b) => a + b, 0) / valores.length) : null;
 
-  const pills = m
-    ? `<div class="ai-ficha__pills">${CRITERIA.map((nombre, i) => {
-        const v = Number(m[AI_KEYS[i]]);
-        if (!Number.isFinite(v)) return '';
-        const c = colorMedidor(v);
-        return `<span class="ai-ficha__pill" style="color:${c};border-color:${c}44;background:${c}12;">${nombre} <strong>${Math.round(v)}</strong></span>`;
-      }).join('')}</div>`
+  /**
+   * El radar al lado de las píldoras, no en vez de ellas.
+   *
+   * Son dos lecturas distintas del mismo dato y las dos hacen falta: el radar
+   * muestra la forma —de un vistazo se ve dónde el equipo tiene el
+   * hundimiento— y las píldoras dan el número exacto de cada indicador, que es
+   * lo que el jurado necesita para justificar un puntaje.
+   */
+  const medicion = m
+    ? `<div class="ai-ficha__medicion">
+        ${radarFichaAI(m)}
+        <div class="ai-ficha__pills">${CRITERIA.map((nombre, i) => {
+          const v = Number(m[AI_KEYS[i]]);
+          if (!Number.isFinite(v)) return '';
+          const c = colorMedidor(v);
+          return `<span class="ai-ficha__pill" style="color:${c};border-color:${c}44;background:${c}12;">${nombre} <strong>${Math.round(v)}</strong></span>`;
+        }).join('')}</div>
+      </div>`
     // Un pitch puede cerrarse sin ninguna medición (se cortó el micrófono, se
     // cerró solo al arrancar el siguiente equipo). Mejor decirlo que mostrar
     // seis medidores en 50 como si la IA hubiera evaluado algo.
@@ -3030,7 +3110,7 @@ function fichaCompletaAI(s) {
         <div class="ai-ficha__den">${media === null ? 'sin medir' : '/ 100 · medición IA'}</div>
       </div>
     </header>
-    ${pills}
+    ${medicion}
     <div class="ai-ficha__cuerpo">${cuerpo}${bloquePreguntasFicha(s.preguntas)}</div>
   </article>`;
 }
