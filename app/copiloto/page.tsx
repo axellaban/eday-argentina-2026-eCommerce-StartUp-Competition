@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import FichaTexto from "../components/FichaTexto";
 import TranscriptMarcado, { LeyendaMarcas, Marca, TipoMarca } from "../components/TranscriptMarcado";
 
 const TEAMS_DEFAULT = [
@@ -50,7 +49,7 @@ type SesionGuardada = {
 };
 
 export default function CopilotoPage() {
-  const [step, setStep] = useState<"setup" | "live" | "session">("setup");
+  const [step, setStep] = useState<"setup" | "live">("setup");
   const [selectedTeam, setSelectedTeam] = useState(TEAMS_DEFAULT[0].name);
   const [customTeam, setCustomTeam] = useState("");
   const [projectName, setProjectName] = useState(TEAMS_DEFAULT[0].project);
@@ -58,7 +57,6 @@ export default function CopilotoPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
   const [interimText, setInterimText] = useState("");
-  const [aiAnalysis, setAiAnalysis] = useState("");
   const [isFinishing, setIsFinishing] = useState(false);
   const [autoAnalisis, setAutoAnalisis] = useState(true);
   const [ultimoAnalisis, setUltimoAnalisis] = useState<string>("");
@@ -69,6 +67,9 @@ export default function CopilotoPage() {
   const [resueltas, setResueltas] = useState<string[]>([]);
   const [lecturas, setLecturas] = useState(0);
   const [segundos, setSegundos] = useState(0);
+
+  /** Equipos cuya ficha se está escribiendo ahora mismo, en segundo plano. */
+  const [pendientes, setPendientes] = useState<string[]>([]);
 
   const [health, setHealth] = useState<Health>(null);
   const [authWarning, setAuthWarning] = useState(false);
@@ -427,7 +428,6 @@ export default function CopilotoPage() {
         });
       });
 
-    setAiAnalysis("");
     setMetrics(null);
     setUltimoAnalisis("");
     setMarcas([]);
@@ -592,56 +592,140 @@ export default function CopilotoPage() {
     await abrirMicrofono(false);
   };
 
+  /**
+   * Escribe la ficha del equipo que acaba de cerrar, sin bloquear nada.
+   *
+   * Corre suelta: nadie la espera. Recibe todo por parámetro —no lee ni un ref—
+   * justo porque para cuando el modelo conteste el operador puede estar
+   * grabando a otro equipo.
+   *
+   * Cuando termina, la ficha entra por `action: "ficha"`, que la pega a un
+   * pitch ya cerrado sin tocar quién está presentando. Con un POST normal, el
+   * servidor daría por cerrado al equipo que está en el escenario en ese
+   * momento y se declararía activo el que ya terminó.
+   */
+  const generarFichaEnSegundoPlano = useCallback(
+    async (
+      equipo: string,
+      proyecto: string,
+      texto: string,
+      metricas: Record<string, number> | null,
+      lecturas: number
+    ) => {
+      setPendientes((prev) => (prev.includes(equipo) ? prev : [...prev, equipo]));
+
+      let ficha = "";
+      let fichaError = "";
+      let aviso: Health = null;
+
+      try {
+        const res = await fetch("/api/ficha-final", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ team: equipo, project: proyecto, transcript: texto, metrics: metricas, lecturas }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.raw) {
+          ficha = data.raw;
+          // La ficha puede venir sin el veredicto final: se guarda igual —es el
+          // 90% del documento— pero el operador tiene que saberlo, porque es lo
+          // único que se arregla volviendo a generarla.
+          aviso = data.incompleta
+            ? { tone: "warn", msg: `${equipo}: ${data.motivo || "la ficha quedó incompleta."}` }
+            : { tone: "ok", msg: `Ficha de ${equipo} lista` };
+        } else {
+          // El endpoint manda el motivo real en `detail` (ej. "quota exceeded").
+          // Antes se descartaba y en pantalla quedaba un "Error en Gemini API"
+          // que no le servía a nadie para saber qué arreglar.
+          const detalle = typeof data.detail === "string" ? data.detail.slice(0, 220) : "";
+          fichaError = [data.error || `El generador respondió ${res.status}.`, detalle]
+            .filter(Boolean)
+            .join(" · ");
+          aviso = { tone: "bad", msg: `Ficha de ${equipo} no generada: ${fichaError}` };
+        }
+      } catch (e: any) {
+        fichaError = e?.message || "Error de red al generar la ficha.";
+        aviso = { tone: "bad", msg: `Ficha de ${equipo} no generada: ${fichaError}` };
+      }
+
+      try {
+        await fetch("/api/fichas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "ficha",
+            team: equipo,
+            analysis: ficha,
+            // Si no salió la ficha, el motivo viaja hasta la pantalla pública:
+            // vale más un aviso visible que un hueco silencioso.
+            analysisError: ficha ? "" : fichaError,
+          }),
+        });
+      } catch {
+        aviso = { tone: "bad", msg: `La ficha de ${equipo} se generó pero no se pudo guardar.` };
+      }
+
+      setPendientes((prev) => prev.filter((t) => t !== equipo));
+      if (aviso) setHealth(aviso);
+    },
+    []
+  );
+
+  /**
+   * Aviso al cerrar la pestaña con fichas a medio escribir.
+   *
+   * La generación vive en este navegador: si se cierra la pestaña antes de que
+   * el modelo conteste, esa ficha se pierde y el equipo queda en el historial
+   * sin evaluación. El pitch y la medición no se pierden —esos ya están
+   * guardados— pero la ficha hay que volver a generarla a mano.
+   */
+  useEffect(() => {
+    if (!pendientes.length) return;
+    const avisar = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [pendientes]);
+
   const finishSession = async () => {
     stopAudio();
     setIsFinishing(true);
+
+    /**
+     * Todo lo del equipo que cierra, congelado ANTES de soltar la pantalla.
+     *
+     * Es lo que hace posible que la ficha se genere en segundo plano: para
+     * cuando el modelo conteste, el operador ya puede haber elegido el equipo
+     * siguiente y `teamRef`, `metricsRef` y compañía van a estar apuntando a
+     * ESE otro pitch. Leerlos después mezclaría los dos equipos.
+     */
+    const equipo = activeTeamName;
+    const proyecto = projectName;
     // Al cerrar sí entra el interim: es la última frase dicha y ya no va a
     // llegar ningún chunk que la duplique.
     const texto = textoRef.current;
-    if (texto) await publicar({ mode: "sync", fullText: texto });
+    const metricasCierre = metricsRef.current;
+    const lecturasCierre = lecturasRef.current;
+    const preguntasCierre = preguntasRef.current;
+    const marcasCierre = marcasRef.current;
+    const ultimoInterim = interimText;
 
-    // La ficha final la escribe el LLM con todo el transcript, en el mismo
-    // formato que las fichas de referencia del dashboard. Si falla, seguimos
-    // con lo que haya del análisis en vivo: nunca perdemos el pitch por esto.
-    let ficha = aiAnalysis;
-    let fichaError = "";
-    try {
-      setHealth({ tone: "warn", msg: "Generando ficha final con la IA…" });
-      const res = await fetch("/api/ficha-final", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          team: activeTeamName,
-          project: projectName,
-          transcript: texto,
-          metrics: metricsRef.current,
-          lecturas: lecturasRef.current,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.raw) {
-        ficha = data.raw;
-        setAiAnalysis(data.raw);
-        // La ficha puede venir sin el veredicto final: se guarda igual —es el
-        // 90% del documento— pero el operador tiene que saberlo, porque es lo
-        // único que se arregla volviendo a generarla.
-        if (data.incompleta) {
-          setHealth({ tone: "warn", msg: data.motivo || "La ficha quedó incompleta." });
-        }
-      } else {
-        // El endpoint manda el motivo real en `detail` (ej. "quota exceeded").
-        // Antes se descartaba y en pantalla quedaba un "Error en Gemini API"
-        // que no le servía a nadie para saber qué arreglar.
-        const detalle = typeof data.detail === "string" ? data.detail.slice(0, 220) : "";
-        fichaError = [data.error || `El generador respondió ${res.status}.`, detalle]
-          .filter(Boolean)
-          .join(" · ");
-        setHealth({ tone: "bad", msg: `Ficha no generada: ${fichaError}` });
-      }
-    } catch (e: any) {
-      fichaError = e?.message || "Error de red al generar la ficha.";
-      setHealth({ tone: "bad", msg: `Ficha no generada: ${fichaError}` });
-    }
+    /**
+     * PRIMERA MITAD — cierra el pitch YA.
+     *
+     * Antes esto era una sola función con tres llamadas en fila, y la del
+     * medio es el modelo escribiendo la ficha entera: son varios segundos, y
+     * más ahora que la escribe el modelo bueno con razonamiento. Durante todo
+     * ese rato los tres botones quedaban deshabilitados. O sea que el operador
+     * no podía ni preparar el equipo siguiente ni volver a grabar, parado
+     * frente a la sala, esperando un texto que nadie estaba mirando todavía.
+     *
+     * Ahora el cierre es sólo esto: el transcript final a la pantalla pública
+     * y el pitch marcado como cerrado. Menos de un segundo.
+     */
+    if (texto) await publicar({ mode: "sync", fullText: texto });
 
     try {
       const res = await fetch("/api/fichas", {
@@ -649,32 +733,34 @@ export default function CopilotoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "finish",
-          team: activeTeamName,
-          project: projectName,
-          textChunk: interimText,
-          analysis: ficha,
-          // Si no salió la ficha, el motivo viaja hasta la pantalla pública:
-          // vale más un aviso visible que un hueco silencioso.
-          analysisError: ficha ? "" : fichaError,
-          metrics: metricsRef.current,
+          team: equipo,
+          project: proyecto,
+          textChunk: ultimoInterim,
+          metrics: metricasCierre,
           fullText: texto,
-          lecturas: lecturasRef.current,
+          lecturas: lecturasCierre,
           // Última foto de preguntas y marcas: quedan pegadas a la ficha.
-          preguntas: preguntasRef.current,
-          marcas: marcasRef.current,
+          preguntas: preguntasCierre,
+          marcas: marcasCierre,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (data.broadcastError) setHealth({ tone: "bad", msg: data.broadcastError });
-      else setHealth({ tone: "ok", msg: "Ficha registrada y transmitida" });
     } catch (e) {
-      console.error("Error al finalizar ficha:", e);
-      setHealth({ tone: "bad", msg: "No se pudo registrar la ficha." });
+      console.error("Error al cerrar el pitch:", e);
+      setHealth({ tone: "bad", msg: "No se pudo cerrar el pitch en el servidor." });
     }
 
-    try { localStorage.removeItem(borradorKey(activeTeamName)); } catch {}
+    try { localStorage.removeItem(borradorKey(equipo)); } catch {}
+
+    // SEGUNDA MITAD: sin await. La ficha se escribe sola mientras el operador
+    // ya está en el paso 1 eligiendo al que sigue.
+    generarFichaEnSegundoPlano(equipo, proyecto, texto, metricasCierre, lecturasCierre);
+
     setIsFinishing(false);
-    setStep("session");
+    // Directo al paso 1: lo que el operador necesita después de cerrar es
+    // elegir el equipo siguiente, no una pantalla de confirmación.
+    setStep("setup");
   };
 
   /**
@@ -765,6 +851,17 @@ export default function CopilotoPage() {
           </div>
         </div>
         <div className="topbar__actions">
+          {/* Que la ficha se escriba sola no puede significar que se escriba a
+              escondidas: el operador tiene que poder ver que sigue trabajando
+              mientras él ya está con el equipo siguiente. */}
+          {pendientes.length > 0 && (
+            <span
+              className="chip chip--warn chip--msg"
+              title={`Generando la ficha de: ${pendientes.join(", ")}. No cierres esta pestaña.`}
+            >
+              ⏳ Escribiendo ficha{pendientes.length > 1 ? "s" : ""} de {pendientes.join(", ")}
+            </span>
+          )}
           {health && <span className={chipClass} title={health.msg}>{health.msg}</span>}
           <a className="btn btn--ghost btn--sm" href="/publico" target="_blank" rel="noreferrer">
             Pantalla pública ↗
@@ -1030,45 +1127,22 @@ export default function CopilotoPage() {
               </div>
             )}
 
-            <div
-              className={`ficha__body${aiAnalysis ? " ficha__body--ai" : ""}`}
-              style={{ marginTop: "var(--gap)", maxHeight: "none", flex: 1, overflowY: "auto" }}
-            >
-              {aiAnalysis ? (
-                <>
-                  <span className="ficha__tag" style={{ color: "var(--brand)" }}>Evaluación de la IA</span>
-                  <FichaTexto raw={aiAnalysis} />
-                </>
-              ) : (
-                <div className="transcript__empty" style={{ padding: "8% 0" }}>
-                  Los 6 indicadores se mueven solos en la pantalla pública.
-                  <br />
-                  La ficha escrita se genera al tocar &laquo;Finalizar&raquo;.
-                </div>
-              )}
-            </div>
+            {/* Este panel muestra el estado del análisis y las preguntas para
+                el cierre, que es lo que el jurado usa mientras el equipo habla.
+                La ficha escrita ya no se dibuja acá: se genera en segundo plano
+                al tocar «Finalizar» y se lee en el dashboard y en la pantalla
+                pública, que es donde alguien la va a mirar. */}
+            {preguntas.length === 0 && (
+              <div className="transcript__empty" style={{ padding: "8% 0", flex: 1 }}>
+                Los 6 indicadores se mueven solos en la pantalla pública.
+                <br />
+                Las preguntas para el cierre van a aparecer acá.
+              </div>
+            )}
           </section>
         </div>
       )}
 
-      {step === "session" && (
-        <div className="card stack">
-          <div>
-            <div className="eyebrow" style={{ color: "var(--green)" }}>✓ Listo</div>
-            <h2 style={{ fontSize: "var(--fs-xl)", fontWeight: 800, marginTop: 4 }}>
-              Pitch finalizado y ficha registrada
-            </h2>
-            <p className="soft" style={{ fontSize: "var(--fs-sm)", marginTop: 8 }}>
-              El transcript de {activeTeamName} quedó transmitido a la pantalla pública.
-            </p>
-          </div>
-          <div>
-            <button className="btn btn--primary" onClick={() => setStep("setup")}>
-              🎙️ Evaluar siguiente equipo
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

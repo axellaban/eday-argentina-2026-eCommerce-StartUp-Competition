@@ -148,6 +148,23 @@ pero **no reabren** un pitch ya cerrado: un chunk que llega tarde, después del
 "Finalizar", antes lo sacaba de las fichas cerradas y lo dejaba colgado como
 "presentando ahora" para siempre.
 
+**"Finalizar" son dos operaciones, no una.** El pitch se cierra al instante
+(`action: "finish"`, ~150 ms) y la ficha se escribe después en segundo plano;
+cuando el modelo termina, entra por `action: "ficha"`. Antes era todo una sola
+espera y los tres botones quedaban deshabilitados mientras el modelo escribía:
+el operador no podía ni preparar el equipo siguiente ni volver a grabar.
+
+Por eso `action: "ficha"` existe y es distinto de un POST común. Cuando la
+ficha llega, **el equipo siguiente ya puede estar presentando**, y un POST
+común haría dos cosas fatales ahí: cerrar automáticamente al que está en el
+escenario y declarar activo al que ya terminó. Esta acción sólo escribe la
+ficha; no toca quién está presentando.
+
+La contracara es que la generación vive en el navegador del operador: si cierra
+la pestaña con una ficha a medio escribir, esa ficha se pierde (el pitch y la
+medición no, esos ya están guardados). Por eso el copiloto muestra un chip con
+las fichas en curso y avisa antes de cerrar la pestaña.
+
 ### Persistencia
 
 En Vercel el filesystem es de solo lectura fuera de `/tmp` y cada request puede

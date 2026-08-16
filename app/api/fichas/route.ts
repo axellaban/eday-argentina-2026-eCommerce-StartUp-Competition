@@ -133,6 +133,27 @@ export async function POST(req: Request) {
      * arranca un equipo es porque va a hablar de nuevo, y lo anterior o ya se
      * descartó o ya se descargó.
      */
+    /**
+     * "ficha": pegarle la ficha a un pitch que YA se cerró.
+     *
+     * El copiloto cierra el pitch al instante y genera la ficha después, en
+     * segundo plano, para no dejar al operador esperando frente a la sala. Este
+     * POST es la segunda mitad de esa operación y llega tarde a propósito:
+     * cuando entra, el equipo SIGUIENTE puede estar presentando.
+     *
+     * Por eso no puede pasar por el camino normal. Un POST común sobre otro
+     * equipo hace dos cosas que acá serían un desastre: cierra automáticamente
+     * al que está activo —dando por cerrado un pitch en curso— y se declara a
+     * sí mismo el equipo activo. Esta acción sólo escribe la ficha y no toca
+     * quién está presentando.
+     */
+    if (action === "ficha" && !data.sessions[team]) {
+      return NextResponse.json(
+        { error: "No hay una sesión guardada de ese equipo para adjuntarle la ficha." },
+        { status: 404 }
+      );
+    }
+
     if (action === "start" || !data.sessions[team]) {
       data.sessions[team] = enBlanco();
     }
@@ -220,7 +241,7 @@ export async function POST(req: Request) {
         isFinished: true,
       });
       if (!result.ok) broadcastError = result.error;
-    } else {
+    } else if (action !== "ficha") {
       // Si había otro equipo activo, quedó sin cerrar: el operador pasó al
       // siguiente sin tocar "Finalizar". Se cierra solo para que su
       // transcripción no quede huérfana y aparezca en el historial.
