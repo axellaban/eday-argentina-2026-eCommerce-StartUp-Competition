@@ -37,7 +37,14 @@ const borradorKey = (equipo: string) => `${BORRADOR_KEY}.${equipo}`;
 
 type Health = { tone: "ok" | "warn" | "bad"; msg: string } | null;
 
-/** Lo que hace falta saber de una sesión guardada para decidir si se borra. */
+/**
+ * Lo que hace falta saber de una sesión guardada para decidir si se borra…
+ * y para poder volver a generarle la ficha.
+ *
+ * El transcript y la medición viajan acá porque son exactamente lo que
+ * necesita /api/ficha-final: con eso, cualquier ficha que falte se rehace sin
+ * depender de nada que haya quedado en la memoria del navegador.
+ */
 type SesionGuardada = {
   team: string;
   project?: string;
@@ -45,7 +52,11 @@ type SesionGuardada = {
   isFinished: boolean;
   largo: number;
   tieneFicha: boolean;
+  fichaError?: string;
   esActiva: boolean;
+  transcript: string;
+  metrics: Record<string, number> | null;
+  lecturas: number;
 };
 
 export default function CopilotoPage() {
@@ -674,10 +685,10 @@ export default function CopilotoPage() {
   /**
    * Aviso al cerrar la pestaña con fichas a medio escribir.
    *
-   * La generación vive en este navegador: si se cierra la pestaña antes de que
-   * el modelo conteste, esa ficha se pierde y el equipo queda en el historial
-   * sin evaluación. El pitch y la medición no se pierden —esos ya están
-   * guardados— pero la ficha hay que volver a generarla a mano.
+   * No es que se pierda nada: el pitch, la medición, las preguntas y las
+   * marcas ya están en la base, y la ficha que falte se rehace con el botón
+   * "Generar ficha" de la lista de guardadas. Pero cerrar acá significa un
+   * paso manual después, y avisarlo cuesta una línea.
    */
   useEffect(() => {
     if (!pendientes.length) return;
@@ -792,7 +803,11 @@ export default function CopilotoPage() {
             isFinished: Boolean(s.isFinished),
             largo: (s.transcript || "").length,
             tieneFicha: Boolean(s.analysis),
+            fichaError: s.analysisError || "",
             esActiva: s.team === activo,
+            transcript: s.transcript || "",
+            metrics: s.metrics || null,
+            lecturas: Number(s.lecturas) || 0,
           }))
           .sort((a, b) => a.team.localeCompare(b.team))
       );
@@ -806,6 +821,17 @@ export default function CopilotoPage() {
   useEffect(() => {
     if (step === "setup") cargarGuardadas();
   }, [step, cargarGuardadas]);
+
+  /**
+   * Cuando una ficha en segundo plano aterriza, la lista queda vieja: sigue
+   * diciendo "sin ficha" y ofreciendo el botón de generar una que ya existe.
+   * Se refresca sola al bajar la cuenta de pendientes.
+   */
+  const pendientesPrevios = useRef(0);
+  useEffect(() => {
+    if (step === "setup" && pendientes.length < pendientesPrevios.current) cargarGuardadas();
+    pendientesPrevios.current = pendientes.length;
+  }, [pendientes, step, cargarGuardadas]);
 
   const borrar = useCallback(
     async (equipo: string | "TODAS") => {
@@ -973,7 +999,11 @@ export default function CopilotoPage() {
                         {[
                           s.project,
                           s.esActiva ? "● presentando ahora" : s.isFinished ? "cerrada" : "sin cerrar",
-                          s.tieneFicha ? "con ficha" : "sin ficha",
+                          s.tieneFicha
+                            ? "con ficha"
+                            : s.fichaError
+                            ? `sin ficha — ${s.fichaError.slice(0, 90)}`
+                            : "sin ficha",
                           `${s.largo.toLocaleString("es-AR")} caracteres`,
                           s.timestamp,
                         ]
@@ -981,6 +1011,31 @@ export default function CopilotoPage() {
                           .join(" · ")}
                       </span>
                     </div>
+                    {/* Rehacer una ficha que falta.
+                        La base tiene el transcript y la medición, que es todo
+                        lo que necesita el generador: si la ficha no llegó
+                        —porque Gemini estaba caído, porque se acabó la cuota o
+                        porque se cerró la pestaña mientras se escribía— se
+                        rehace desde acá y queda guardada, sin volver a grabar
+                        nada. Antes no había forma: el pitch quedaba cerrado y
+                        sin evaluación para siempre. */}
+                    {!s.esActiva && !s.tieneFicha && s.largo >= 200 && !pendientes.includes(s.team) && (
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        style={{ flexShrink: 0 }}
+                        onClick={() =>
+                          generarFichaEnSegundoPlano(s.team, s.project || "", s.transcript, s.metrics, s.lecturas)
+                        }
+                        title={s.fichaError ? `Falló antes: ${s.fichaError}` : "Generar la ficha de este pitch"}
+                      >
+                        ✨ Generar ficha
+                      </button>
+                    )}
+                    {pendientes.includes(s.team) && (
+                      <span className="soft" style={{ fontSize: "var(--fs-xs)", flexShrink: 0 }}>
+                        escribiendo…
+                      </span>
+                    )}
                     {porBorrar === s.team ? (
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                         <button className="btn btn--danger btn--sm" onClick={() => borrar(s.team)}>

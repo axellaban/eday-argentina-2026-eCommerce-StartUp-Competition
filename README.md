@@ -160,10 +160,19 @@ común haría dos cosas fatales ahí: cerrar automáticamente al que está en el
 escenario y declarar activo al que ya terminó. Esta acción sólo escribe la
 ficha; no toca quién está presentando.
 
-La contracara es que la generación vive en el navegador del operador: si cierra
-la pestaña con una ficha a medio escribir, esa ficha se pierde (el pitch y la
-medición no, esos ya están guardados). Por eso el copiloto muestra un chip con
-las fichas en curso y avisa antes de cerrar la pestaña.
+**Ninguna ficha depende del navegador.** La generación corre ahí, sí, pero lo
+que la alimenta —transcript, medición, lecturas— ya está en la base desde antes
+de que el modelo empiece a escribir. Si la ficha no llega —Gemini caído, cuota
+agotada, la pestaña cerrada a mitad de camino— la sesión queda marcada "sin
+ficha" en la lista de guardadas del copiloto, con un botón **Generar ficha** al
+lado que la rehace desde lo que ya está guardado. Sin volver a grabar nada.
+
+Antes eso no existía: si la generación fallaba, el pitch quedaba cerrado y sin
+evaluación para siempre, porque el único momento en que se intentaba escribirla
+era al tocar "Finalizar".
+
+Borrar sigue siendo sólo desde `/copiloto`: el `DELETE` está detrás de la
+contraseña del operador y no hay UI de borrado en ninguna otra pantalla.
 
 ### Persistencia
 
