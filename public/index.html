@@ -2483,7 +2483,7 @@ function setModo(modo, sinTocarUrl) {
     // volver: se destruye y se rearma con las medidas correctas.
     if (aiRadarChart) { aiRadarChart.destroy(); aiRadarChart = null; }
     // Mientras se miraba AI Judge no se consultó el Sheet: se pone al día ya,
-    // sin esperar los 30 segundos del próximo ciclo.
+    // sin esperar al próximo ciclo.
     if (!primerModo) loadData(false);
   }
   primerModo = false;
@@ -3101,11 +3101,12 @@ loadData(true);
  * la forma más rápida de que Google empiece a rechazar y todos los teléfonos
  * de la sala vean "Error al conectar con Google Sheets" a la vez.
  *
- * Treinta segundos alcanzan de sobra: el jurado carga sus puntajes después de
- * cada pitch, no mientras alguien habla. Y en AI Judge no se consulta nada;
- * al volver a la vista humana se refresca en el acto, así que no se ve vieja.
+ * Quince segundos: el jurado carga sus puntajes después de cada pitch, no
+ * mientras alguien habla, así que la tabla nunca se ve vieja. De las dos
+ * medidas la que más descarga a Google es la otra —en AI Judge no se consulta
+ * nada—, y al volver a la vista humana se refresca en el acto.
  */
-const SHEET_INTERVALO_MS = 30000;
+const SHEET_INTERVALO_MS = 15000;
 setInterval(() => { if (aiModo !== 'ai') loadData(false); }, SHEET_INTERVALO_MS);
 </script>
 <!-- Vercel Deployment Sync -->
