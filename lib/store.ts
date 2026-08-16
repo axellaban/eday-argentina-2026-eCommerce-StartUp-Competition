@@ -84,6 +84,26 @@ export function isDurable(): boolean {
   return Boolean(KV_URL && KV_TOKEN);
 }
 
+/**
+ * De dónde salió la última lectura, que NO es lo mismo que `isDurable()`.
+ *
+ * `isDurable()` mira las variables de entorno: dice si hay una base
+ * configurada. No dice si esa base contestó. Cuando Redis falla, `loadSessions`
+ * cae al filesystem —que en Vercel es /tmp, distinto en cada instancia— y
+ * devuelve una lista que puede estar incompleta o vacía, con `isDurable()`
+ * diciendo `true` igual.
+ *
+ * Esa diferencia importa para quien use la lista del servidor para BORRAR algo
+ * suyo: la pantalla de sala poda su historial local con lo que el servidor no
+ * tiene, y hacerlo contra una lectura de /tmp sería tirar la única copia buena
+ * por un parpadeo de la base. Sólo se puede podar cuando esto dice "kv".
+ */
+export type Fuente = "kv" | "fs";
+let ultimaFuente: Fuente = "fs";
+export function fuenteUltimaLectura(): Fuente {
+  return ultimaFuente;
+}
+
 /** En Vercel el único directorio escribible es /tmp. */
 function fsFile(): string {
   const dir = process.env.VERCEL ? "/tmp/eday-data" : path.join(process.cwd(), "data");
@@ -124,11 +144,14 @@ async function kvSet(data: SessionsData): Promise<void> {
 export async function loadSessions(): Promise<SessionsData> {
   if (isDurable()) {
     try {
-      return await kvGet();
+      const data = await kvGet();
+      ultimaFuente = "kv";
+      return data;
     } catch (e) {
       console.error("[store] Falló la lectura de KV, uso filesystem:", e);
     }
   }
+  ultimaFuente = "fs";
   try {
     const file = fsFile();
     if (!fs.existsSync(file)) return { ...EMPTY };

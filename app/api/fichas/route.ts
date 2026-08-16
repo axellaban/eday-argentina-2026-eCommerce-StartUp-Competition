@@ -1,14 +1,24 @@
 import { NextResponse } from "next/server";
 import { broadcast } from "@/lib/pusher";
 import { MAX_TRANSCRIPT_EVENTO, PUSHER_EVENTS } from "@/lib/pusher-config";
-import { loadSessions, saveSessions, isDurable, TeamSession } from "@/lib/store";
+import { loadSessions, saveSessions, isDurable, fuenteUltimaLectura, TeamSession } from "@/lib/store";
 
 // El estado cambia en cada pitch: nunca cachear esta ruta.
 export const dynamic = "force-dynamic";
 
+/**
+ * Cuánto transcript viaja en la respuesta liviana de una ficha ya cerrada.
+ *
+ * Es exactamente lo que el AI Judge llega a mostrar cuando un pitch quedó sin
+ * ficha: un asomo del texto abajo del aviso de error. Más que eso no se
+ * dibuja en ningún lado.
+ */
+const ASOMO_TRANSCRIPT = 600;
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const team = searchParams.get("team");
+  const completo = searchParams.get("full") === "1";
   const data = await loadSessions();
 
   if (team) {
@@ -23,6 +33,38 @@ export async function GET(req: Request) {
     .filter((s) => s.isFinished)
     .sort((a, b) => b.updatedAt - a.updatedAt);
   const activeSession = data.activeTeam ? data.sessions[data.activeTeam] : null;
+
+  /**
+   * Dos tamaños de respuesta, y la diferencia no es cosmética.
+   *
+   * Medido con diez equipos cerrados, la respuesta completa pesa 201 KB: 78 KB
+   * de transcripts dentro de `finishedSessions` y los mismos transcripts otra
+   * vez adentro de `allSessions`. El AI Judge pide esto cada 5 a 15 segundos
+   * desde cada celular de la sala, así que a media jornada cada teléfono se
+   * estaba bajando decenas de megas de texto que la pantalla ni usa —el cuerpo
+   * de una ficha cerrada sale de `analysis`, no del transcript— y todo eso
+   * compite por el wifi del venue con el audio que el copiloto le manda a
+   * Deepgram.
+   *
+   * Por defecto, entonces, va la versión liviana: sin `allSessions` y con un
+   * asomo del transcript en vez del transcript entero. Con `?full=1` va todo,
+   * para los dos únicos clientes que lo necesitan y que son una máquina cada
+   * uno: la pantalla de sala (que arma el respaldo descargable) y el panel del
+   * operador (que lista lo guardado para borrarlo).
+   *
+   * El pitch EN CURSO viaja completo siempre: es uno solo, y es el texto que
+   * se está leyendo en pantalla.
+   */
+  const cerradas = completo
+    ? finishedList
+    : finishedList.map(({ transcript, marcas, ...resto }) => ({
+        ...resto,
+        // `marcas` no viaja: el resaltado del transcript es del pitch EN CURSO
+        // y ninguna ficha ya cerrada lo dibuja. Son catorce citas por equipo
+        // que se estaban mandando cada cinco segundos para no pintar nada.
+        transcriptAsomo: (transcript || "").slice(0, ASOMO_TRANSCRIPT),
+        transcriptLargo: (transcript || "").length,
+      }));
 
   /**
    * Tres segundos de cache en el CDN.
@@ -41,9 +83,15 @@ export async function GET(req: Request) {
   return NextResponse.json(
     {
       activeSession,
-      finishedSessions: finishedList,
-      allSessions: data.sessions,
+      finishedSessions: cerradas,
+      ...(completo ? { allSessions: data.sessions } : {}),
       durable: isDurable(),
+      /**
+       * Esta respuesta salió de la base, no del disco de una instancia.
+       * Es la única condición bajo la cual un cliente puede tratar la ausencia
+       * de una ficha como "la borraron" y no como "esta instancia no la vio".
+       */
+      leidoDeLaBase: fuenteUltimaLectura() === "kv",
     },
     { headers: { "Cache-Control": "public, max-age=0, s-maxage=3, stale-while-revalidate=10" } }
   );
@@ -60,16 +108,33 @@ export async function POST(req: Request) {
 
     const data = await loadSessions();
 
-    if (!data.sessions[team]) {
-      const nueva: TeamSession = {
-        team,
-        project: project || "",
-        transcript: "",
-        isFinished: false,
-        timestamp: new Date().toLocaleTimeString("es-AR"),
-        updatedAt: Date.now(),
-      };
-      data.sessions[team] = nueva;
+    const enBlanco = (): TeamSession => ({
+      team,
+      project: project || "",
+      transcript: "",
+      isFinished: false,
+      timestamp: new Date().toLocaleTimeString("es-AR"),
+      updatedAt: Date.now(),
+    });
+
+    /**
+     * "start": este equipo arranca de cero, ahora.
+     *
+     * Sin esta acción, el copiloto no le avisaba nada al servidor al empezar:
+     * la sesión nacía sola con el primer chunk de audio. Y si ese equipo ya
+     * existía —porque se ensayó el micrófono con ese nombre, porque el pitch
+     * se cortó y se volvió a empezar, o porque se rehizo una ficha que salió
+     * mal— el chunk nuevo se AGREGABA al texto viejo. El resultado era un
+     * transcript con el ensayo pegado adelante del pitch real, la ficha del
+     * intento anterior colgando, y la ficha final generada sobre los dos
+     * textos mezclados.
+     *
+     * Reiniciar acá es lo correcto y no pierde nada que importe: si alguien
+     * arranca un equipo es porque va a hablar de nuevo, y lo anterior o ya se
+     * descartó o ya se descargó.
+     */
+    if (action === "start" || !data.sessions[team]) {
+      data.sessions[team] = enBlanco();
     }
 
     const session = data.sessions[team];
@@ -156,8 +221,6 @@ export async function POST(req: Request) {
       });
       if (!result.ok) broadcastError = result.error;
     } else {
-      session.isFinished = false;
-
       // Si había otro equipo activo, quedó sin cerrar: el operador pasó al
       // siguiente sin tocar "Finalizar". Se cierra solo para que su
       // transcripción no quede huérfana y aparezca en el historial.
@@ -171,7 +234,22 @@ export async function POST(req: Request) {
         }
       }
 
-      data.activeTeam = team;
+      /**
+       * Un pitch cerrado no se reabre por un POST que llegó tarde.
+       *
+       * Antes, cualquier POST sin `action` ponía `isFinished = false` y volvía
+       * a marcar el equipo como activo. Alcanzaba con que un chunk de audio o
+       * el sync de cada 12s se demorara en la red y aterrizara después del
+       * "Finalizar" para que el equipo desapareciera de las fichas cerradas y
+       * quedara colgado como "presentando ahora" — y nada lo volvía a cerrar,
+       * porque el operador ya había pasado al siguiente. Reproducido: bastaba
+       * un sync tardío para que `finishedSessions` quedara vacío.
+       *
+       * Ahora sólo `action: "start"` abre un pitch. Un POST tardío sobre algo
+       * ya cerrado sigue aportando su texto —es texto de ese mismo pitch— pero
+       * no lo resucita.
+       */
+      if (!session.isFinished) data.activeTeam = team;
     }
 
     await saveSessions(data);

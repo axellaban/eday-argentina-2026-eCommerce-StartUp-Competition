@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { urlGemini } from "@/lib/gemini";
+import { urlGemini, olvidarModelo } from "@/lib/gemini";
+import { motivoGemini } from "@/lib/gemini-error";
 import { INDICATORS_PROMPT_BLOCK } from "@/lib/criteria";
 
 export const dynamic = "force-dynamic";
@@ -84,9 +85,24 @@ ${question || "(Analizar pitch acumulado)"}`;
     clearTimeout(corte);
 
     if (!res.ok) {
-      const errText = await res.text();
+      const errText = await res.text().catch(() => "");
+      /**
+       * Esta ruta era la única de las cuatro que le pegan a Gemini que no
+       * hacía ninguna de las dos cosas que hacen las otras tres.
+       *
+       * No tiraba el modelo cacheado ante un 404, así que si Google retiraba
+       * el modelo a mitad del evento las mediciones y las fichas se
+       * recuperaban solas en la llamada siguiente y el botón "Analizar"
+       * seguía diez minutos pegándole a un nombre muerto.
+       *
+       * Y no traducía el error: devolvía el literal "Error en Gemini API",
+       * que es lo que el copiloto muestra en pantalla. Ese cartel no dice si
+       * falta la key, si se acabó la cuota o si el modelo no existe, que son
+       * tres cosas que se arreglan distinto y hay que distinguir en minutos.
+       */
+      if (res.status === 404) olvidarModelo();
       return NextResponse.json(
-        { error: "Error en Gemini API", detail: errText },
+        { error: motivoGemini(res.status, errText), detail: errText.slice(0, 300) },
         { status: res.status }
       );
     }

@@ -272,15 +272,41 @@ export default function PublicoPage() {
 
   const cargarDelServidor = async () => {
     try {
-      const res = await fetch("/api/fichas", { cache: "no-store" });
+      // `full=1`: esta pantalla arma el respaldo descargable del evento, así
+      // que necesita los transcripts enteros. Es una sola máquina pidiéndolo.
+      const res = await fetch("/api/fichas?full=1", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
 
       if (Array.isArray(data.finishedSessions)) {
         setFinished((actual) => {
           const fusionadas = fusionar(actual, data.finishedSessions);
-          guardarLocal(fusionadas);
-          return fusionadas;
+          /**
+           * Lo borrado desde el copiloto tiene que desaparecer también de acá.
+           *
+           * El historial de esta pantalla se fusiona: nunca se sacaba nada. Al
+           * limpiar los ensayos antes de que empiece el evento, el servidor
+           * quedaba prolijo pero la máquina de la sala —que está abierta desde
+           * las pruebas— seguía mostrando los ensayos abajo, porque los tenía
+           * en su localStorage.
+           *
+           * Sólo se poda cuando la respuesta salió DE LA BASE. No alcanza con
+           * que la base esté configurada: si Redis falla, el servidor cae al
+           * disco de la instancia y contesta una lista incompleta o vacía. Esa
+           * lista no dice "esto se borró", dice "no me acuerdo", y podar
+           * contra ella tiraría la única copia que queda del evento.
+           */
+          if (!data.leidoDeLaBase) {
+            guardarLocal(fusionadas);
+            return fusionadas;
+          }
+          const vivas = new Set<string>(
+            (data.finishedSessions as TeamSession[]).map((s) => s.team)
+          );
+          if (data.activeSession?.team) vivas.add(data.activeSession.team);
+          const podadas = fusionadas.filter((s) => vivas.has(s.team));
+          guardarLocal(podadas);
+          return podadas;
         });
       }
       if (data.activeSession && !data.activeSession.isFinished) {

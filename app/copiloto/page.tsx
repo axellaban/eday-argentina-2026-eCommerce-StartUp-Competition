@@ -394,6 +394,40 @@ export default function CopilotoPage() {
 
   const startSession = () => {
     setStep("live");
+    /**
+     * Avisarle al servidor que este equipo arranca de cero.
+     *
+     * Antes no se avisaba nada: la sesión del servidor nacía sola con el
+     * primer chunk de audio. Si ese equipo ya existía —el ensayo del
+     * micrófono, un pitch que se cortó y se rehizo, una ficha que salió mal y
+     * se quiso repetir— el texto nuevo se agregaba abajo del viejo y la ficha
+     * final terminaba escrita sobre los dos pitches pegados.
+     *
+     * Va sin `await` a propósito: la pantalla tiene que pasar a "live" al
+     * instante, y si el POST falla el operador se entera por el chip de
+     * estado en vez de quedarse mirando un botón que no responde.
+     */
+    const equipo = activeTeamName;
+    fetch("/api/fichas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "start", team: equipo, project: projectName }),
+    })
+      .then((r) => {
+        if (!r.ok) {
+          setHealth({
+            tone: "warn",
+            msg: `No se pudo abrir la sesión de ${equipo} en el servidor (HTTP ${r.status}). Si ya presentó antes, el texto viejo puede quedar pegado.`,
+          });
+        }
+      })
+      .catch(() => {
+        setHealth({
+          tone: "warn",
+          msg: "No se pudo abrir la sesión en el servidor. Revisá la conexión antes de arrancar.",
+        });
+      });
+
     setAiAnalysis("");
     setMetrics(null);
     setUltimoAnalisis("");
@@ -576,7 +610,17 @@ export default function CopilotoPage() {
       });
       const data = await res.json();
       setAiAnalysis(data.text || data.error || "Análisis completado.");
-      await Promise.all([analizarIndicadores(texto), marcarTranscript(texto)]);
+      /**
+       * El marcado va sobre el texto YA CERRADO, no sobre `texto`.
+       *
+       * `texto` incluye la frase que Deepgram todavía está corrigiendo. Las
+       * marcas que citaran ese tramo pasaban la validación del servidor
+       * —porque se validan contra el mismo texto que se mandó— pero después no
+       * se encontraban en el transcript definitivo y se descartaban solas al
+       * pintar. Se gastaba la llamada para que las frases más recientes, que
+       * son justo las que el jurado está mirando, quedaran sin resaltar.
+       */
+      await Promise.all([analizarIndicadores(texto), marcarTranscript(textoFinalRef.current)]);
     } catch {
       setAiAnalysis("Error en la conexión con la IA de evaluación.");
     } finally {
@@ -672,9 +716,11 @@ export default function CopilotoPage() {
   const cargarGuardadas = useCallback(async () => {
     setCargandoGuardadas(true);
     try {
-      // Con `?t=` para saltear el cache del CDN: después de borrar una sesión
-      // el operador tiene que ver el estado real, no uno de hace tres segundos.
-      const res = await fetch(`/api/fichas?t=${Date.now()}`, { cache: "no-store" });
+      // `full=1` porque acá hace falta el listado entero con su transcript
+      // para poder decidir qué borrar; el `?t=` saltea el cache del CDN,
+      // porque después de borrar hay que ver el estado real y no uno de hace
+      // tres segundos. Son dos máquinas contadas las que piden esta versión.
+      const res = await fetch(`/api/fichas?full=1&t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const todas: Record<string, any> = data.allSessions || {};

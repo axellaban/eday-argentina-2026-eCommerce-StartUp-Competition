@@ -20,7 +20,18 @@ export const dynamic = "force-dynamic";
  */
 
 const DG = "https://api.deepgram.com";
-const TTL = 600; // 10 min: alcanza de sobra para abrir la conexión del pitch.
+/**
+ * Media hora de vida para la credencial.
+ *
+ * Estaba en 10 minutos, que es exactamente lo que dura un pitch: la
+ * credencial vencía justo mientras alguien estaba hablando. El corte lo
+ * absorbe la reconexión automática del copiloto, pero cada reconexión se come
+ * un par de segundos de audio, y se los come en el peor momento posible —el
+ * cierre del pitch, donde están los números y el veredicto—. Media hora saca
+ * el vencimiento de adentro de la presentación sin dejar el token dando
+ * vueltas: el máximo que acepta Deepgram es una hora.
+ */
+const TTL = 1800;
 
 function apiKey(): string {
   return (process.env.DEEPGRAM_API_KEY || "").trim().replace(/^["']|["']$/g, "");

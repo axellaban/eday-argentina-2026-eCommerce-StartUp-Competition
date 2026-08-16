@@ -2165,11 +2165,11 @@ async function fetchFichasEnVivo() {
     const data = await res.json();
     const sesiones = Array.isArray(data.finishedSessions) ? data.finishedSessions : [];
     return sesiones
-      .filter(s => s && s.team && (s.analysis || s.transcript))
+      .filter(s => s && s.team && (s.analysis || s.transcript || s.transcriptAsomo))
       .map(s => ({
         group: s.team,
         proyecto: s.project || '',
-        raw: s.analysis || s.transcript || '',
+        raw: s.analysis || s.transcript || s.transcriptAsomo || '',
         enVivo: true
       }));
   } catch (e) {
@@ -2224,6 +2224,17 @@ async function loadFichas() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  /**
+   * Sólo si el módulo está a la vista.
+   *
+   * Las fichas del jurado humano están ocultas —viven en AI Judge, que es su
+   * lugar— pero esta carga seguía corriendo igual al abrir la página: una
+   * consulta a /api/fichas y otra a fichas.json, de cada visitante, para
+   * llenar un bloque que nadie ve. Si algún día se vuelve a mostrar el módulo
+   * (sacándole el `hidden`), esto arranca solo de nuevo.
+   */
+  const modulo = document.getElementById('modFichasHumano');
+  if (modulo && modulo.hidden) return;
   setTimeout(loadFichas, 900);
 });
 
@@ -2412,6 +2423,8 @@ const AI_INTERVALO_MS = 5000;
 const AI_INTERVALO_CON_VIVO_MS = 15000;
 
 let aiModo        = 'humano';
+/** La primera pasada por setModo es la del arranque: ahí loadData ya corre solo. */
+let primerModo    = true;
 let aiPollTimer   = null;
 let aiRadarChart  = null;
 let aiMetersListo = false;
@@ -2469,7 +2482,11 @@ function setModo(modo, sinTocarUrl) {
     // El radar de Chart.js sigue vivo en un canvas oculto y se descuadra al
     // volver: se destruye y se rearma con las medidas correctas.
     if (aiRadarChart) { aiRadarChart.destroy(); aiRadarChart = null; }
+    // Mientras se miraba AI Judge no se consultó el Sheet: se pone al día ya,
+    // sin esperar los 30 segundos del próximo ciclo.
+    if (!primerModo) loadData(false);
   }
+  primerModo = false;
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -2790,6 +2807,10 @@ async function conectarVivo() {
    * pierde el tiempo real, no los datos.
    */
   const degradar = () => {
+    // Si ya se salió de AI Judge, no hay nada que degradar: sin esta guarda,
+    // el `disconnected` que dispara la propia salida volvía a programar la
+    // consulta y quedaba un temporizador latiendo cada 5s en la vista humana.
+    if (aiModo !== 'ai') return;
     if (!aiVivo && aiPollTimer) return;
     aiVivo = false;
     repintarEstadoAI();
@@ -2982,8 +3003,11 @@ function fichaCompletaAI(s) {
   if (s.analysis) {
     cuerpo = buildFichaBody(parseFichaRaw(s.analysis), '#22C55E');
   } else if (s.analysisError) {
+    // `transcriptAsomo` es lo que manda la respuesta liviana; `transcript`
+    // sólo viene con ?full=1, que esta vista no pide.
+    const asomo = s.transcriptAsomo || (s.transcript || '').slice(0, 600);
     cuerpo = `<p style="color:#FB923C;">No se pudo generar la ficha: ${escaparAI(s.analysisError)}</p>` +
-             (s.transcript ? `<p style="opacity:.7;margin-top:10px;">${escaparAI(s.transcript.slice(0, 600))}…</p>` : '');
+             (asomo ? `<p style="opacity:.7;margin-top:10px;">${escaparAI(asomo)}…</p>` : '');
   } else {
     cuerpo = '<p style="opacity:.6;">Ficha en generación…</p>';
   }
@@ -3066,7 +3090,23 @@ window.addEventListener('popstate', () => {
 // INIT
 // ═══════════════════════════════════════════════
 loadData(true);
-setInterval(() => loadData(false), 10000);
+
+/**
+ * Relectura del Sheet del jurado.
+ *
+ * Estaba cada 10 segundos y con `cachebust`, o sea sin ningún cache posible,
+ * y corría siempre: también con AI Judge en pantalla, donde no se dibuja una
+ * sola celda de esa planilla. Con la sala llena de celulares eso son cientos
+ * de consultas por minuto a `gviz` desde una única IP —la del venue—, que es
+ * la forma más rápida de que Google empiece a rechazar y todos los teléfonos
+ * de la sala vean "Error al conectar con Google Sheets" a la vez.
+ *
+ * Treinta segundos alcanzan de sobra: el jurado carga sus puntajes después de
+ * cada pitch, no mientras alguien habla. Y en AI Judge no se consulta nada;
+ * al volver a la vista humana se refresca en el acto, así que no se ve vieja.
+ */
+const SHEET_INTERVALO_MS = 30000;
+setInterval(() => { if (aiModo !== 'ai') loadData(false); }, SHEET_INTERVALO_MS);
 </script>
 <!-- Vercel Deployment Sync -->
 </body>

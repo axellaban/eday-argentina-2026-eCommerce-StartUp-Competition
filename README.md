@@ -86,6 +86,42 @@ próxima llamada vuelve a resolver. `GET /api/gemini-check` (con la contraseña
 del operador) dice cuáles quedaron elegidos, qué tiene habilitado la key y qué
 contestó Google.
 
+### `GET /api/fichas` viene en dos tamaños
+
+Es la ruta que consulta cada celular de la sala desde el AI Judge, cada 5 a 15
+segundos. Con diez equipos cerrados, la respuesta completa pesaba 201 KB —los
+transcripts iban dos veces, dentro de `finishedSessions` y otra vez dentro de
+`allSessions`— para dibujar fichas que se arman con `analysis`, no con el
+transcript.
+
+| Pedido | Qué trae | Quién lo usa |
+|---|---|---|
+| `GET /api/fichas` | Sin `allSessions`; cada ficha cerrada con `transcriptAsomo` (600 caracteres) y `transcriptLargo` en vez del transcript entero. ~26 KB. | El AI Judge del home: toda la sala |
+| `GET /api/fichas?full=1` | Todo, transcripts incluidos. | `/publico` (arma el respaldo descargable) y `/copiloto` (lista lo guardado para borrarlo): una máquina cada uno |
+
+El pitch **en curso** (`activeSession`) viaja completo siempre: es uno solo y es
+el texto que se está leyendo en pantalla.
+
+Dos campos que se parecen y no son lo mismo: `durable` dice si hay una base
+configurada; `leidoDeLaBase` dice si *esta* respuesta salió de ella. Cuando
+Redis falla, el servidor cae al disco de la instancia y contesta con
+`durable: true` y `leidoDeLaBase: false`. Sólo con `leidoDeLaBase` en `true` un
+cliente puede leer la ausencia de una ficha como "la borraron" — que es lo que
+hace `/publico` para soltar del historial local lo que se borró desde el
+copiloto.
+
+### El ciclo de una sesión
+
+`POST /api/fichas` con `action: "start"` **reinicia** la sesión de ese equipo.
+El copiloto lo manda al tocar "Iniciar evaluación", y es lo que permite volver
+a arrancar un equipo —tras un ensayo, un pitch cortado o una ficha que salió
+mal— sin que el texto nuevo quede pegado abajo del viejo.
+
+Los POST sin `action` (los chunks de audio y el sync de cada 12s) suman texto
+pero **no reabren** un pitch ya cerrado: un chunk que llega tarde, después del
+"Finalizar", antes lo sacaba de las fichas cerradas y lo dejaba colgado como
+"presentando ahora" para siempre.
+
 ### Persistencia
 
 En Vercel el filesystem es de solo lectura fuera de `/tmp` y cada request puede
