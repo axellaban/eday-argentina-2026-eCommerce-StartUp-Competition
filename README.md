@@ -160,16 +160,25 @@ común haría dos cosas fatales ahí: cerrar automáticamente al que está en el
 escenario y declarar activo al que ya terminó. Esta acción sólo escribe la
 ficha; no toca quién está presentando.
 
-**Ninguna ficha depende del navegador.** La generación corre ahí, sí, pero lo
-que la alimenta —transcript, medición, lecturas— ya está en la base desde antes
-de que el modelo empiece a escribir. Si la ficha no llega —Gemini caído, cuota
-agotada, la pestaña cerrada a mitad de camino— la sesión queda marcada "sin
-ficha" en la lista de guardadas del copiloto, con un botón **Generar ficha** al
-lado que la rehace desde lo que ya está guardado. Sin volver a grabar nada.
+#### Ninguna ficha depende del navegador ni de que alguien se acuerde
 
-Antes eso no existía: si la generación fallaba, el pitch quedaba cerrado y sin
-evaluación para siempre, porque el único momento en que se intentaba escribirla
-era al tocar "Finalizar".
+La generación corre en el navegador del operador, sí, pero lo que la alimenta
+—transcript, medición, lecturas— ya está en la base **desde antes** de que el
+modelo empiece a escribir. Con eso, cualquier ficha que falte se rehace.
+
+Antes había un solo intento en toda la vida del sistema: el de tocar
+"Finalizar". Si fallaba, el pitch quedaba cerrado y sin evaluación para
+siempre. Ahora hay tres redes, de más automática a más manual:
+
+| | Qué hace | Tope |
+|---|---|---|
+| **Reintentos** | Ante 429, 5xx o error de red, reintenta con espera creciente (4s, 8s). No reintenta lo que no cambia por esperar: transcript corto, key inválida. | 3 por intento |
+| **Barrido automático** | Cada vez que el copiloto vuelve al paso 1 —o sea, después de **cada** pitch, y también al abrir la página— busca sesiones cerradas sin ficha y las manda a generar, de a una. | 2 por equipo y por pestaña |
+| **Botón "Generar ficha"** | En la lista de guardadas, junto a cada sesión sin ficha. La fila dice por qué falló. | sin tope |
+
+Los tres escenarios están cubiertos por `infalible.js` y `recuperar.js`: Gemini
+caído que después vuelve, la pestaña cerrada a mitad de la generación, y una
+falla permanente que **no** puede convertirse en un bucle que queme cuota.
 
 Borrar sigue siendo sólo desde `/copiloto`: el `DELETE` está detrás de la
 contraseña del operador y no hay UI de borrado en ninguna otra pantalla.

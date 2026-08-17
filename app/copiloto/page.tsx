@@ -30,6 +30,16 @@ const INTERVALO_MARCAS_MS = 24_000;
 /** Reintentos automáticos si Deepgram corta la conexión a mitad del pitch. */
 const MAX_REINTENTOS_MIC = 4;
 
+/**
+ * Cuántas veces el copiloto rehace SOLO la ficha de un equipo.
+ *
+ * Cada intento se lleva sus propios tres reintentos internos, así que dos
+ * alcanzan para cubrir cualquier falla pasajera sin convertirse en un bucle
+ * que quema cuota contra un problema que no se va a arreglar esperando. El
+ * botón manual de la lista no tiene tope.
+ */
+const MAX_FICHAS_AUTO = 2;
+
 /** Un borrador por equipo: antes había una sola clave y arrancar el equipo
  *  siguiente pisaba el borrador del anterior a los 5 segundos. */
 const BORRADOR_KEY = "eday.copiloto.borrador";
@@ -81,6 +91,10 @@ export default function CopilotoPage() {
 
   /** Equipos cuya ficha se está escribiendo ahora mismo, en segundo plano. */
   const [pendientes, setPendientes] = useState<string[]>([]);
+  /** Espejo sincrónico: dos disparos casi simultáneos no pueden encimarse. */
+  const pendientesRef = useRef<Set<string>>(new Set());
+  /** Cuántas veces se intentó ya la ficha de cada equipo en esta pestaña. */
+  const intentosRef = useRef<Record<string, number>>({});
 
   const [health, setHealth] = useState<Health>(null);
   const [authWarning, setAuthWarning] = useState(false);
@@ -623,28 +637,47 @@ export default function CopilotoPage() {
       metricas: Record<string, number> | null,
       lecturas: number
     ) => {
+      if (pendientesRef.current.has(equipo)) return;   // ya se está escribiendo
+      pendientesRef.current.add(equipo);
       setPendientes((prev) => (prev.includes(equipo) ? prev : [...prev, equipo]));
+      intentosRef.current[equipo] = (intentosRef.current[equipo] || 0) + 1;
 
       let ficha = "";
       let fichaError = "";
       let aviso: Health = null;
 
-      try {
-        const res = await fetch("/api/ficha-final", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ team: equipo, project: proyecto, transcript: texto, metrics: metricas, lecturas }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.raw) {
-          ficha = data.raw;
-          // La ficha puede venir sin el veredicto final: se guarda igual —es el
-          // 90% del documento— pero el operador tiene que saberlo, porque es lo
-          // único que se arregla volviendo a generarla.
-          aviso = data.incompleta
-            ? { tone: "warn", msg: `${equipo}: ${data.motivo || "la ficha quedó incompleta."}` }
-            : { tone: "ok", msg: `Ficha de ${equipo} lista` };
-        } else {
+      /**
+       * Reintentos con espera creciente.
+       *
+       * Los fallos que se ven en un evento son casi todos pasajeros: el wifi
+       * del venue que parpadea, un 429 porque justo se juntaron varias
+       * llamadas, un 503 de Google. Antes cualquiera de esos dejaba al equipo
+       * sin evaluación de forma definitiva.
+       *
+       * No se reintenta lo que no va a cambiar por esperar: una transcripción
+       * demasiado corta o una key inválida fallan igual a los treinta
+       * segundos, y machacarlas sólo gasta cuota.
+       */
+      for (let intento = 1; intento <= 3; intento++) {
+        let reintentable = false;
+        try {
+          const res = await fetch("/api/ficha-final", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ team: equipo, project: proyecto, transcript: texto, metrics: metricas, lecturas }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.raw) {
+            ficha = data.raw;
+            fichaError = "";
+            // La ficha puede venir sin el veredicto final: se guarda igual —es el
+            // 90% del documento— pero el operador tiene que saberlo, porque es lo
+            // único que se arregla volviendo a generarla.
+            aviso = data.incompleta
+              ? { tone: "warn", msg: `${equipo}: ${data.motivo || "la ficha quedó incompleta."}` }
+              : { tone: "ok", msg: `Ficha de ${equipo} lista` };
+            break;
+          }
           // El endpoint manda el motivo real en `detail` (ej. "quota exceeded").
           // Antes se descartaba y en pantalla quedaba un "Error en Gemini API"
           // que no le servía a nadie para saber qué arreglar.
@@ -652,30 +685,52 @@ export default function CopilotoPage() {
           fichaError = [data.error || `El generador respondió ${res.status}.`, detalle]
             .filter(Boolean)
             .join(" · ");
-          aviso = { tone: "bad", msg: `Ficha de ${equipo} no generada: ${fichaError}` };
+          reintentable = res.status === 429 || res.status === 502 || res.status === 504 || res.status >= 500;
+        } catch (e: any) {
+          fichaError = e?.message || "Error de red al generar la ficha.";
+          reintentable = true;
         }
-      } catch (e: any) {
-        fichaError = e?.message || "Error de red al generar la ficha.";
+
         aviso = { tone: "bad", msg: `Ficha de ${equipo} no generada: ${fichaError}` };
+        if (!reintentable || intento === 3) break;
+
+        setHealth({ tone: "warn", msg: `Reintentando la ficha de ${equipo} (${intento + 1}/3)…` });
+        await new Promise((r) => setTimeout(r, intento * 4000));
       }
 
-      try {
-        await fetch("/api/fichas", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "ficha",
-            team: equipo,
-            analysis: ficha,
-            // Si no salió la ficha, el motivo viaja hasta la pantalla pública:
-            // vale más un aviso visible que un hueco silencioso.
-            analysisError: ficha ? "" : fichaError,
-          }),
-        });
-      } catch {
-        aviso = { tone: "bad", msg: `La ficha de ${equipo} se generó pero no se pudo guardar.` };
+      /**
+       * Guardar tampoco puede fallar en silencio.
+       *
+       * Sería el peor final posible: el modelo escribió la ficha, se pagó,
+       * y se pierde en el último salto por un parpadeo de red. Se reintenta
+       * lo mismo que la generación.
+       */
+      let guardada = false;
+      for (let intento = 1; intento <= 3 && !guardada; intento++) {
+        try {
+          const res = await fetch("/api/fichas", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "ficha",
+              team: equipo,
+              analysis: ficha,
+              // Si no salió la ficha, el motivo viaja hasta la pantalla pública:
+              // vale más un aviso visible que un hueco silencioso.
+              analysisError: ficha ? "" : fichaError,
+            }),
+          });
+          guardada = res.ok;
+        } catch {
+          guardada = false;
+        }
+        if (!guardada && intento < 3) await new Promise((r) => setTimeout(r, intento * 2000));
+      }
+      if (!guardada && ficha) {
+        aviso = { tone: "bad", msg: `La ficha de ${equipo} se generó pero no se pudo guardar. Volvé a generarla.` };
       }
 
+      pendientesRef.current.delete(equipo);
       setPendientes((prev) => prev.filter((t) => t !== equipo));
       if (aviso) setHealth(aviso);
     },
@@ -794,29 +849,67 @@ export default function CopilotoPage() {
       const activo: string | null = data.activeSession?.team || null;
 
       setDurable(Boolean(data.durable));
-      setGuardadas(
-        Object.values(todas)
-          .map((s: any) => ({
-            team: s.team,
-            project: s.project || "",
-            timestamp: s.timestamp || "",
-            isFinished: Boolean(s.isFinished),
-            largo: (s.transcript || "").length,
-            tieneFicha: Boolean(s.analysis),
-            fichaError: s.analysisError || "",
-            esActiva: s.team === activo,
-            transcript: s.transcript || "",
-            metrics: s.metrics || null,
-            lecturas: Number(s.lecturas) || 0,
-          }))
-          .sort((a, b) => a.team.localeCompare(b.team))
-      );
+      const lista: SesionGuardada[] = Object.values(todas)
+        .map((s: any) => ({
+          team: s.team,
+          project: s.project || "",
+          timestamp: s.timestamp || "",
+          isFinished: Boolean(s.isFinished),
+          largo: (s.transcript || "").length,
+          tieneFicha: Boolean(s.analysis),
+          fichaError: s.analysisError || "",
+          esActiva: s.team === activo,
+          transcript: s.transcript || "",
+          metrics: s.metrics || null,
+          lecturas: Number(s.lecturas) || 0,
+        }))
+        .sort((a, b) => a.team.localeCompare(b.team));
+      setGuardadas(lista);
+
+      /**
+       * Barrido automático de fichas faltantes.
+       *
+       * El botón "Generar ficha" resuelve el problema, pero deja la garantía
+       * en manos de que alguien se acuerde de mirar la lista. Entre un pitch y
+       * el siguiente, nadie mira nada.
+       *
+       * Así que el copiloto lo hace solo. Esto corre acá adentro y no en un
+       * efecto aparte a propósito: acá la lista ES la del servidor, recién
+       * traída. Un efecto que mirara el estado de React podía dispararse con
+       * una lista de hace un segundo y mandar a generar de nuevo una ficha que
+       * ya había llegado.
+       *
+       * Se ejecuta cada vez que se vuelve al paso 1 —o sea, después de CADA
+       * pitch— y cubre los tres agujeros que quedaban: la generación que
+       * falló, la pestaña cerrada a mitad de camino, y la pestaña recargada
+       * que perdió lo que tenía en vuelo.
+       *
+       * Tres frenos para que no se vuelva un bucle que quema cuota: de a una
+       * por vez, dos intentos automáticos por equipo y por pestaña —cada uno
+       * con sus tres reintentos internos—, y nada de transcripts cortos, que
+       * el generador rechaza igual. Agotados los automáticos queda el botón
+       * manual, que no tiene tope.
+       */
+      if (pendientesRef.current.size === 0) {
+        const falta = lista.find(
+          (s) =>
+            !s.esActiva &&
+            s.isFinished &&
+            !s.tieneFicha &&
+            s.largo >= 200 &&
+            (intentosRef.current[s.team] || 0) < MAX_FICHAS_AUTO
+        );
+        if (falta) {
+          setHealth({ tone: "warn", msg: `Falta la ficha de ${falta.team}: generándola sola.` });
+          generarFichaEnSegundoPlano(falta.team, falta.project || "", falta.transcript, falta.metrics, falta.lecturas);
+        }
+      }
     } catch {
       setGuardadas([]);
     } finally {
       setCargandoGuardadas(false);
     }
-  }, []);
+  }, [generarFichaEnSegundoPlano]);
 
   useEffect(() => {
     if (step === "setup") cargarGuardadas();
@@ -832,6 +925,7 @@ export default function CopilotoPage() {
     if (step === "setup" && pendientes.length < pendientesPrevios.current) cargarGuardadas();
     pendientesPrevios.current = pendientes.length;
   }, [pendientes, step, cargarGuardadas]);
+
 
   const borrar = useCallback(
     async (equipo: string | "TODAS") => {
