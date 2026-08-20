@@ -50,6 +50,22 @@ A: Equipo N°  |  B: Nombre  |  C–H: los 6 indicadores  |  I: Media Total
 
 El Sheet tiene que estar compartido como "cualquiera con el enlace puede ver".
 
+**La columna B es también la lista de equipos del copiloto.** Estaba escrita a
+mano en el código, y el día que el jurado corrigió un nombre en la planilla el
+desplegable siguió mostrando el viejo. Eso no es cosmético: el dashboard cruza
+las fichas con los puntajes del jurado **por nombre**, así que dos nombres
+distintos para la misma persona son una ficha que nunca encuentra su fila.
+
+Ahora `GET /api/equipos` lee esa columna con el mismo `gviz/tq` que el
+dashboard ([`lib/sheet.ts`](lib/sheet.ts)) y el copiloto la relee entre pitch y
+pitch. Si la hoja no responde, el desplegable queda vacío y lo dice: no hay
+lista de reemplazo escrita a mano, porque eso es justamente lo que se vino a
+sacar. El operador escribe el nombre en el campo de al lado.
+
+El campo **Proyecto / Solución** se escribe a mano en cada pitch. Tenerlo
+precargado significaba mantener una segunda lista que también se iba a
+desactualizar, y sin ninguna planilla contra la cual corregirse.
+
 ## Variables de entorno
 
 Copiá `.env.example` a `.env.local` (y cargá lo mismo en Vercel → Settings →

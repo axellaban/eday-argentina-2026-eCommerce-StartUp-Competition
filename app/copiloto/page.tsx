@@ -3,18 +3,23 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import TranscriptMarcado, { LeyendaMarcas, Marca, TipoMarca } from "../components/TranscriptMarcado";
 
-const TEAMS_DEFAULT = [
-  { name: "Ceci Escudero", project: "Pipeline de 4 Agentes para Generación de Contenido LinkedIn (GIT)" },
-  { name: "Maria Cecilia", project: "Asesor Financiero Agéntico con Reportes Semanales por Telegram" },
-  { name: "Maru Portela", project: "GrowthThing — Sistema Multi-Agente de Prospecting B2B (NanoThing)" },
-  { name: "Debora Menigali", project: "Colaboratech — Gestión del Conocimiento con IA (Droguería del Sur)" },
-  { name: "Oscar", project: "Marketing Studio — Plataforma Agéntica Multimarca (Agencia de Marketing)" },
-  { name: "Valentin", project: "Agente Postventa 24/7 por WhatsApp — Sueño Dorado Colchones" },
-  { name: "Carol Lamoza", project: "Evaluador Inteligente de Licitaciones Públicas — Mercado Público (Chile)" },
-  { name: "Agus Vidal", project: "CacheViti 2.0 — Consolidación Agéntica de Carteras Multi-Banco" },
-  { name: "Alessandra", project: "Sistema Editorial de 2 Agentes — Libro de Bitex (Content Lab eCI)" },
-  { name: "Domenico", project: "" },
-];
+/**
+ * Los equipos ya no viven acá.
+ *
+ * Estaban escritos a mano, con su proyecto asociado. El día que cambió un
+ * nombre en la planilla del jurado, el desplegable siguió mostrando el viejo y
+ * nadie se enteró hasta mirarlo de casualidad. Eso es peor que un detalle: el
+ * dashboard cruza las fichas con los puntajes del jurado POR NOMBRE, así que
+ * dos nombres distintos para la misma persona son una ficha que nunca encuentra
+ * su fila.
+ *
+ * Ahora salen de la columna B de la hoja `Análisis`, vía /api/equipos. Una sola
+ * fuente, la misma que lee el dashboard.
+ *
+ * El proyecto se escribe a mano en cada pitch: tenerlo precargado significaba
+ * mantener a mano una segunda lista que también se iba a desactualizar, y sin
+ * ninguna planilla contra la cual corregirse.
+ */
 
 /** Cada cuánto el LLM re-evalúa los indicadores mientras la persona habla.
  *  12s da unas 50 lecturas en un pitch de 10 minutos: suficiente para que la
@@ -71,9 +76,14 @@ type SesionGuardada = {
 
 export default function CopilotoPage() {
   const [step, setStep] = useState<"setup" | "live">("setup");
-  const [selectedTeam, setSelectedTeam] = useState(TEAMS_DEFAULT[0].name);
+  const [selectedTeam, setSelectedTeam] = useState("");
   const [customTeam, setCustomTeam] = useState("");
-  const [projectName, setProjectName] = useState(TEAMS_DEFAULT[0].project);
+  const [projectName, setProjectName] = useState("");
+
+  /** Equipos leídos de la columna B de la planilla del jurado. */
+  const [equipos, setEquipos] = useState<string[]>([]);
+  const [cargandoEquipos, setCargandoEquipos] = useState(true);
+  const [errorEquipos, setErrorEquipos] = useState("");
 
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
@@ -131,10 +141,44 @@ export default function CopilotoPage() {
 
   const activeTeamName = customTeam.trim() || selectedTeam;
 
+  /**
+   * Los equipos, desde la planilla del jurado.
+   *
+   * Se releen al volver al paso 1 —o sea, entre pitch y pitch— así que si el
+   * jurado corrige un nombre a mitad del evento, el desplegable lo toma sin
+   * recargar la página.
+   *
+   * Si la hoja no contesta, el desplegable queda vacío y se avisa en pantalla.
+   * No hay lista de reemplazo a propósito: una lista de reemplazo escrita a
+   * mano es exactamente el problema que esto vino a resolver, y el operador
+   * siempre puede escribir el nombre en el campo de al lado.
+   */
+  const cargarEquipos = useCallback(async () => {
+    setCargandoEquipos(true);
+    try {
+      const res = await fetch(`/api/equipos?t=${Date.now()}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      const lista: string[] = Array.isArray(data.equipos) ? data.equipos : [];
+      setEquipos(lista);
+      setErrorEquipos(
+        lista.length
+          ? ""
+          : "No se pudieron leer los equipos de la planilla. Escribí el nombre a mano, exactamente como figura en el Sheet."
+      );
+      // Sin pisar lo que el operador ya eligió, y sin dejar seleccionado a
+      // alguien que el jurado sacó de la lista.
+      setSelectedTeam((actual) => (actual && lista.includes(actual) ? actual : lista[0] || ""));
+    } catch {
+      setEquipos([]);
+      setErrorEquipos("No se pudo consultar la planilla. Escribí el nombre del equipo a mano.");
+    } finally {
+      setCargandoEquipos(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const found = TEAMS_DEFAULT.find((t) => t.name === selectedTeam);
-    if (found) setProjectName(found.project);
-  }, [selectedTeam]);
+    if (step === "setup") cargarEquipos();
+  }, [step, cargarEquipos]);
 
   useEffect(() => {
     teamRef.current = activeTeamName;
@@ -824,6 +868,10 @@ export default function CopilotoPage() {
     generarFichaEnSegundoPlano(equipo, proyecto, texto, metricasCierre, lecturasCierre);
 
     setIsFinishing(false);
+    // El campo de proyecto queda en blanco para el equipo siguiente: se
+    // escribe a mano, y heredar el del anterior se guardaría mal en silencio.
+    setProjectName("");
+    setCustomTeam("");
     // Directo al paso 1: lo que el operador necesita después de cerrar es
     // elegir el equipo siguiente, no una pantalla de confirmación.
     setStep("setup");
@@ -1008,14 +1056,33 @@ export default function CopilotoPage() {
 
           <div className="form-grid">
             <div>
-              <label className="label" htmlFor="equipo">Equipo</label>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                <label className="label" htmlFor="equipo">Equipo</label>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={cargarEquipos}
+                  disabled={cargandoEquipos}
+                  title="Volver a leer los nombres de la planilla del jurado"
+                  style={{ padding: "2px 8px", fontSize: "var(--fs-xs)" }}
+                >
+                  {cargandoEquipos ? "…" : "↻ Sheet"}
+                </button>
+              </div>
               <select
                 id="equipo"
                 className="input"
                 value={selectedTeam}
-                onChange={(e) => { setSelectedTeam(e.target.value); setCustomTeam(""); }}
+                // Cambiar de equipo limpia el proyecto: ahora se escribe a
+                // mano, y arrastrar el del equipo anterior sería peor que
+                // dejarlo vacío — se guardaría mal sin que nadie lo note.
+                onChange={(e) => { setSelectedTeam(e.target.value); setCustomTeam(""); setProjectName(""); }}
+                disabled={equipos.length === 0}
               >
-                {TEAMS_DEFAULT.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+                {equipos.length === 0 ? (
+                  <option value="">{cargandoEquipos ? "Leyendo la planilla…" : "Sin equipos en la planilla"}</option>
+                ) : (
+                  equipos.map((nombre) => <option key={nombre} value={nombre}>{nombre}</option>)
+                )}
               </select>
               <input
                 className="input"
@@ -1025,6 +1092,17 @@ export default function CopilotoPage() {
                 value={customTeam}
                 onChange={(e) => setCustomTeam(e.target.value)}
               />
+              <div className="soft" style={{ fontSize: "var(--fs-xs)", marginTop: 6 }}>
+                {errorEquipos ? (
+                  <span style={{ color: "var(--gold)" }}>▲ {errorEquipos}</span>
+                ) : (
+                  <>
+                    {equipos.length} equipo{equipos.length === 1 ? "" : "s"} desde la columna B de la hoja
+                    &laquo;Análisis&raquo;. El nombre tiene que coincidir con el del Sheet: el dashboard cruza
+                    las fichas con los puntajes del jurado por ese nombre.
+                  </>
+                )}
+              </div>
             </div>
 
             <div>
@@ -1033,14 +1111,19 @@ export default function CopilotoPage() {
                 id="proyecto"
                 className="input"
                 type="text"
+                placeholder="Escribí el proyecto de este equipo…"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
               />
             </div>
           </div>
 
-          <button className="btn btn--primary btn--block" onClick={startSession}>
-            🎙️ Iniciar evaluación de {activeTeamName}
+          <button
+            className="btn btn--primary btn--block"
+            onClick={startSession}
+            disabled={!activeTeamName.trim()}
+          >
+            🎙️ {activeTeamName.trim() ? `Iniciar evaluación de ${activeTeamName}` : "Elegí o escribí un equipo"}
           </button>
 
           {/* Sesiones guardadas. Vive acá y no en el home a propósito: el home

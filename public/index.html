@@ -905,6 +905,17 @@
       background-attachment: fixed;
       color: #C8F5DA;
     }
+    /**
+     * Lo que sólo tiene sentido mirando la planilla del jurado humano.
+     *
+     * `visibility` y no `display`, a propósito. Con `display:none` los dos
+     * elementos dejan de ocupar lugar, y en celular —donde el header los
+     * envuelve a una segunda línea— el header se achicaba 47px al pasar a AI
+     * Judge: el toggle y su línea vertical saltaban de lugar en cada cambio de
+     * vista. Escondidos pero ocupando su espacio, no se mueve nada.
+     */
+    body[data-modo="ai"] .solo-humano { visibility: hidden; }
+
     body[data-modo="ai"] .judge-switch {
       background: rgba(34,197,94,.06);
       border-color: rgba(34,197,94,.28);
@@ -1221,8 +1232,12 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-      <span class="sync-info" id="syncInfo">–</span>
-      <button class="btn btn-ghost" onclick="loadData(true)" style="font-size:.78rem;padding:8px 14px;">
+      <!-- El sync y el botón de recargar son de la planilla del jurado humano:
+           en AI Judge no se dibuja una sola celda de esa hoja, así que ahí
+           serían un estado que no corresponde a lo que se está mirando. Se
+           ocultan por CSS con el modo. -->
+      <span class="sync-info solo-humano" id="syncInfo">–</span>
+      <button class="btn btn-ghost solo-humano" onclick="loadData(true)" style="font-size:.78rem;padding:8px 14px;">
         ↻ Actualizar
       </button>
       <div class="live-badge">
