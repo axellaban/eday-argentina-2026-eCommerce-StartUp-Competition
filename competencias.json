@@ -1,6 +1,8 @@
 {
   "_comment": "Registro de competiciones. FUENTE ÚNICA: lo lee lib/competencias.ts (la app) y next.config.mjs (las rutas). Para sumar una competición, agregá una entrada acá y nada más. El orden es el de la home.",
 
+  "_comment_equipos": "OJO: los equipos de verdad salen de la PLANILLA (columna B), no de acá. Esta lista es respaldo por si Google no responde el día del evento, y sirve para agregarle a cada equipo la descripción de proyecto, que la planilla no tiene: se cruza por nombre. Si un equipo está en la planilla y no acá, aparece igual con el proyecto vacío y el operador lo escribe.",
+
   "competencias": [
     {
       "slug": "ecommerce-startup-competition",

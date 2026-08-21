@@ -882,10 +882,10 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 .preguntas__item--resuelta .preguntas__n { color: var(--green); }
 
 /* ─────────────────────────────────────────────────────────────
-   Home: el índice de competiciones.
-   Deliberadamente mínima. No es una pantalla del evento —en la sala
+   Home: elegir competición.
+   Dos botones y nada más. No es una pantalla del evento —en la sala
    se entra por link directo—, así que no compite con el dashboard:
-   sólo tiene que dejar claro cuáles son y llevar a la correcta.
+   sólo tiene que llevar a la competición correcta de un toque.
    ───────────────────────────────────────────────────────────── */
 .home {
   min-height: 100dvh;
@@ -893,49 +893,48 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 40px;
+  gap: 18px;
   padding: 48px 24px;
   text-align: center;
 }
-.home__head { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.home__logo { height: 46px; width: auto; }
-.home__title { font-size: clamp(28px, 5vw, 44px); font-weight: 900; letter-spacing: -0.02em; }
-.home__sub { color: var(--muted); font-size: var(--fs-sm); max-width: 44ch; }
+.home__logo { height: 52px; width: auto; margin-bottom: 10px; }
+.home__title { font-size: clamp(30px, 5vw, 46px); font-weight: 900; letter-spacing: -0.02em; }
+.home__sub { color: var(--muted); font-size: var(--fs-sm); margin-bottom: 20px; }
 
-.home__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 18px;
+.home__botones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
   width: 100%;
-  max-width: 860px;
+  max-width: 720px;
 }
 
-.home__card {
+.home__boton {
   --acento: var(--brand);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex: 1 1 300px;
   padding: 26px 24px;
-  text-align: left;
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  line-height: 1.25;
   text-decoration: none;
-  color: inherit;
+  color: var(--acento);
   border: 1px solid var(--line);
-  /* El borde superior es el color de la competición: el mismo que lleva la
-     topbar del copiloto, para que la asociación sea inmediata. */
+  /* El borde toma el color de la competición: el mismo que lleva la topbar
+     del copiloto y el header de su dashboard. */
   border-top: 3px solid var(--acento);
   border-radius: var(--r-lg, 14px);
   background: var(--panel);
   transition: transform .15s ease, border-color .15s ease;
 }
-.home__card:hover { transform: translateY(-2px); border-color: var(--acento); }
-.home__card-eyebrow {
-  font-size: var(--fs-micro); text-transform: uppercase;
-  letter-spacing: .08em; color: var(--muted);
-}
-.home__card-title { font-size: var(--fs-lg); font-weight: 800; line-height: 1.2; color: var(--acento); }
-.home__card-meta { font-size: var(--fs-xs); color: var(--muted); }
-.home__card-links { font-size: var(--fs-xs); font-weight: 600; margin-top: 6px; }
-.home__card-sep { margin: 0 8px; opacity: .4; }
-.home__card-ai { color: var(--muted); font-weight: 400; }
+.home__boton:hover { transform: translateY(-2px); border-color: var(--acento); }
 
-.home__foot { color: var(--muted); font-size: var(--fs-micro); max-width: 52ch; }
+/* La etiqueta del selector de equipos lleva a la derecha de dónde salió la
+   lista y el botón para releer la planilla. */
+.label--row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.label__fuente {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--fs-micro); font-weight: 400; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.btn--xs { padding: 2px 7px; font-size: var(--fs-micro); line-height: 1.4; }

@@ -13,8 +13,8 @@ del eCommerce DAY Argentina 2026 (eCommerce Institute).
 | Indicadores | 6 | 8 |
 | Planilla | la suya | la suya |
 
-`/` lista las dos. **No es la puerta del evento**: en la sala se entra siempre
-por el link directo, para que nadie tenga que elegir de una lista en una
+`/` son dos botones para elegir. **No es la puerta del evento**: en la sala se
+entra siempre por el link directo, para que nadie tenga que elegir en una
 pantalla proyectada.
 
 Las dos corren el mismo día, una después de la otra, operadas por la misma
@@ -41,10 +41,10 @@ generación falla, se guarda igual el pitch con el análisis en vivo que hubiera
 ## Agregar una competición
 
 Todo lo que cambia entre competiciones vive en
-[`competencias.json`](competencias.json): slug, nombre, color, planilla,
-indicadores y equipos. Se agrega una entrada y no se toca nada más — de ahí
-salen las rutas (`next.config.mjs`), la config del dashboard (`/api/config`),
-los prompts, el radar y el parseo de la planilla.
+[`competencias.json`](competencias.json): slug, nombre, color, planilla e
+indicadores. Se agrega una entrada y no se toca nada más — de ahí salen las
+rutas (`next.config.mjs`), la config del dashboard (`/api/config`), los
+prompts, el radar y el parseo de la planilla.
 
 ```jsonc
 {
@@ -66,6 +66,27 @@ Reglas que importan:
 - **`description`** se inyecta en los prompts: es lo que le dice al modelo qué
   está midiendo. Cuanto más concreta, mejor puntúa.
 - El **orden** tiene que ser el mismo que el de las columnas de la planilla.
+
+## Los equipos salen de la planilla
+
+El selector del copiloto lee la **columna B** de la planilla de su competición
+(`GET /api/equipos`), no una lista en el código. Agregar un equipo el día del
+evento es agregar una fila y tocar ↻: no hace falta deployar.
+
+A diferencia del dashboard, un equipo aparece **aunque el jurado todavía no lo
+haya puntuado** — existe antes de tener nota, y es justo antes de presentar
+cuando el operador lo necesita en el selector.
+
+`equipos` en el registro es **respaldo y enriquecimiento**, no la fuente:
+
+- Si Google no responde, el copiloto usa esa lista y lo dice en pantalla, con
+  el motivo. Nunca queda un selector vacío en silencio.
+- La planilla no tiene columna de proyecto, así que la descripción sale de acá
+  cruzando por nombre. Si no hay coincidencia queda vacía y el operador la
+  escribe en el campo de al lado, que siempre fue editable.
+
+Sin equipo elegido el botón de iniciar queda deshabilitado: arrancar un pitch
+sin nombre deja al operador grabando mientras cada llamada rebota con 400.
 
 ## La planilla del jurado
 
@@ -96,6 +117,7 @@ Lo que está separado, y por qué:
 | Historial y `activeTeam` | clave KV `eday:sessions:{slug}` | La segunda competición le pisa las fichas a la primera |
 | Planilla | `sheetId` por competición | Los dos dashboards leen el mismo jurado |
 | Borradores del copiloto | `localStorage` con el slug adentro | Un equipo homónimo recupera el borrador de la otra |
+| Lista de equipos | `GET /api/equipos?competencia=slug` | El copiloto ofrece los equipos de la otra competición |
 
 `DELETE /api/fichas?competencia=slug&all=1` limpia **sólo** esa competición.
 

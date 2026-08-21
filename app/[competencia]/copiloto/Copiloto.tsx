@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import FichaTexto from "@/app/components/FichaTexto";
 import TranscriptMarcado, { LeyendaMarcas, Marca, TipoMarca } from "@/app/components/TranscriptMarcado";
-import type { Competencia } from "@/lib/competencias";
+import type { Competencia, Equipo } from "@/lib/competencias";
 
 
 /** Cada cuánto el LLM re-evalúa los indicadores mientras la persona habla.
@@ -41,13 +41,23 @@ type SesionGuardada = {
 };
 
 export default function Copiloto({ comp }: { comp: Competencia }) {
-  /** Equipos de ESTA competición. Vienen del registro, vía el server component. */
-  const EQUIPOS = comp.equipos;
+  /**
+   * Los equipos salen de la PLANILLA de esta competición, no del código.
+   *
+   * Arrancan con la lista del registro para que el selector nunca aparezca
+   * vacío, y /api/equipos la reemplaza con lo que haya en el Sheet apenas
+   * responde. Así, sumar un equipo el día del evento es agregar una fila,
+   * no deployar.
+   */
+  const [EQUIPOS, setEquipos] = useState<Equipo[]>(comp.equipos);
+  const [fuenteEquipos, setFuenteEquipos] = useState<"planilla" | "registro" | null>(null);
+  const [errorEquipos, setErrorEquipos] = useState<string | null>(null);
+  const [cargandoEquipos, setCargandoEquipos] = useState(false);
 
   const [step, setStep] = useState<"setup" | "live" | "session">("setup");
-  const [selectedTeam, setSelectedTeam] = useState(EQUIPOS[0]?.name || "");
+  const [selectedTeam, setSelectedTeam] = useState(comp.equipos[0]?.name || "");
   const [customTeam, setCustomTeam] = useState("");
-  const [projectName, setProjectName] = useState(EQUIPOS[0]?.project || "");
+  const [projectName, setProjectName] = useState(comp.equipos[0]?.project || "");
 
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
@@ -100,10 +110,71 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
 
   const activeTeamName = customTeam.trim() || selectedTeam;
 
+  /**
+   * Trae los equipos de la planilla.
+   *
+   * El endpoint nunca falla: si Google no contesta devuelve la lista del
+   * registro con el motivo adentro. Eso se muestra en pantalla en vez de
+   * tragárselo, porque un operador que ve nombres viejos y no sabe por qué
+   * va a perder tiempo justo cuando no lo tiene.
+   */
+  const cargarEquipos = useCallback(async () => {
+    setCargandoEquipos(true);
+    try {
+      const res = await fetch(
+        `/api/equipos?competencia=${encodeURIComponent(comp.slug)}&t=${Date.now()}`,
+        { cache: "no-store" }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrorEquipos(data.error || `No se pudo leer la planilla (HTTP ${res.status}).`);
+        return;
+      }
+      if (Array.isArray(data.equipos) && data.equipos.length) {
+        setEquipos(data.equipos);
+        // Si el equipo elegido ya no está en la planilla, se pasa al primero:
+        // dejarlo seleccionado grabaría el pitch contra un nombre fantasma.
+        setSelectedTeam((actual) => {
+          const sigue = data.equipos.some((e: Equipo) => e.name === actual);
+          const elegido = sigue ? actual : data.equipos[0].name;
+          // Sólo se completa el proyecto si el campo está en blanco: si el
+          // operador ya escribió algo, manda lo que escribió.
+          setProjectName((p) =>
+            p ? p : (data.equipos.find((e: Equipo) => e.name === elegido)?.project || "")
+          );
+          return elegido;
+        });
+      }
+      setFuenteEquipos(data.fuente || null);
+      setErrorEquipos(data.error || null);
+    } catch (e: any) {
+      setErrorEquipos(e?.message || "Error de red leyendo la planilla.");
+    } finally {
+      setCargandoEquipos(false);
+    }
+  }, [comp.slug]);
+
+  // Al abrir el panel, y cada vez que se vuelve al paso de configuración
+  // (entre un equipo y el siguiente): así una fila agregada a mitad del
+  // evento aparece sola.
   useEffect(() => {
-    const found = EQUIPOS.find((t) => t.name === selectedTeam);
-    if (found) setProjectName(found.project);
-  }, [EQUIPOS, selectedTeam]);
+    if (step === "setup") cargarEquipos();
+  }, [step, cargarEquipos]);
+
+  /**
+   * Elegir equipo completa el proyecto; escribirlo a mano nunca se pisa.
+   *
+   * Antes esto era un efecto sobre [selectedTeam]. Con la lista viniendo de la
+   * planilla, la relectura cambia la referencia de EQUIPOS y el efecto volvía
+   * a correr: el proyecto que el operador acababa de tipear —la planilla no
+   * tiene esa columna, así que casi siempre lo tipea— se borraba solo.
+   * Siendo un handler, sólo cambia cuando la persona cambia de equipo.
+   */
+  const elegirEquipo = useCallback((nombre: string) => {
+    setSelectedTeam(nombre);
+    setCustomTeam("");
+    setProjectName(EQUIPOS.find((t) => t.name === nombre)?.project || "");
+  }, [EQUIPOS]);
 
   useEffect(() => {
     teamRef.current = activeTeamName;
@@ -791,12 +862,39 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
 
           <div className="form-grid">
             <div>
-              <label className="label" htmlFor="equipo">Equipo</label>
+              {/*
+                De dónde salió la lista, dicho en pantalla.
+                Si el operador ve nombres que no esperaba, la diferencia entre
+                "la planilla está desactualizada" y "Google no respondió y
+                estás viendo el respaldo" es la diferencia entre arreglarlo en
+                treinta segundos o no entender nada.
+              */}
+              <div className="label label--row">
+                <label htmlFor="equipo">Equipo</label>
+                <span className="label__fuente">
+                  {cargandoEquipos
+                    ? "leyendo la planilla…"
+                    : fuenteEquipos === "planilla"
+                      ? `${EQUIPOS.length} desde la planilla`
+                      : errorEquipos
+                        ? "lista de respaldo"
+                        : ""}
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--xs"
+                    onClick={cargarEquipos}
+                    disabled={cargandoEquipos}
+                    title="Volver a leer la planilla"
+                  >
+                    ↻
+                  </button>
+                </span>
+              </div>
               <select
                 id="equipo"
                 className="input"
                 value={selectedTeam}
-                onChange={(e) => { setSelectedTeam(e.target.value); setCustomTeam(""); }}
+                onChange={(e) => elegirEquipo(e.target.value)}
               >
                 {EQUIPOS.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
               </select>
@@ -808,6 +906,12 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
                 value={customTeam}
                 onChange={(e) => setCustomTeam(e.target.value)}
               />
+              {errorEquipos && (
+                <div className="soft" style={{ fontSize: "var(--fs-micro)", marginTop: 8 }}>
+                  ▲ No se pudo leer la planilla ({errorEquipos}) — estás viendo la lista de
+                  respaldo. Podés escribir el nombre a mano igual.
+                </div>
+              )}
             </div>
 
             <div>
@@ -822,8 +926,22 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
             </div>
           </div>
 
-          <button className="btn btn--primary btn--block" onClick={startSession}>
-            🎙️ Iniciar evaluación de {activeTeamName}
+          {/*
+            Sin nombre de equipo no se puede arrancar.
+            Antes la lista estaba hardcodeada y siempre tenía al menos uno, así
+            que la guarda no hacía falta. Ahora viene de la planilla: si el
+            Sheet no responde y el registro no tiene respaldo, el selector
+            queda vacío y `activeTeamName` es "". Arrancar así deja al operador
+            grabando mientras cada POST rebota con 400 y la sala no ve nada.
+          */}
+          <button
+            className="btn btn--primary btn--block"
+            onClick={startSession}
+            disabled={!activeTeamName.trim()}
+          >
+            {activeTeamName.trim()
+              ? `🎙️ Iniciar evaluación de ${activeTeamName}`
+              : "Elegí un equipo o escribí un nombre para empezar"}
           </button>
 
           {/* Sesiones guardadas. Vive acá y no en el home a propósito: el home
