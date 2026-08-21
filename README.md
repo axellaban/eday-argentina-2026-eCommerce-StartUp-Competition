@@ -63,6 +63,16 @@ Reglas que importan:
 
 `DELETE /api/fichas?competencia=slug&all=1` limpia **sólo** esa competición.
 
+### El historial de antes de la separación
+
+Todo lo grabado cuando la clave era global (`eday:sessions`) sigue ahí. La
+primera competición del registro lo hereda sola: si su clave está vacía,
+`loadSessions` lee la vieja y la copia a la nueva, una sola vez. La vieja **no
+se borra** — es el respaldo de un historial que no se puede volver a grabar.
+
+Las competiciones que se agreguen después nunca miran esa clave. Si lo
+hicieran, abrirían el día con las fichas de la StartUp Competition.
+
 La contraseña es **una sola** para las dos: las opera la misma persona. Si
 alguna vez las operan personas distintas, pasa a ser una por competición leída
 del registro.

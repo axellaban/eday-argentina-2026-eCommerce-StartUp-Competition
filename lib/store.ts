@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { SLUG_DEFAULT } from "./competencias";
 
 /**
  * Persistencia de las sesiones de pitch.
@@ -102,6 +103,20 @@ function kvKey(slug: string): string {
   return `eday:sessions:${slug}`;
 }
 
+/**
+ * La clave de cuando había una sola competición.
+ *
+ * Todo lo que se grabó antes de la separación vive acá. Al pasar a una clave
+ * por competición, esas fichas no se borraron pero quedaron inalcanzables: el
+ * dashboard de la StartUp Competition empezó a leer una clave nueva y vacía
+ * mientras el historial real seguía intacto dos centímetros al lado.
+ *
+ * Sólo la PRIMERA competición del registro hereda esto — es la única que
+ * existía cuando la clave era global. AI Unified Commerce nunca la mira: si lo
+ * hiciera, abriría el día con los equipos de la otra.
+ */
+const KV_KEY_LEGADO = "eday:sessions";
+
 const KV_URL = (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "").replace(/\/$/, "");
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
 
@@ -136,8 +151,8 @@ function fsFile(slug: string): string {
   return path.join(dir, `sessions-${slug.replace(/[^a-z0-9-]/gi, "_")}.json`);
 }
 
-async function kvGet(slug: string): Promise<SessionsData> {
-  const res = await fetch(`${KV_URL}/get/${encodeURIComponent(kvKey(slug))}`, {
+async function kvGetClave(clave: string): Promise<SessionsData> {
+  const res = await fetch(`${KV_URL}/get/${encodeURIComponent(clave)}`, {
     headers: { Authorization: `Bearer ${KV_TOKEN}` },
     cache: "no-store",
   });
@@ -153,8 +168,8 @@ async function kvGet(slug: string): Promise<SessionsData> {
   };
 }
 
-async function kvSet(slug: string, data: SessionsData): Promise<void> {
-  const res = await fetch(`${KV_URL}/set/${encodeURIComponent(kvKey(slug))}`, {
+async function kvSetClave(clave: string, data: SessionsData): Promise<void> {
+  const res = await fetch(`${KV_URL}/set/${encodeURIComponent(clave)}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${KV_TOKEN}`,
@@ -169,7 +184,29 @@ async function kvSet(slug: string, data: SessionsData): Promise<void> {
 export async function loadSessions(slug: string): Promise<SessionsData> {
   if (isDurable()) {
     try {
-      const data = await kvGet(slug);
+      let data = await kvGetClave(kvKey(slug));
+
+      /**
+       * Rescate de lo grabado antes de que hubiera competiciones.
+       *
+       * Si la clave nueva está vacía y ésta es la competición que ya existía,
+       * se lee la clave global vieja y se copia a la nueva. Pasa una sola vez:
+       * a partir de la copia, la clave nueva deja de estar vacía.
+       *
+       * La vieja NO se borra. Es el respaldo de un historial que no se puede
+       * volver a grabar, y no ocupa nada.
+       */
+      if (!Object.keys(data.sessions).length && slug === SLUG_DEFAULT) {
+        const legado = await kvGetClave(KV_KEY_LEGADO);
+        if (Object.keys(legado.sessions).length) {
+          console.log(
+            `[store] Migrando ${Object.keys(legado.sessions).length} sesión(es) de ${KV_KEY_LEGADO} a ${kvKey(slug)}`
+          );
+          await kvSetClave(kvKey(slug), legado);
+          data = legado;
+        }
+      }
+
       ultimaFuente = "kv";
       return data;
     } catch (e) {
@@ -178,7 +215,12 @@ export async function loadSessions(slug: string): Promise<SessionsData> {
   }
   ultimaFuente = "fs";
   try {
-    const file = fsFile(slug);
+    let file = fsFile(slug);
+    // El archivo de cuando no había competiciones, para desarrollo local.
+    if (!fs.existsSync(file) && slug === SLUG_DEFAULT) {
+      const legado = path.join(path.dirname(file), "sessions.json");
+      if (fs.existsSync(legado)) file = legado;
+    }
     if (!fs.existsSync(file)) return vacio();
     const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
     return { sessions: parsed.sessions || {}, activeTeam: parsed.activeTeam ?? null };
@@ -190,7 +232,7 @@ export async function loadSessions(slug: string): Promise<SessionsData> {
 export async function saveSessions(slug: string, data: SessionsData): Promise<void> {
   if (isDurable()) {
     try {
-      await kvSet(slug, data);
+      await kvSetClave(kvKey(slug), data);
       return;
     } catch (e) {
       console.error("[store] Falló la escritura en KV, uso filesystem:", e);
