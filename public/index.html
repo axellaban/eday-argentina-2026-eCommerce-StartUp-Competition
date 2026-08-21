@@ -1435,18 +1435,18 @@
       <div id="fichasBadge" style="display:none;font-size:.72rem;font-weight:700;padding:5px 14px;border-radius:999px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);color:var(--green);letter-spacing:.04em;text-transform:uppercase;"></div>
     </div>
 
-    <!-- Estado: buscando fichas.json -->
+    <!-- Estado: buscando las fichas de la competición -->
     <div id="aiSetup">
       <div class="ai-empty-state">
         <div class="ai-empty-icon">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" id="fichasIcon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         </div>
-        <div class="ai-empty-title" id="fichasInfoText">Esperando fichas.json…</div>
+        <div class="ai-empty-title" id="fichasInfoText">Esperando las fichas del pitch…</div>
         <div class="ai-empty-sub" id="fichasInfoSub">Cuando terminen los pitches, pedile a Claude en Cowork:<br>
           <em style="color:var(--text2);">"generá las fichas del transcript"</em><br>
           El archivo aparece acá automáticamente.
         </div>
-        <div class="ai-empty-code">fichas.json · carpeta del dashboard</div>
+        <div class="ai-empty-code" id="fichasInfoCode">fichas de la competición</div>
         <button class="btn btn-ghost" onclick="loadFichas()" style="font-size:.78rem;padding:8px 16px;margin-top:8px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           Verificar ahora
@@ -1619,6 +1619,7 @@ async function cargarConfig() {
   // En el radar los nombres largos se pisan entre sí y se salen del canvas en
   // pantallas chicas: ahí se usan estos.
   CRITERIA_SHORT = COMPETENCIA.indicadores.map(i => `${i.icon} ${i.short}`);
+  AI_KEYS = COMPETENCIA.indicadores.map(i => i.key);
 
   pintarIdentidad();
 }
@@ -1634,6 +1635,8 @@ function pintarIdentidad() {
   if (msg) msg.textContent = `Cargando ${COMPETENCIA.nombre}`;
   const cardSub = document.getElementById('cardSubIndicadores');
   if (cardSub) cardSub.textContent = `${COMPETENCIA.indicadores.length} indicadores de evaluación por equipo`;
+  const code = document.getElementById('fichasInfoCode');
+  if (code) code.textContent = `fichas-${SLUG}.json · carpeta del dashboard`;
   pintarEncabezadosTabla();
 }
 
@@ -2250,7 +2253,7 @@ const DEMO_FICHAS = [
 ];
 
 // Fichas capturadas en vivo por el copiloto (/api/fichas). Antes el dashboard
-// sólo leía el fichas.json estático, así que nada de lo grabado durante el
+// sólo leía el archivo estático de fichas, así que nada de lo grabado durante el
 // evento llegaba nunca a la pantalla del jurado.
 async function fetchFichasEnVivo() {
   try {
@@ -2280,15 +2283,27 @@ async function fetchFichasEnVivo() {
   }
 }
 
+/**
+ * Fichas de referencia, por competición.
+ *
+ * Era un único `fichas.json` relativo. Dos problemas con dos competiciones:
+ * desde /{competencia} cargaba las fichas de la OTRA, y desde
+ * /{competencia}/ai la ruta relativa resolvía a /{competencia}/fichas.json y
+ * daba 404. Ahora es un archivo por competición, con ruta absoluta.
+ *
+ * Si una competición no tiene archivo, devuelve [] y el dashboard muestra
+ * sólo lo capturado en vivo. Es lo esperable en una competición nueva.
+ */
 async function fetchFichasEstaticas() {
+  if (!SLUG) return [];
   try {
-    const res = await fetch('fichas.json?t=' + Date.now(), { cache: 'no-store' });
+    const res = await fetch(`/fichas-${SLUG}.json?t=` + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const fichas = await res.json();
     if (!Array.isArray(fichas) || fichas.length === 0) throw new Error('Archivo vacío');
     return fichas;
   } catch (e) {
-    console.log('fichas.json no disponible:', e.message);
+    console.log(`fichas-${SLUG}.json no disponible:`, e.message);
     return [];
   }
 }
@@ -2331,7 +2346,7 @@ document.addEventListener('DOMContentLoaded', () => {
    *
    * Las fichas del jurado humano están ocultas —viven en AI Judge, que es su
    * lugar— pero esta carga seguía corriendo igual al abrir la página: una
-   * consulta a /api/fichas y otra a fichas.json, de cada visitante, para
+   * consulta a /api/fichas y otra al archivo de fichas, de cada visitante, para
    * llenar un bloque que nadie ve. Si algún día se vuelve a mostrar el módulo
    * (sacándole el `hidden`), esto arranca solo de nuevo.
    */
@@ -2511,7 +2526,15 @@ function resetAI() {
 // no consume conexiones concurrentes y alcanza de sobra para el ritmo de un
 // pitch hablado.
 
-const AI_KEYS = ['mercado', 'producto', 'innovacion', 'ejecucion', 'equipo', 'percepcion'];
+/**
+ * Las claves de los indicadores de ESTA competición.
+ *
+ * Estaban clavadas con las seis originales. Las métricas viajan por Pusher y
+ * se guardan indexadas por clave, así que con una competición de otras ocho
+ * claves ninguna coincidía: los medidores se dibujaban pero se quedaban en 50
+ * para siempre, y el radar de la ficha salía plano. Se llenan en cargarConfig.
+ */
+let AI_KEYS = [];
 
 /**
  * Cada cuánto se consulta al servidor.

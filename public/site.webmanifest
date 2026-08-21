@@ -1,15 +1,28 @@
 {
-  "name": "Demo Day · eCommerce StartUp Competition Argentina 2026",
+  "name": "Demo Day · eCommerce DAY Argentina 2026",
   "short_name": "Demo Day",
-  "description": "Evaluación en vivo con IA de la eCommerce StartUp Competition Argentina 2026.",
+  "description": "Evaluación en vivo con IA de las competiciones del eCommerce DAY Argentina 2026.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#031A2B",
   "theme_color": "#031A2B",
   "lang": "es-AR",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
