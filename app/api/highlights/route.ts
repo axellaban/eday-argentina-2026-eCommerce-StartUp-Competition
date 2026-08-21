@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { motivoGemini } from "@/lib/gemini-error";
-import { urlGemini, olvidarModelo } from "@/lib/gemini";
+import { urlGemini, olvidarModelo, textoGemini } from "@/lib/gemini";
 import { competenciaOrDefault } from "@/lib/competencias";
 
 export const dynamic = "force-dynamic";
@@ -175,7 +175,7 @@ ${recortar(transcript)}`;
     }
 
     const data = await res.json();
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const rawText = textoGemini(data);
 
     let parsed: any;
     try {

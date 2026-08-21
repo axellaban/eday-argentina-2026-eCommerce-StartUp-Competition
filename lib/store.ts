@@ -85,8 +85,6 @@ export interface SessionsData {
  * directa: la primera guarda un pitch, muta ese objeto compartido, y la
  * segunda —que arranca vacía y recibe la misma referencia— abre el día
  * mostrando los equipos de la otra competición.
- *
- * Por eso es una función y no una constante.
  */
 function vacio(): SessionsData {
   return { sessions: {}, activeTeam: null };
@@ -109,6 +107,26 @@ const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST
 
 export function isDurable(): boolean {
   return Boolean(KV_URL && KV_TOKEN);
+}
+
+/**
+ * De dónde salió la última lectura, que NO es lo mismo que `isDurable()`.
+ *
+ * `isDurable()` mira las variables de entorno: dice si hay una base
+ * configurada. No dice si esa base contestó. Cuando Redis falla, `loadSessions`
+ * cae al filesystem —que en Vercel es /tmp, distinto en cada instancia— y
+ * devuelve una lista que puede estar incompleta o vacía, con `isDurable()`
+ * diciendo `true` igual.
+ *
+ * Esa diferencia importa para quien use la lista del servidor para BORRAR algo
+ * suyo: la pantalla de sala poda su historial local con lo que el servidor no
+ * tiene, y hacerlo contra una lectura de /tmp sería tirar la única copia buena
+ * por un parpadeo de la base. Sólo se puede podar cuando esto dice "kv".
+ */
+export type Fuente = "kv" | "fs";
+let ultimaFuente: Fuente = "fs";
+export function fuenteUltimaLectura(): Fuente {
+  return ultimaFuente;
 }
 
 /** En Vercel el único directorio escribible es /tmp. Un archivo por competición. */
@@ -151,11 +169,14 @@ async function kvSet(slug: string, data: SessionsData): Promise<void> {
 export async function loadSessions(slug: string): Promise<SessionsData> {
   if (isDurable()) {
     try {
-      return await kvGet(slug);
+      const data = await kvGet(slug);
+      ultimaFuente = "kv";
+      return data;
     } catch (e) {
       console.error("[store] Falló la lectura de KV, uso filesystem:", e);
     }
   }
+  ultimaFuente = "fs";
   try {
     const file = fsFile(slug);
     if (!fs.existsSync(file)) return vacio();

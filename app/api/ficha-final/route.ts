@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Competencia, competenciaOrDefault } from "@/lib/competencias";
 import { motivoGemini } from "@/lib/gemini-error";
-import { urlGemini, olvidarModelo } from "@/lib/gemini";
+import { urlGemini, olvidarModelo, textoGemini, corteGemini } from "@/lib/gemini";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -12,7 +12,7 @@ const TIMEOUT_MS = 45_000;
 /**
  * Genera la ficha de evaluación completa de un equipo al terminar su pitch.
  *
- * Es distinto de /api/answer: aquel es feedback corto para el operador durante
+ * Antes convivía con /api/answer, que daba feedback corto durante
  * la presentación; esto es el documento final, con el mismo formato y el mismo
  * nivel de detalle que las fichas de referencia que ya muestra el dashboard
  * (RESUMEN / FORTALEZAS por indicador / ÁREAS DE MEJORA / VEREDICTO).
@@ -125,7 +125,24 @@ ${transcript}`;
           generationConfig: {
             // Baja para que se pegue a los datos del transcript en vez de adornar.
             temperature: 0.4,
-            maxOutputTokens: 2400,
+            /**
+             * Holgado, y no por capricho.
+             *
+             * Estaba en 2400 y el presupuesto lo comparten el razonamiento y
+             * la respuesta. Con el modelo del perfil "calidad", que razona
+             * antes de escribir, el razonamiento se llevaba la mayor parte y
+             * la ficha salía cortada justo antes del VEREDICTO, que es la
+             * última sección. La ficha entera son unos 1200 tokens: con 8000
+             * no hay forma de que el corte caiga adentro del texto.
+             */
+            maxOutputTokens: 8000,
+            /**
+             * Que razone, pero con techo. Un poco de razonamiento es
+             * justamente lo que se busca acá —es el documento que lee el
+             * jurado— pero sin techo puede quedarse pensando y volver al
+             * mismo problema por otro camino.
+             */
+            thinkingConfig: { thinkingBudget: 1024 },
           },
         }),
           }
@@ -166,14 +183,53 @@ ${transcript}`;
     }
 
     const data = await res.json();
-    let raw: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const corteModelo = corteGemini(data);
+    let raw = textoGemini(data);
 
     // A veces el modelo envuelve todo en un bloque de código pese a la consigna.
     raw = raw.trim().replace(/^```(?:markdown|md)?\s*/i, "").replace(/```$/, "").trim();
 
+    /**
+     * Qué hacer cuando falta el VEREDICTO.
+     *
+     * Antes se descartaba la ficha entera y el equipo se quedaba con un cartel
+     * de error. Es la peor decisión posible en un evento en vivo: el veredicto
+     * es la ÚLTIMA sección, así que lo que falta cuando falta es justo lo
+     * último, y el resumen y las seis fortalezas —el 90% del documento y todo
+     * el trabajo del modelo— ya estaban escritos.
+     *
+     * Ahora, si hay un texto con secciones reconocibles, se guarda igual y se
+     * avisa que quedó incompleta. El dashboard dibuja las secciones que haya y
+     * simplemente no pinta el bloque del veredicto. Sólo se descarta cuando de
+     * verdad no vino nada aprovechable.
+     */
+    const tieneSecciones = /\*\*[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+\*\*/.test(raw);
+
     if (!raw.includes("**VEREDICTO**")) {
+      if (raw.length >= 300 && tieneSecciones) {
+        return NextResponse.json({
+          raw,
+          team,
+          project,
+          incompleta: true,
+          motivo:
+            corteModelo === "MAX_TOKENS"
+              ? "La ficha quedó sin el veredicto: el modelo llegó al límite de largo."
+              : "La ficha quedó sin el veredicto final.",
+        });
+      }
+
       return NextResponse.json(
-        { error: "El modelo no devolvió la ficha en el formato esperado.", raw },
+        {
+          error:
+            corteModelo === "MAX_TOKENS"
+              ? "El modelo cortó la respuesta por límite de largo antes de escribir la ficha."
+              : corteModelo && corteModelo !== "STOP"
+              ? `El modelo cortó la respuesta (${corteModelo}).`
+              : "El modelo no devolvió la ficha en el formato esperado.",
+          corte: corteModelo,
+          raw,
+        },
         { status: 502 }
       );
     }

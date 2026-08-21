@@ -1,10 +1,26 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import FichaTexto from "@/app/components/FichaTexto";
 import TranscriptMarcado, { LeyendaMarcas, Marca, TipoMarca } from "@/app/components/TranscriptMarcado";
-import type { Competencia, Equipo } from "@/lib/competencias";
+import type { Competencia } from "@/lib/competencias";
 
+/**
+ * Los equipos ya no viven acá.
+ *
+ * Estaban escritos a mano, con su proyecto asociado. El día que cambió un
+ * nombre en la planilla del jurado, el desplegable siguió mostrando el viejo y
+ * nadie se enteró hasta mirarlo de casualidad. Eso es peor que un detalle: el
+ * dashboard cruza las fichas con los puntajes del jurado POR NOMBRE, así que
+ * dos nombres distintos para la misma persona son una ficha que nunca encuentra
+ * su fila.
+ *
+ * Ahora salen de la columna B de la hoja `Análisis`, vía /api/equipos. Una sola
+ * fuente, la misma que lee el dashboard.
+ *
+ * El proyecto se escribe a mano en cada pitch: tenerlo precargado significaba
+ * mantener a mano una segunda lista que también se iba a desactualizar, y sin
+ * ninguna planilla contra la cual corregirse.
+ */
 
 /** Cada cuánto el LLM re-evalúa los indicadores mientras la persona habla.
  *  12s da unas 50 lecturas en un pitch de 10 minutos: suficiente para que la
@@ -20,6 +36,16 @@ const INTERVALO_MARCAS_MS = 24_000;
 /** Reintentos automáticos si Deepgram corta la conexión a mitad del pitch. */
 const MAX_REINTENTOS_MIC = 4;
 
+/**
+ * Cuántas veces el copiloto rehace SOLO la ficha de un equipo.
+ *
+ * Cada intento se lleva sus propios tres reintentos internos, así que dos
+ * alcanzan para cubrir cualquier falla pasajera sin convertirse en un bucle
+ * que quema cuota contra un problema que no se va a arreglar esperando. El
+ * botón manual de la lista no tiene tope.
+ */
+const MAX_FICHAS_AUTO = 2;
+
 /** Un borrador por equipo: antes había una sola clave y arrancar el equipo
  *  siguiente pisaba el borrador del anterior a los 5 segundos. */
 const BORRADOR_KEY = "eday.copiloto.borrador";
@@ -29,7 +55,14 @@ const borradorKey = (slug: string, equipo: string) => `${BORRADOR_KEY}.${slug}.$
 
 type Health = { tone: "ok" | "warn" | "bad"; msg: string } | null;
 
-/** Lo que hace falta saber de una sesión guardada para decidir si se borra. */
+/**
+ * Lo que hace falta saber de una sesión guardada para decidir si se borra…
+ * y para poder volver a generarle la ficha.
+ *
+ * El transcript y la medición viajan acá porque son exactamente lo que
+ * necesita /api/ficha-final: con eso, cualquier ficha que falte se rehace sin
+ * depender de nada que haya quedado en la memoria del navegador.
+ */
 type SesionGuardada = {
   team: string;
   project?: string;
@@ -37,33 +70,27 @@ type SesionGuardada = {
   isFinished: boolean;
   largo: number;
   tieneFicha: boolean;
+  fichaError?: string;
   esActiva: boolean;
+  transcript: string;
+  metrics: Record<string, number> | null;
+  lecturas: number;
 };
 
 export default function Copiloto({ comp }: { comp: Competencia }) {
-  /**
-   * Los equipos salen de la PLANILLA de esta competición, no del código.
-   *
-   * Arrancan con la lista del registro para que el selector nunca aparezca
-   * vacío, y /api/equipos la reemplaza con lo que haya en el Sheet apenas
-   * responde. Así, sumar un equipo el día del evento es agregar una fila,
-   * no deployar.
-   */
-  const [EQUIPOS, setEquipos] = useState<Equipo[]>(comp.equipos);
-  const [fuenteEquipos, setFuenteEquipos] = useState<"planilla" | "registro" | null>(null);
-  const [errorEquipos, setErrorEquipos] = useState<string | null>(null);
-  const [cargandoEquipos, setCargandoEquipos] = useState(false);
-
-  const [step, setStep] = useState<"setup" | "live" | "session">("setup");
-  const [selectedTeam, setSelectedTeam] = useState(comp.equipos[0]?.name || "");
+  const [step, setStep] = useState<"setup" | "live">("setup");
+  const [selectedTeam, setSelectedTeam] = useState("");
   const [customTeam, setCustomTeam] = useState("");
-  const [projectName, setProjectName] = useState(comp.equipos[0]?.project || "");
+  const [projectName, setProjectName] = useState("");
+
+  /** Equipos leídos de la columna B de la planilla del jurado. */
+  const [equipos, setEquipos] = useState<string[]>([]);
+  const [cargandoEquipos, setCargandoEquipos] = useState(true);
+  const [errorEquipos, setErrorEquipos] = useState("");
 
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
   const [interimText, setInterimText] = useState("");
-  const [aiAnalysis, setAiAnalysis] = useState("");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const [autoAnalisis, setAutoAnalisis] = useState(true);
   const [ultimoAnalisis, setUltimoAnalisis] = useState<string>("");
@@ -74,6 +101,13 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
   const [resueltas, setResueltas] = useState<string[]>([]);
   const [lecturas, setLecturas] = useState(0);
   const [segundos, setSegundos] = useState(0);
+
+  /** Equipos cuya ficha se está escribiendo ahora mismo, en segundo plano. */
+  const [pendientes, setPendientes] = useState<string[]>([]);
+  /** Espejo sincrónico: dos disparos casi simultáneos no pueden encimarse. */
+  const pendientesRef = useRef<Set<string>>(new Set());
+  /** Cuántas veces se intentó ya la ficha de cada equipo en esta pestaña. */
+  const intentosRef = useRef<Record<string, number>>({});
 
   const [health, setHealth] = useState<Health>(null);
   const [authWarning, setAuthWarning] = useState(false);
@@ -111,12 +145,16 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
   const activeTeamName = customTeam.trim() || selectedTeam;
 
   /**
-   * Trae los equipos de la planilla.
+   * Los equipos, desde la planilla del jurado.
    *
-   * El endpoint nunca falla: si Google no contesta devuelve la lista del
-   * registro con el motivo adentro. Eso se muestra en pantalla en vez de
-   * tragárselo, porque un operador que ve nombres viejos y no sabe por qué
-   * va a perder tiempo justo cuando no lo tiene.
+   * Se releen al volver al paso 1 —o sea, entre pitch y pitch— así que si el
+   * jurado corrige un nombre a mitad del evento, el desplegable lo toma sin
+   * recargar la página.
+   *
+   * Si la hoja no contesta, el desplegable queda vacío y se avisa en pantalla.
+   * No hay lista de reemplazo a propósito: una lista de reemplazo escrita a
+   * mano es exactamente el problema que esto vino a resolver, y el operador
+   * siempre puede escribir el nombre en el campo de al lado.
    */
   const cargarEquipos = useCallback(async () => {
     setCargandoEquipos(true);
@@ -126,55 +164,27 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
         { cache: "no-store" }
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setErrorEquipos(data.error || `No se pudo leer la planilla (HTTP ${res.status}).`);
-        return;
-      }
-      if (Array.isArray(data.equipos) && data.equipos.length) {
-        setEquipos(data.equipos);
-        // Si el equipo elegido ya no está en la planilla, se pasa al primero:
-        // dejarlo seleccionado grabaría el pitch contra un nombre fantasma.
-        setSelectedTeam((actual) => {
-          const sigue = data.equipos.some((e: Equipo) => e.name === actual);
-          const elegido = sigue ? actual : data.equipos[0].name;
-          // Sólo se completa el proyecto si el campo está en blanco: si el
-          // operador ya escribió algo, manda lo que escribió.
-          setProjectName((p) =>
-            p ? p : (data.equipos.find((e: Equipo) => e.name === elegido)?.project || "")
-          );
-          return elegido;
-        });
-      }
-      setFuenteEquipos(data.fuente || null);
-      setErrorEquipos(data.error || null);
-    } catch (e: any) {
-      setErrorEquipos(e?.message || "Error de red leyendo la planilla.");
+      const lista: string[] = Array.isArray(data.equipos) ? data.equipos : [];
+      setEquipos(lista);
+      setErrorEquipos(
+        lista.length
+          ? ""
+          : "No se pudieron leer los equipos de la planilla. Escribí el nombre a mano, exactamente como figura en el Sheet."
+      );
+      // Sin pisar lo que el operador ya eligió, y sin dejar seleccionado a
+      // alguien que el jurado sacó de la lista.
+      setSelectedTeam((actual) => (actual && lista.includes(actual) ? actual : lista[0] || ""));
+    } catch {
+      setEquipos([]);
+      setErrorEquipos("No se pudo consultar la planilla. Escribí el nombre del equipo a mano.");
     } finally {
       setCargandoEquipos(false);
     }
   }, [comp.slug]);
 
-  // Al abrir el panel, y cada vez que se vuelve al paso de configuración
-  // (entre un equipo y el siguiente): así una fila agregada a mitad del
-  // evento aparece sola.
   useEffect(() => {
     if (step === "setup") cargarEquipos();
   }, [step, cargarEquipos]);
-
-  /**
-   * Elegir equipo completa el proyecto; escribirlo a mano nunca se pisa.
-   *
-   * Antes esto era un efecto sobre [selectedTeam]. Con la lista viniendo de la
-   * planilla, la relectura cambia la referencia de EQUIPOS y el efecto volvía
-   * a correr: el proyecto que el operador acababa de tipear —la planilla no
-   * tiene esa columna, así que casi siempre lo tipea— se borraba solo.
-   * Siendo un handler, sólo cambia cuando la persona cambia de equipo.
-   */
-  const elegirEquipo = useCallback((nombre: string) => {
-    setSelectedTeam(nombre);
-    setCustomTeam("");
-    setProjectName(EQUIPOS.find((t) => t.name === nombre)?.project || "");
-  }, [EQUIPOS]);
 
   useEffect(() => {
     teamRef.current = activeTeamName;
@@ -444,9 +454,10 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
            *
            * Iban sólo por Pusher, que llega al canal en vivo pero no queda
            * guardado en ningún lado: el servidor recién los veía en el POST
-           * de finalizar. Así, quien abriera el AI Judge a mitad de pitch
-           * —que lee del servidor, no del canal— veía los medidores clavados
-           * en 50 y recién saltaban al valor real cuando el equipo cerraba.
+           * de finalizar. Así, el AI Judge del home —que lee del servidor,
+           * no del canal— mostraba los medidores clavados en 50
+           * durante todo el pitch y recién saltaban al valor real cuando el
+           * equipo cerraba.
            */
           metrics: metricsRef.current,
           // Viajan de arrimo en el sync que ya existía: el home las muestra en
@@ -461,7 +472,40 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
 
   const startSession = () => {
     setStep("live");
-    setAiAnalysis("");
+    /**
+     * Avisarle al servidor que este equipo arranca de cero.
+     *
+     * Antes no se avisaba nada: la sesión del servidor nacía sola con el
+     * primer chunk de audio. Si ese equipo ya existía —el ensayo del
+     * micrófono, un pitch que se cortó y se rehizo, una ficha que salió mal y
+     * se quiso repetir— el texto nuevo se agregaba abajo del viejo y la ficha
+     * final terminaba escrita sobre los dos pitches pegados.
+     *
+     * Va sin `await` a propósito: la pantalla tiene que pasar a "live" al
+     * instante, y si el POST falla el operador se entera por el chip de
+     * estado en vez de quedarse mirando un botón que no responde.
+     */
+    const equipo = activeTeamName;
+    fetch("/api/fichas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ competencia: comp.slug, action: "start", team: equipo, project: projectName }),
+    })
+      .then((r) => {
+        if (!r.ok) {
+          setHealth({
+            tone: "warn",
+            msg: `No se pudo abrir la sesión de ${equipo} en el servidor (HTTP ${r.status}). Si ya presentó antes, el texto viejo puede quedar pegado.`,
+          });
+        }
+      })
+      .catch(() => {
+        setHealth({
+          tone: "warn",
+          msg: "No se pudo abrir la sesión en el servidor. Revisá la conexión antes de arrancar.",
+        });
+      });
+
     setMetrics(null);
     setUltimoAnalisis("");
     setMarcas([]);
@@ -627,77 +671,182 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
     await abrirMicrofono(false);
   };
 
-  /** Análisis narrativo completo, a pedido del operador. */
-  const analizarPitch = async () => {
-    setIsAnalyzing(true);
-    const texto = textoRef.current;
-    try {
-      const res = await fetch("/api/answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          competencia: comp.slug,
-          team: activeTeamName,
-          project: projectName,
-          transcript: texto,
-          question: "Evaluar presentación del equipo y sugerir notas",
-        }),
-      });
-      const data = await res.json();
-      setAiAnalysis(data.text || data.error || "Análisis completado.");
-      await Promise.all([analizarIndicadores(texto), marcarTranscript(texto)]);
-    } catch {
-      setAiAnalysis("Error en la conexión con la IA de evaluación.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+  /**
+   * Escribe la ficha del equipo que acaba de cerrar, sin bloquear nada.
+   *
+   * Corre suelta: nadie la espera. Recibe todo por parámetro —no lee ni un ref—
+   * justo porque para cuando el modelo conteste el operador puede estar
+   * grabando a otro equipo.
+   *
+   * Cuando termina, la ficha entra por `action: "ficha"`, que la pega a un
+   * pitch ya cerrado sin tocar quién está presentando. Con un POST normal, el
+   * servidor daría por cerrado al equipo que está en el escenario en ese
+   * momento y se declararía activo el que ya terminó.
+   */
+  const generarFichaEnSegundoPlano = useCallback(
+    async (
+      equipo: string,
+      proyecto: string,
+      texto: string,
+      metricas: Record<string, number> | null,
+      lecturas: number
+    ) => {
+      if (pendientesRef.current.has(equipo)) return;   // ya se está escribiendo
+      pendientesRef.current.add(equipo);
+      setPendientes((prev) => (prev.includes(equipo) ? prev : [...prev, equipo]));
+      intentosRef.current[equipo] = (intentosRef.current[equipo] || 0) + 1;
+
+      let ficha = "";
+      let fichaError = "";
+      let aviso: Health = null;
+
+      /**
+       * Reintentos con espera creciente.
+       *
+       * Los fallos que se ven en un evento son casi todos pasajeros: el wifi
+       * del venue que parpadea, un 429 porque justo se juntaron varias
+       * llamadas, un 503 de Google. Antes cualquiera de esos dejaba al equipo
+       * sin evaluación de forma definitiva.
+       *
+       * No se reintenta lo que no va a cambiar por esperar: una transcripción
+       * demasiado corta o una key inválida fallan igual a los treinta
+       * segundos, y machacarlas sólo gasta cuota.
+       */
+      for (let intento = 1; intento <= 3; intento++) {
+        let reintentable = false;
+        try {
+          const res = await fetch("/api/ficha-final", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ competencia: comp.slug, team: equipo, project: proyecto, transcript: texto, metrics: metricas, lecturas }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.raw) {
+            ficha = data.raw;
+            fichaError = "";
+            // La ficha puede venir sin el veredicto final: se guarda igual —es el
+            // 90% del documento— pero el operador tiene que saberlo, porque es lo
+            // único que se arregla volviendo a generarla.
+            aviso = data.incompleta
+              ? { tone: "warn", msg: `${equipo}: ${data.motivo || "la ficha quedó incompleta."}` }
+              : { tone: "ok", msg: `Ficha de ${equipo} lista` };
+            break;
+          }
+          // El endpoint manda el motivo real en `detail` (ej. "quota exceeded").
+          // Antes se descartaba y en pantalla quedaba un "Error en Gemini API"
+          // que no le servía a nadie para saber qué arreglar.
+          const detalle = typeof data.detail === "string" ? data.detail.slice(0, 220) : "";
+          fichaError = [data.error || `El generador respondió ${res.status}.`, detalle]
+            .filter(Boolean)
+            .join(" · ");
+          reintentable = res.status === 429 || res.status === 502 || res.status === 504 || res.status >= 500;
+        } catch (e: any) {
+          fichaError = e?.message || "Error de red al generar la ficha.";
+          reintentable = true;
+        }
+
+        aviso = { tone: "bad", msg: `Ficha de ${equipo} no generada: ${fichaError}` };
+        if (!reintentable || intento === 3) break;
+
+        setHealth({ tone: "warn", msg: `Reintentando la ficha de ${equipo} (${intento + 1}/3)…` });
+        await new Promise((r) => setTimeout(r, intento * 4000));
+      }
+
+      /**
+       * Guardar tampoco puede fallar en silencio.
+       *
+       * Sería el peor final posible: el modelo escribió la ficha, se pagó,
+       * y se pierde en el último salto por un parpadeo de red. Se reintenta
+       * lo mismo que la generación.
+       */
+      let guardada = false;
+      for (let intento = 1; intento <= 3 && !guardada; intento++) {
+        try {
+          const res = await fetch("/api/fichas", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              competencia: comp.slug,
+              action: "ficha",
+              team: equipo,
+              analysis: ficha,
+              // Si no salió la ficha, el motivo viaja hasta el dashboard:
+              // vale más un aviso visible que un hueco silencioso.
+              analysisError: ficha ? "" : fichaError,
+            }),
+          });
+          guardada = res.ok;
+        } catch {
+          guardada = false;
+        }
+        if (!guardada && intento < 3) await new Promise((r) => setTimeout(r, intento * 2000));
+      }
+      if (!guardada && ficha) {
+        aviso = { tone: "bad", msg: `La ficha de ${equipo} se generó pero no se pudo guardar. Volvé a generarla.` };
+      }
+
+      pendientesRef.current.delete(equipo);
+      setPendientes((prev) => prev.filter((t) => t !== equipo));
+      if (aviso) setHealth(aviso);
+    },
+    []
+  );
+
+  /**
+   * Aviso al cerrar la pestaña con fichas a medio escribir.
+   *
+   * No es que se pierda nada: el pitch, la medición, las preguntas y las
+   * marcas ya están en la base, y la ficha que falte se rehace con el botón
+   * "Generar ficha" de la lista de guardadas. Pero cerrar acá significa un
+   * paso manual después, y avisarlo cuesta una línea.
+   */
+  useEffect(() => {
+    if (!pendientes.length) return;
+    const avisar = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", avisar);
+    return () => window.removeEventListener("beforeunload", avisar);
+  }, [pendientes]);
 
   const finishSession = async () => {
     stopAudio();
     setIsFinishing(true);
+
+    /**
+     * Todo lo del equipo que cierra, congelado ANTES de soltar la pantalla.
+     *
+     * Es lo que hace posible que la ficha se genere en segundo plano: para
+     * cuando el modelo conteste, el operador ya puede haber elegido el equipo
+     * siguiente y `teamRef`, `metricsRef` y compañía van a estar apuntando a
+     * ESE otro pitch. Leerlos después mezclaría los dos equipos.
+     */
+    const equipo = activeTeamName;
+    const proyecto = projectName;
     // Al cerrar sí entra el interim: es la última frase dicha y ya no va a
     // llegar ningún chunk que la duplique.
     const texto = textoRef.current;
-    if (texto) await publicar({ mode: "sync", fullText: texto });
+    const metricasCierre = metricsRef.current;
+    const lecturasCierre = lecturasRef.current;
+    const preguntasCierre = preguntasRef.current;
+    const marcasCierre = marcasRef.current;
+    const ultimoInterim = interimText;
 
-    // La ficha final la escribe el LLM con todo el transcript, en el mismo
-    // formato que las fichas de referencia del dashboard. Si falla, seguimos
-    // con lo que haya del análisis en vivo: nunca perdemos el pitch por esto.
-    let ficha = aiAnalysis;
-    let fichaError = "";
-    try {
-      setHealth({ tone: "warn", msg: "Generando ficha final con la IA…" });
-      const res = await fetch("/api/ficha-final", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          competencia: comp.slug,
-          team: activeTeamName,
-          project: projectName,
-          transcript: texto,
-          metrics: metricsRef.current,
-          lecturas: lecturasRef.current,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.raw) {
-        ficha = data.raw;
-        setAiAnalysis(data.raw);
-      } else {
-        // El endpoint manda el motivo real en `detail` (ej. "quota exceeded").
-        // Antes se descartaba y en pantalla quedaba un "Error en Gemini API"
-        // que no le servía a nadie para saber qué arreglar.
-        const detalle = typeof data.detail === "string" ? data.detail.slice(0, 220) : "";
-        fichaError = [data.error || `El generador respondió ${res.status}.`, detalle]
-          .filter(Boolean)
-          .join(" · ");
-        setHealth({ tone: "bad", msg: `Ficha no generada: ${fichaError}` });
-      }
-    } catch (e: any) {
-      fichaError = e?.message || "Error de red al generar la ficha.";
-      setHealth({ tone: "bad", msg: `Ficha no generada: ${fichaError}` });
-    }
+    /**
+     * PRIMERA MITAD — cierra el pitch YA.
+     *
+     * Antes esto era una sola función con tres llamadas en fila, y la del
+     * medio es el modelo escribiendo la ficha entera: son varios segundos, y
+     * más ahora que la escribe el modelo bueno con razonamiento. Durante todo
+     * ese rato los tres botones quedaban deshabilitados. O sea que el operador
+     * no podía ni preparar el equipo siguiente ni volver a grabar, parado
+     * frente a la sala, esperando un texto que nadie estaba mirando todavía.
+     *
+     * Ahora el cierre es sólo esto: el transcript final a la vista en vivo
+     * y el pitch marcado como cerrado. Menos de un segundo.
+     */
+    if (texto) await publicar({ mode: "sync", fullText: texto });
 
     try {
       const res = await fetch("/api/fichas", {
@@ -706,32 +855,38 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
         body: JSON.stringify({
           competencia: comp.slug,
           action: "finish",
-          team: activeTeamName,
-          project: projectName,
-          textChunk: interimText,
-          analysis: ficha,
-          // Si no salió la ficha, el motivo viaja hasta el dashboard:
-          // vale más un aviso visible que un hueco silencioso.
-          analysisError: ficha ? "" : fichaError,
-          metrics: metricsRef.current,
+          team: equipo,
+          project: proyecto,
+          textChunk: ultimoInterim,
+          metrics: metricasCierre,
           fullText: texto,
-          lecturas: lecturasRef.current,
+          lecturas: lecturasCierre,
           // Última foto de preguntas y marcas: quedan pegadas a la ficha.
-          preguntas: preguntasRef.current,
-          marcas: marcasRef.current,
+          preguntas: preguntasCierre,
+          marcas: marcasCierre,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (data.broadcastError) setHealth({ tone: "bad", msg: data.broadcastError });
-      else setHealth({ tone: "ok", msg: "Ficha registrada y transmitida" });
     } catch (e) {
-      console.error("Error al finalizar ficha:", e);
-      setHealth({ tone: "bad", msg: "No se pudo registrar la ficha." });
+      console.error("Error al cerrar el pitch:", e);
+      setHealth({ tone: "bad", msg: "No se pudo cerrar el pitch en el servidor." });
     }
 
-    try { localStorage.removeItem(borradorKey(comp.slug, activeTeamName)); } catch {}
+    try { localStorage.removeItem(borradorKey(comp.slug, equipo)); } catch {}
+
+    // SEGUNDA MITAD: sin await. La ficha se escribe sola mientras el operador
+    // ya está en el paso 1 eligiendo al que sigue.
+    generarFichaEnSegundoPlano(equipo, proyecto, texto, metricasCierre, lecturasCierre);
+
     setIsFinishing(false);
-    setStep("session");
+    // El campo de proyecto queda en blanco para el equipo siguiente: se
+    // escribe a mano, y heredar el del anterior se guardaría mal en silencio.
+    setProjectName("");
+    setCustomTeam("");
+    // Directo al paso 1: lo que el operador necesita después de cerrar es
+    // elegir el equipo siguiente, no una pantalla de confirmación.
+    setStep("setup");
   };
 
   /**
@@ -743,38 +898,97 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
   const cargarGuardadas = useCallback(async () => {
     setCargandoGuardadas(true);
     try {
-      // Con `?t=` para saltear el cache del CDN: después de borrar una sesión
-      // el operador tiene que ver el estado real, no uno de hace tres segundos.
-      const res = await fetch(`/api/fichas?competencia=${comp.slug}&t=${Date.now()}`, { cache: "no-store" });
+      // `full=1` porque acá hace falta el listado entero con su transcript
+      // para poder decidir qué borrar; el `?t=` saltea el cache del CDN,
+      // porque después de borrar hay que ver el estado real y no uno de hace
+      // tres segundos. Son dos máquinas contadas las que piden esta versión.
+      const res = await fetch(
+        `/api/fichas?competencia=${encodeURIComponent(comp.slug)}&full=1&t=${Date.now()}`,
+        { cache: "no-store" }
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const todas: Record<string, any> = data.allSessions || {};
       const activo: string | null = data.activeSession?.team || null;
 
       setDurable(Boolean(data.durable));
-      setGuardadas(
-        Object.values(todas)
-          .map((s: any) => ({
-            team: s.team,
-            project: s.project || "",
-            timestamp: s.timestamp || "",
-            isFinished: Boolean(s.isFinished),
-            largo: (s.transcript || "").length,
-            tieneFicha: Boolean(s.analysis),
-            esActiva: s.team === activo,
-          }))
-          .sort((a, b) => a.team.localeCompare(b.team))
-      );
+      const lista: SesionGuardada[] = Object.values(todas)
+        .map((s: any) => ({
+          team: s.team,
+          project: s.project || "",
+          timestamp: s.timestamp || "",
+          isFinished: Boolean(s.isFinished),
+          largo: (s.transcript || "").length,
+          tieneFicha: Boolean(s.analysis),
+          fichaError: s.analysisError || "",
+          esActiva: s.team === activo,
+          transcript: s.transcript || "",
+          metrics: s.metrics || null,
+          lecturas: Number(s.lecturas) || 0,
+        }))
+        .sort((a, b) => a.team.localeCompare(b.team));
+      setGuardadas(lista);
+
+      /**
+       * Barrido automático de fichas faltantes.
+       *
+       * El botón "Generar ficha" resuelve el problema, pero deja la garantía
+       * en manos de que alguien se acuerde de mirar la lista. Entre un pitch y
+       * el siguiente, nadie mira nada.
+       *
+       * Así que el copiloto lo hace solo. Esto corre acá adentro y no en un
+       * efecto aparte a propósito: acá la lista ES la del servidor, recién
+       * traída. Un efecto que mirara el estado de React podía dispararse con
+       * una lista de hace un segundo y mandar a generar de nuevo una ficha que
+       * ya había llegado.
+       *
+       * Se ejecuta cada vez que se vuelve al paso 1 —o sea, después de CADA
+       * pitch— y cubre los tres agujeros que quedaban: la generación que
+       * falló, la pestaña cerrada a mitad de camino, y la pestaña recargada
+       * que perdió lo que tenía en vuelo.
+       *
+       * Tres frenos para que no se vuelva un bucle que quema cuota: de a una
+       * por vez, dos intentos automáticos por equipo y por pestaña —cada uno
+       * con sus tres reintentos internos—, y nada de transcripts cortos, que
+       * el generador rechaza igual. Agotados los automáticos queda el botón
+       * manual, que no tiene tope.
+       */
+      if (pendientesRef.current.size === 0) {
+        const falta = lista.find(
+          (s) =>
+            !s.esActiva &&
+            s.isFinished &&
+            !s.tieneFicha &&
+            s.largo >= 200 &&
+            (intentosRef.current[s.team] || 0) < MAX_FICHAS_AUTO
+        );
+        if (falta) {
+          setHealth({ tone: "warn", msg: `Falta la ficha de ${falta.team}: generándola sola.` });
+          generarFichaEnSegundoPlano(falta.team, falta.project || "", falta.transcript, falta.metrics, falta.lecturas);
+        }
+      }
     } catch {
       setGuardadas([]);
     } finally {
       setCargandoGuardadas(false);
     }
-  }, []);
+  }, [generarFichaEnSegundoPlano]);
 
   useEffect(() => {
     if (step === "setup") cargarGuardadas();
   }, [step, cargarGuardadas]);
+
+  /**
+   * Cuando una ficha en segundo plano aterriza, la lista queda vieja: sigue
+   * diciendo "sin ficha" y ofreciendo el botón de generar una que ya existe.
+   * Se refresca sola al bajar la cuenta de pendientes.
+   */
+  const pendientesPrevios = useRef(0);
+  useEffect(() => {
+    if (step === "setup" && pendientes.length < pendientesPrevios.current) cargarGuardadas();
+    pendientesPrevios.current = pendientes.length;
+  }, [pendientes, step, cargarGuardadas]);
+
 
   const borrar = useCallback(
     async (equipo: string | "TODAS") => {
@@ -821,10 +1035,10 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
           <div>
             <div className="topbar__title">Copiloto de Evaluación</div>
             {/*
-              El nombre de la competición va grande y con su color propio.
-              No es decoración: el mismo operador maneja las dos el mismo día
-              y el error más caro es abrir el copiloto de la equivocada y
-              grabar un pitch contra la base que no era.
+              El nombre de la competición va con su color propio. No es
+              decoración: el mismo operador maneja las dos el mismo día y el
+              error más caro es abrir el copiloto de la equivocada y grabar un
+              pitch entero contra la base que no era.
             */}
             <div className="topbar__sub">
               <span className="topbar__competencia" style={{ color: comp.acento }}>
@@ -836,6 +1050,17 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
           </div>
         </div>
         <div className="topbar__actions">
+          {/* Que la ficha se escriba sola no puede significar que se escriba a
+              escondidas: el operador tiene que poder ver que sigue trabajando
+              mientras él ya está con el equipo siguiente. */}
+          {pendientes.length > 0 && (
+            <span
+              className="chip chip--warn chip--msg"
+              title={`Generando la ficha de: ${pendientes.join(", ")}. No cierres esta pestaña.`}
+            >
+              ⏳ Escribiendo ficha{pendientes.length > 1 ? "s" : ""} de {pendientes.join(", ")}
+            </span>
+          )}
           {health && <span className={chipClass} title={health.msg}>{health.msg}</span>}
           <a className="btn btn--ghost btn--sm" href={`/${comp.slug}/ai`} target="_blank" rel="noreferrer">
             Vista AI Judge ↗
@@ -862,41 +1087,33 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
 
           <div className="form-grid">
             <div>
-              {/*
-                De dónde salió la lista, dicho en pantalla.
-                Si el operador ve nombres que no esperaba, la diferencia entre
-                "la planilla está desactualizada" y "Google no respondió y
-                estás viendo el respaldo" es la diferencia entre arreglarlo en
-                treinta segundos o no entender nada.
-              */}
-              <div className="label label--row">
-                <label htmlFor="equipo">Equipo</label>
-                <span className="label__fuente">
-                  {cargandoEquipos
-                    ? "leyendo la planilla…"
-                    : fuenteEquipos === "planilla"
-                      ? `${EQUIPOS.length} desde la planilla`
-                      : errorEquipos
-                        ? "lista de respaldo"
-                        : ""}
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--xs"
-                    onClick={cargarEquipos}
-                    disabled={cargandoEquipos}
-                    title="Volver a leer la planilla"
-                  >
-                    ↻
-                  </button>
-                </span>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                <label className="label" htmlFor="equipo">Equipo</label>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={cargarEquipos}
+                  disabled={cargandoEquipos}
+                  title="Volver a leer los nombres de la planilla del jurado"
+                  style={{ padding: "2px 8px", fontSize: "var(--fs-xs)" }}
+                >
+                  {cargandoEquipos ? "…" : "↻ Sheet"}
+                </button>
               </div>
               <select
                 id="equipo"
                 className="input"
                 value={selectedTeam}
-                onChange={(e) => elegirEquipo(e.target.value)}
+                // Cambiar de equipo limpia el proyecto: ahora se escribe a
+                // mano, y arrastrar el del equipo anterior sería peor que
+                // dejarlo vacío — se guardaría mal sin que nadie lo note.
+                onChange={(e) => { setSelectedTeam(e.target.value); setCustomTeam(""); setProjectName(""); }}
+                disabled={equipos.length === 0}
               >
-                {EQUIPOS.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+                {equipos.length === 0 ? (
+                  <option value="">{cargandoEquipos ? "Leyendo la planilla…" : "Sin equipos en la planilla"}</option>
+                ) : (
+                  equipos.map((nombre) => <option key={nombre} value={nombre}>{nombre}</option>)
+                )}
               </select>
               <input
                 className="input"
@@ -906,12 +1123,17 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
                 value={customTeam}
                 onChange={(e) => setCustomTeam(e.target.value)}
               />
-              {errorEquipos && (
-                <div className="soft" style={{ fontSize: "var(--fs-micro)", marginTop: 8 }}>
-                  ▲ No se pudo leer la planilla ({errorEquipos}) — estás viendo la lista de
-                  respaldo. Podés escribir el nombre a mano igual.
-                </div>
-              )}
+              <div className="soft" style={{ fontSize: "var(--fs-xs)", marginTop: 6 }}>
+                {errorEquipos ? (
+                  <span style={{ color: "var(--gold)" }}>▲ {errorEquipos}</span>
+                ) : (
+                  <>
+                    {equipos.length} equipo{equipos.length === 1 ? "" : "s"} desde la columna B de la hoja
+                    &laquo;Análisis&raquo;. El nombre tiene que coincidir con el del Sheet: el dashboard cruza
+                    las fichas con los puntajes del jurado por ese nombre.
+                  </>
+                )}
+              </div>
             </div>
 
             <div>
@@ -920,28 +1142,19 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
                 id="proyecto"
                 className="input"
                 type="text"
+                placeholder="Escribí el proyecto de este equipo…"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
               />
             </div>
           </div>
 
-          {/*
-            Sin nombre de equipo no se puede arrancar.
-            Antes la lista estaba hardcodeada y siempre tenía al menos uno, así
-            que la guarda no hacía falta. Ahora viene de la planilla: si el
-            Sheet no responde y el registro no tiene respaldo, el selector
-            queda vacío y `activeTeamName` es "". Arrancar así deja al operador
-            grabando mientras cada POST rebota con 400 y la sala no ve nada.
-          */}
           <button
             className="btn btn--primary btn--block"
             onClick={startSession}
             disabled={!activeTeamName.trim()}
           >
-            {activeTeamName.trim()
-              ? `🎙️ Iniciar evaluación de ${activeTeamName}`
-              : "Elegí un equipo o escribí un nombre para empezar"}
+            🎙️ {activeTeamName.trim() ? `Iniciar evaluación de ${activeTeamName}` : "Elegí o escribí un equipo"}
           </button>
 
           {/* Sesiones guardadas. Vive acá y no en el home a propósito: el home
@@ -994,7 +1207,11 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
                         {[
                           s.project,
                           s.esActiva ? "● presentando ahora" : s.isFinished ? "cerrada" : "sin cerrar",
-                          s.tieneFicha ? "con ficha" : "sin ficha",
+                          s.tieneFicha
+                            ? "con ficha"
+                            : s.fichaError
+                            ? `sin ficha — ${s.fichaError.slice(0, 90)}`
+                            : "sin ficha",
                           `${s.largo.toLocaleString("es-AR")} caracteres`,
                           s.timestamp,
                         ]
@@ -1002,6 +1219,31 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
                           .join(" · ")}
                       </span>
                     </div>
+                    {/* Rehacer una ficha que falta.
+                        La base tiene el transcript y la medición, que es todo
+                        lo que necesita el generador: si la ficha no llegó
+                        —porque Gemini estaba caído, porque se acabó la cuota o
+                        porque se cerró la pestaña mientras se escribía— se
+                        rehace desde acá y queda guardada, sin volver a grabar
+                        nada. Antes no había forma: el pitch quedaba cerrado y
+                        sin evaluación para siempre. */}
+                    {!s.esActiva && !s.tieneFicha && s.largo >= 200 && !pendientes.includes(s.team) && (
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        style={{ flexShrink: 0 }}
+                        onClick={() =>
+                          generarFichaEnSegundoPlano(s.team, s.project || "", s.transcript, s.metrics, s.lecturas)
+                        }
+                        title={s.fichaError ? `Falló antes: ${s.fichaError}` : "Generar la ficha de este pitch"}
+                      >
+                        ✨ Generar ficha
+                      </button>
+                    )}
+                    {pendientes.includes(s.team) && (
+                      <span className="soft" style={{ fontSize: "var(--fs-xs)", flexShrink: 0 }}>
+                        escribiendo…
+                      </span>
+                    )}
                     {porBorrar === s.team ? (
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                         <button className="btn btn--danger btn--sm" onClick={() => borrar(s.team)}>
@@ -1077,9 +1319,14 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
               )}
             </div>
 
-            {/* Todos los controles juntos y en el orden en que se usan:
-                primero grabar, después analizar, al final cerrar. El de grabar
-                manda, porque es el que decide si el sistema está capturando. */}
+            {/* Dos botones y nada más: grabar y cerrar.
+                Había un tercero, "Analizar", que pedía un análisis narrativo a
+                mitad del pitch. Sobraba: los indicadores y las preguntas ya se
+                recalculan solos cada 12 y 24 segundos, y el veredicto escrito
+                lo genera "Finalizar" con un modelo mejor y un formato que el
+                dashboard sabe dibujar. Peor todavía, si la ficha final fallaba
+                se guardaba ese análisis a medio pitch EN SU LUGAR, con otro
+                formato y sin decir que era parcial. */}
             <div className="console__actions">
               <button
                 className={`btn console__rec ${isRecording ? "btn--stop" : "btn--rec"}`}
@@ -1087,14 +1334,6 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
                 disabled={isFinishing}
               >
                 {isRecording ? "⏹  Detener micrófono" : "🎙  Grabar micrófono"}
-              </button>
-
-              <button
-                className="btn btn--ghost"
-                onClick={analizarPitch}
-                disabled={isAnalyzing || isFinishing}
-              >
-                {isAnalyzing ? "✨ Analizando…" : "✨ Analizar"}
               </button>
 
               <button className="btn btn--ghost" onClick={finishSession} disabled={isFinishing}>
@@ -1151,45 +1390,22 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
               </div>
             )}
 
-            <div
-              className={`ficha__body${aiAnalysis ? " ficha__body--ai" : ""}`}
-              style={{ marginTop: "var(--gap)", maxHeight: "none", flex: 1, overflowY: "auto" }}
-            >
-              {aiAnalysis ? (
-                <>
-                  <span className="ficha__tag" style={{ color: "var(--brand)" }}>Evaluación de la IA</span>
-                  <FichaTexto raw={aiAnalysis} />
-                </>
-              ) : (
-                <div className="transcript__empty" style={{ padding: "8% 0" }}>
-                  Los {comp.indicadores.length} indicadores se mueven solos en la vista AI Judge.
-                  <br />
-                  Tocá &laquo;Analizar pitch&raquo; para el veredicto escrito.
-                </div>
-              )}
-            </div>
+            {/* Este panel muestra el estado del análisis y las preguntas para
+                el cierre, que es lo que el jurado usa mientras el equipo habla.
+                La ficha escrita ya no se dibuja acá: se genera en segundo plano
+                al tocar «Finalizar» y se lee en el dashboard y en la pantalla
+                pública, que es donde alguien la va a mirar. */}
+            {preguntas.length === 0 && (
+              <div className="transcript__empty" style={{ padding: "8% 0", flex: 1 }}>
+                Los {comp.indicadores.length} indicadores se mueven solos en la vista AI Judge.
+                <br />
+                Las preguntas para el cierre van a aparecer acá.
+              </div>
+            )}
           </section>
         </div>
       )}
 
-      {step === "session" && (
-        <div className="card stack">
-          <div>
-            <div className="eyebrow" style={{ color: "var(--green)" }}>✓ Listo</div>
-            <h2 style={{ fontSize: "var(--fs-xl)", fontWeight: 800, marginTop: 4 }}>
-              Pitch finalizado y ficha registrada
-            </h2>
-            <p className="soft" style={{ fontSize: "var(--fs-sm)", marginTop: 8 }}>
-              El transcript de {activeTeamName} quedó registrado en {comp.nombreCorto}.
-            </p>
-          </div>
-          <div>
-            <button className="btn btn--primary" onClick={() => setStep("setup")}>
-              🎙️ Evaluar siguiente equipo
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

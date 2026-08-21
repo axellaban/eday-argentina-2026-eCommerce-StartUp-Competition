@@ -1,34 +1,40 @@
 import { NextResponse } from "next/server";
+import { equiposDelSheet } from "@/lib/sheet";
 import { competenciaOrDefault } from "@/lib/competencias";
-import { leerEquipos } from "@/lib/planilla";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 20;
+export const maxDuration = 30;
 
 /**
- * Los equipos de una competición, leídos de su planilla.
+ * Los equipos que presentan, leídos de la planilla DE SU COMPETICIÓN.
  *
- * Lo consume el selector del copiloto. Así, agregar un equipo el día del
- * evento es agregar una fila en el Sheet y tocar "Actualizar": no hace falta
- * deployar.
+ * El slug es obligatorio en la práctica: sin él se cae en la primera del
+ * registro y el copiloto ofrecería los equipos de la otra competición.
  *
- * Va bajo /api/ y por lo tanto detrás de la contraseña del operador: la lista
- * de quién presenta y con qué proyecto es información del backstage, no del
- * público. Por eso tampoco viaja en /api/config, que sí es abierto.
+ * Va por el servidor y no directo desde el navegador del copiloto por dos
+ * razones: no depende de que Google mande las cabeceras de CORS —que las manda,
+ * pero es una dependencia más para el día del evento— y la respuesta se cachea
+ * en el CDN, así que abrir el copiloto varias veces no son varias consultas.
  *
- * Nunca falla: si Google no responde devuelve la lista del registro con el
- * motivo adentro, para que el operador vea de dónde salió lo que está
- * mirando en vez de suponerlo.
+ * Treinta segundos de cache: el jurado no cambia los nombres en medio de un
+ * pitch, y si hace falta forzar la relectura está el botón de recargar, que
+ * agrega `?t=`.
  */
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const comp = competenciaOrDefault(searchParams.get("competencia"));
-  const r = await leerEquipos(comp);
+  const comp = competenciaOrDefault(new URL(req.url).searchParams.get("competencia"));
+  const equipos = await equiposDelSheet(comp);
 
-  return NextResponse.json({
-    competencia: comp.slug,
-    equipos: r.equipos,
-    fuente: r.fuente,
-    error: r.error || null,
-  });
+  return NextResponse.json(
+    { competencia: comp.slug, equipos, cuantos: equipos.length },
+    {
+      headers: {
+        "Cache-Control": equipos.length
+          ? "public, max-age=0, s-maxage=30, stale-while-revalidate=120"
+          // Si la hoja no contestó, no se cachea el vacío: la próxima consulta
+          // vuelve a intentar en vez de servir "no hay equipos" durante medio
+          // minuto.
+          : "no-store",
+      },
+    }
+  );
 }

@@ -5,8 +5,8 @@ import registro from "@/competencias.json";
  *
  * Antes había una sola competición y todo estaba clavado en constantes: los
  * indicadores en lib/criteria.ts, la planilla y sus etiquetas en
- * public/index.html, los equipos en app/copiloto, el nombre del evento adentro
- * de los cuatro prompts, un único canal de Pusher y una única clave de KV.
+ * public/index.html, el nombre del evento adentro de los prompts, un único
+ * canal de Pusher y una única clave de KV.
  *
  * Con dos competiciones el mismo día eso se rompe de tres formas distintas:
  * comparten historial, comparten planilla y —la peor— comparten el canal en
@@ -20,6 +20,9 @@ import registro from "@/competencias.json";
  * Lo que NO cambia entre competiciones y por eso no está acá: la escala del
  * jurado (1 a 5 en la planilla), la escala del análisis en vivo (0 a 100, 50 =
  * neutro) y el formato de la ficha de evaluación.
+ *
+ * Los EQUIPOS tampoco están acá: salen de la columna B de la planilla, vía
+ * /api/equipos. Ver lib/sheet.ts.
  */
 
 export interface Indicator {
@@ -33,11 +36,6 @@ export interface Indicator {
   description: string;
 }
 
-export interface Equipo {
-  name: string;
-  project: string;
-}
-
 export interface Competencia {
   slug: string;
   nombre: string;
@@ -49,7 +47,6 @@ export interface Competencia {
   sheetId: string;
   sheetName: string;
   indicadores: Indicator[];
-  equipos: Equipo[];
 }
 
 export const COMPETENCIAS: Competencia[] = registro.competencias;

@@ -192,6 +192,41 @@ export function olvidarModelo(): void {
   delete cache.calidad;
 }
 
+/**
+ * El texto de la respuesta, juntando TODAS las partes y salteando las de
+ * razonamiento.
+ *
+ * Las cuatro rutas leían `candidates[0].content.parts[0].text`, que era
+ * correcto mientras todas usaban un modelo que no razona. Al separar el perfil
+ * "calidad" para la ficha final, ese modelo empezó a devolver primero una
+ * parte con el resumen de su razonamiento (`thought: true`) y recién después
+ * la respuesta. Leyendo sólo `parts[0]` nos quedábamos con el razonamiento: no
+ * contiene "**VEREDICTO**", así que la ficha se descartaba entera y en
+ * pantalla salía "El modelo no devolvió la ficha en el formato esperado" con
+ * la ficha buena ahí al lado, sin usar.
+ *
+ * Juntar las partes también cubre el caso de una respuesta larga partida en
+ * varios fragmentos.
+ */
+export function textoGemini(data: any): string {
+  const partes = data?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(partes)) return "";
+  return partes
+    .filter((p: any) => p && p.thought !== true && typeof p.text === "string")
+    .map((p: any) => p.text)
+    .join("")
+    .trim();
+}
+
+/**
+ * Por qué el modelo dejó de escribir. "MAX_TOKENS" es el que importa: significa
+ * que la respuesta salió cortada y no que el modelo se haya equivocado, y son
+ * dos cosas que se arreglan distinto.
+ */
+export function corteGemini(data: any): string {
+  return String(data?.candidates?.[0]?.finishReason || "");
+}
+
 /** URL de generateContent para el modelo que corresponda a ese perfil. */
 export async function urlGemini(apiKey: string, perfil: Perfil = "rapido"): Promise<string> {
   const modelo = await modeloGemini(apiKey, perfil);

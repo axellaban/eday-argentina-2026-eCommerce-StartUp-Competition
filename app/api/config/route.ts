@@ -20,8 +20,9 @@ export const dynamic = "force-dynamic";
  *     publicar requiere PUSHER_SECRET, que nunca sale del servidor.
  *   - El sheetId ya viajaba dentro del HTML, y la planilla está compartida
  *     como "cualquiera con el enlace puede ver".
- *   - La lista de equipos NO se incluye: la necesita sólo el copiloto, que la
- *     recibe del servidor al renderizar y no por esta ruta abierta.
+ *   - La lista de equipos NO se incluye: la pide el copiloto a /api/equipos,
+ *     que está detrás de la contraseña. Quién presenta y con qué proyecto es
+ *     información de backstage, no del público.
  *
  * Se cachea 5 minutos en el CDN: no cambia entre pitches, y sin cache cada
  * visitante del dashboard pegaría una función serverless al abrir la página.
