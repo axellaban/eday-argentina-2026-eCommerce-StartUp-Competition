@@ -1,0 +1,146 @@
+{
+  "_comment": "Registro de competiciones. FUENTE ÚNICA: lo lee lib/competencias.ts (la app) y next.config.mjs (las rutas). Para sumar una competición, agregá una entrada acá y nada más. El orden es el de la home.",
+
+  "competencias": [
+    {
+      "slug": "ecommerce-startup-competition",
+      "nombre": "eCommerce StartUp Competition",
+      "nombreCorto": "StartUp Competition",
+      "evento": "eCommerce DAY Argentina 2026",
+      "organizador": "eCommerce Institute",
+      "acento": "#a78bfa",
+      "sheetId": "1Ust7i7HhsPrJdQxJ3v-GvhulQjfC_eCJxXCHuFxDvbc",
+      "sheetName": "Análisis",
+
+      "indicadores": [
+        {
+          "key": "mercado",
+          "icon": "🌍",
+          "label": "Potencial de Mercado",
+          "short": "Mercado",
+          "description": "Tamaño y alcance de la oportunidad: a cuántos les sirve y qué tan grande es el dolor."
+        },
+        {
+          "key": "producto",
+          "icon": "🧲",
+          "label": "Producto y Adopción",
+          "short": "Producto",
+          "description": "Qué tan usable y adoptable es la solución: funciona de verdad y alguien la está usando."
+        },
+        {
+          "key": "innovacion",
+          "icon": "🧱",
+          "label": "Innovación y Tecnología",
+          "short": "Innovación",
+          "description": "Calidad de la arquitectura agéntica: orquestación, conectores, prompts, memoria, human-in-the-loop."
+        },
+        {
+          "key": "ejecucion",
+          "icon": "🏃",
+          "label": "Ejecución y Avance",
+          "short": "Ejecución",
+          "description": "Qué tan lejos llegaron: demo en vivo sin fallos, tiempo en producción, impacto medido."
+        },
+        {
+          "key": "equipo",
+          "icon": "👥",
+          "label": "Perfil del Equipo y Visión",
+          "short": "Equipo",
+          "description": "Capacidad del equipo para llevarlo adelante y claridad de hacia dónde va."
+        },
+        {
+          "key": "percepcion",
+          "icon": "👁️",
+          "label": "Percepción Personal",
+          "short": "Percepción",
+          "description": "Impresión general del pitch: claridad, convicción y ganas de robarle la idea."
+        }
+      ],
+
+      "equipos": [
+        { "name": "Ceci Escudero", "project": "Pipeline de 4 Agentes para Generación de Contenido LinkedIn (GIT)" },
+        { "name": "Maria Cecilia", "project": "Asesor Financiero Agéntico con Reportes Semanales por Telegram" },
+        { "name": "Maru Portela", "project": "GrowthThing — Sistema Multi-Agente de Prospecting B2B (NanoThing)" },
+        { "name": "Debora Menigali", "project": "Colaboratech — Gestión del Conocimiento con IA (Droguería del Sur)" },
+        { "name": "Oscar", "project": "Marketing Studio — Plataforma Agéntica Multimarca (Agencia de Marketing)" },
+        { "name": "Valentin", "project": "Agente Postventa 24/7 por WhatsApp — Sueño Dorado Colchones" },
+        { "name": "Carol Lamoza", "project": "Evaluador Inteligente de Licitaciones Públicas — Mercado Público (Chile)" },
+        { "name": "Agus Vidal", "project": "CacheViti 2.0 — Consolidación Agéntica de Carteras Multi-Banco" },
+        { "name": "Alessandra", "project": "Sistema Editorial de 2 Agentes — Libro de Bitex (Content Lab eCI)" },
+        { "name": "Domenico", "project": "" }
+      ]
+    },
+
+    {
+      "slug": "ai-unified-commerce",
+      "nombre": "AI Unified Commerce",
+      "nombreCorto": "AI Unified Commerce",
+      "evento": "eCommerce DAY Argentina 2026",
+      "organizador": "eCommerce Institute",
+      "acento": "#34d399",
+      "sheetId": "1KPdZns96oCeZrn_qWyQCoT_lLGQ4j-SL-0uw583hrk8",
+      "sheetName": "Análisis",
+
+      "indicadores": [
+        {
+          "key": "impacto",
+          "icon": "📈",
+          "label": "Impacto de Negocio",
+          "short": "Impacto",
+          "description": "Qué mueve la aguja del negocio: ahorro de tiempo o de costo, ingresos, volumen procesado. Con números, no con adjetivos."
+        },
+        {
+          "key": "decisiones",
+          "icon": "🧠",
+          "label": "Calidad de Decisiones",
+          "short": "Decisiones",
+          "description": "Qué tan buenas son las decisiones que toma el sistema: precisión, criterio, manejo de casos borde y de aquello que no sabe."
+        },
+        {
+          "key": "integracion",
+          "icon": "🧩",
+          "label": "Integración y Time-to-Value",
+          "short": "Integración",
+          "description": "Con cuánta fricción se enchufa a lo que la empresa ya tiene, y cuánto tarda desde que se instala hasta que da valor."
+        },
+        {
+          "key": "gobernanza",
+          "icon": "🛡️",
+          "label": "Gobernanza y Seguridad",
+          "short": "Gobernanza",
+          "description": "Control sobre lo que el sistema hace: permisos, datos sensibles, trazabilidad, human-in-the-loop, cumplimiento."
+        },
+        {
+          "key": "robustez",
+          "icon": "🏗️",
+          "label": "Robustez y Resiliencia",
+          "short": "Robustez",
+          "description": "Qué pasa cuando algo falla: manejo de errores, reintentos, degradación elegante, tiempo en producción sin caerse."
+        },
+        {
+          "key": "adopcion",
+          "icon": "📊",
+          "label": "Experiencia y Adopción",
+          "short": "Adopción",
+          "description": "Si la gente lo usa de verdad: usabilidad, curva de aprendizaje, usuarios activos, resistencia interna vencida."
+        },
+        {
+          "key": "medicion",
+          "icon": "🔬",
+          "label": "Medición y Aprendizaje",
+          "short": "Medición",
+          "description": "Cómo saben si funciona: métricas definidas, evaluaciones, feedback loop, mejora demostrada en el tiempo."
+        },
+        {
+          "key": "diferencial",
+          "icon": "⚔️",
+          "label": "Diferenciación Aplicable",
+          "short": "Diferencial",
+          "description": "Qué tiene esto que no se copia en un fin de semana: ventaja real y aplicable, no una feature genérica."
+        }
+      ],
+
+      "equipos": []
+    }
+  ]
+}

@@ -1,54 +1,107 @@
-# eDAY Argentina 2026 — eCommerce StartUp Competition
+# Demo Day · eCommerce DAY Argentina 2026
 
-Dashboard del jurado + copiloto de evaluación en vivo para la eCommerce StartUp
-Competition Argentina 2026 (eCommerce Institute).
+Dashboard del jurado + copiloto de evaluación en vivo para las competiciones
+del eCommerce DAY Argentina 2026 (eCommerce Institute).
+
+## Dos competiciones, un solo deploy
+
+| | eCommerce StartUp Competition | AI Unified Commerce |
+|---|---|---|
+| Dashboard | `/ecommerce-startup-competition` | `/ai-unified-commerce` |
+| AI Judge | `/ecommerce-startup-competition/ai` | `/ai-unified-commerce/ai` |
+| Copiloto | `/ecommerce-startup-competition/copiloto` | `/ai-unified-commerce/copiloto` |
+| Indicadores | 6 | 8 |
+| Planilla | la suya | la suya |
+
+`/` lista las dos. **No es la puerta del evento**: en la sala se entra siempre
+por el link directo, para que nadie tenga que elegir de una lista en una
+pantalla proyectada.
+
+Las dos corren el mismo día, una después de la otra, operadas por la misma
+persona. Están aisladas igual —canal en vivo, historial y planilla propios—
+porque el error caro no es la concurrencia: es la pestaña de la primera que
+nadie cerró y que empieza a mostrar los subtítulos de la segunda.
 
 ## Las tres pantallas
 
 | Ruta | Quién la usa | Qué hace |
 |---|---|---|
-| `/` | Jurado y público | Dashboard: radar, podio, barras y tabla de los **6 indicadores**, leídos del Google Sheet. Abajo, las fichas de evaluación. |
-| `/copiloto` | El operador (protegida) | Elige el equipo, graba el micrófono, transcribe con Deepgram y analiza el pitch con Gemini. |
-| `/publico` | Pantalla de sala | Subtítulos en vivo, los 6 indicadores moviéndose y el historial de fichas. |
+| `/{competencia}` | Jurado y público | Radar, podio, barras y tabla de los indicadores, leídos del Google Sheet. |
+| `/{competencia}/ai` | Pantalla de sala | Subtítulos en vivo, los indicadores moviéndose, marcas del transcript y fichas. |
+| `/{competencia}/copiloto` | El operador (protegida) | Elige el equipo, graba el micrófono, transcribe con Deepgram y analiza el pitch con Gemini. |
 
-`/copiloto` y `/publico` se comunican por Pusher Channels en tiempo real.
+El copiloto y la vista AI Judge se comunican por Pusher Channels, cada
+competición en **su propio canal**.
 
 Al tocar **Finalizar ficha**, el copiloto le pasa la transcripción completa a
-`/api/ficha-final`, que genera la ficha de evaluación con el mismo formato y
-nivel de detalle que las fichas de referencia (RESUMEN / FORTALEZAS por
-indicador / ÁREAS DE MEJORA / VEREDICTO). Esa ficha viaja a la pantalla
-pública y al dashboard. Si la generación falla, se guarda igual el pitch con
-el análisis en vivo que hubiera.
+`/api/ficha-final`, que genera la ficha de evaluación (RESUMEN / FORTALEZAS por
+indicador / ÁREAS DE MEJORA / VEREDICTO). Esa ficha viaja al dashboard. Si la
+generación falla, se guarda igual el pitch con el análisis en vivo que hubiera.
 
-## Los 6 indicadores
+## Agregar una competición
 
-Definidos una sola vez en [`lib/criteria.ts`](lib/criteria.ts), en el mismo orden
-que las columnas **C a H** de la hoja `Análisis`:
+Todo lo que cambia entre competiciones vive en
+[`competencias.json`](competencias.json): slug, nombre, color, planilla,
+indicadores y equipos. Se agrega una entrada y no se toca nada más — de ahí
+salen las rutas (`next.config.mjs`), la config del dashboard (`/api/config`),
+los prompts, el radar y el parseo de la planilla.
 
-1. 🌍 Potencial de Mercado
-2. 🧲 Producto y Adopción
-3. 🧱 Innovación y Tecnología
-4. 🏃 Ejecución y Avance
-5. 👥 Perfil del Equipo y Visión
-6. 👁️ Percepción Personal
-
-El jurado puntúa de **1 a 5** en el Sheet (columna I = Media Total). El análisis
-en vivo de la IA usa **0 a 100** (50 = neutro) porque es un medidor que se mueve
-durante el pitch.
-
-> El dashboard es HTML plano sin bundler, así que replica esta lista en su propia
-> constante `CRITERIA` dentro de `public/index.html`. Si cambiás una, cambiá la otra.
-
-## Fuente de datos del jurado
-
-Google Sheet `1Ust7i7HhsPrJdQxJ3v-GvhulQjfC_eCJxXCHuFxDvbc`, hoja **`Análisis`**,
-leída como CSV vía `gviz/tq`. Layout esperado:
-
-```
-A: Equipo N°  |  B: Nombre  |  C–H: los 6 indicadores  |  I: Media Total
+```jsonc
+{
+  "slug": "mi-competencia",      // define la URL: /mi-competencia
+  "nombre": "Mi Competencia",
+  "acento": "#34d399",           // color propio, para distinguirla de un vistazo
+  "sheetId": "…", "sheetName": "Análisis",
+  "indicadores": [ { "key": "…", "icon": "…", "label": "…", "short": "…", "description": "…" } ],
+  "equipos": [ { "name": "…", "project": "…" } ]
+}
 ```
 
-El Sheet tiene que estar compartido como "cualquiera con el enlace puede ver".
+Reglas que importan:
+
+- **`key`** viaja en los eventos de Pusher y es la clave de `metrics`. Único
+  dentro de la competición, y no se cambia una vez que el evento arrancó.
+- **`short`** es lo que va en los vértices del radar. Los `label` largos se
+  pisan entre sí, sobre todo con ocho indicadores.
+- **`description`** se inyecta en los prompts: es lo que le dice al modelo qué
+  está midiendo. Cuanto más concreta, mejor puntúa.
+- El **orden** tiene que ser el mismo que el de las columnas de la planilla.
+
+## La planilla del jurado
+
+Las dos tienen la misma forma y sólo cambia el ancho:
+
+```
+A: Equipo N°  |  B: Nombre  |  C…: un indicador por columna  |  última: Media Total
+```
+
+Con 6 indicadores la Media Total cae en la columna I; con 8, en la K. El
+dashboard **calcula** ese layout a partir de la cantidad de indicadores, así
+que una competición con nueve criterios ya funciona sin tocar código.
+
+Una fila se toma con que tenga nombre **o** número de equipo, y todos los
+indicadores cargados. La hoja tiene que estar compartida como "cualquiera con
+el enlace puede ver".
+
+El jurado puntúa **1 a 5** en el Sheet. El análisis en vivo de la IA usa
+**0 a 100** (50 = neutro) porque es un medidor que se mueve durante el pitch.
+
+## Aislamiento entre competiciones
+
+Lo que está separado, y por qué:
+
+| Qué | Cómo | Qué pasaría sin esto |
+|---|---|---|
+| Canal de Pusher | `eday-pitch-{slug}` | La pantalla de una proyecta los subtítulos de la otra |
+| Historial y `activeTeam` | clave KV `eday:sessions:{slug}` | La segunda competición le pisa las fichas a la primera |
+| Planilla | `sheetId` por competición | Los dos dashboards leen el mismo jurado |
+| Borradores del copiloto | `localStorage` con el slug adentro | Un equipo homónimo recupera el borrador de la otra |
+
+`DELETE /api/fichas?competencia=slug&all=1` limpia **sólo** esa competición.
+
+La contraseña es **una sola** para las dos: las opera la misma persona. Si
+alguna vez las operan personas distintas, pasa a ser una por competición leída
+del registro.
 
 ## Variables de entorno
 
@@ -60,7 +113,7 @@ Environment Variables).
 | `DEEPGRAM_API_KEY` | Tokens efímeros de transcripción | No se puede grabar |
 | `GEMINI_API_KEY` | Análisis del pitch e indicadores | Falla el análisis |
 | `GEMINI_MODEL`, `GEMINI_MODEL_CALIDAD` | Forzar el modelo | Se descubre solo contra la API |
-| `PUSHER_APP_ID`, `PUSHER_SECRET`, `NEXT_PUBLIC_PUSHER_KEY` | Tiempo real | La pantalla pública no recibe nada (el copiloto lo avisa en rojo) |
+| `PUSHER_APP_ID`, `PUSHER_SECRET`, `NEXT_PUBLIC_PUSHER_KEY` | Tiempo real | La vista AI Judge no recibe nada (el copiloto lo avisa en rojo) |
 | `NEXT_PUBLIC_PUSHER_CLUSTER` | Cluster de Pusher | Default `sa1` |
 | `ADMIN_PASSWORD` | Contraseña del operador | **El panel queda abierto** y muestra un aviso |
 | `NEXT_PUBLIC_SITE_URL` | Dominio para las vistas previas al compartir | Se usa `VERCEL_URL`, y si no el dominio de producción |
@@ -86,21 +139,26 @@ próxima llamada vuelve a resolver. `GET /api/gemini-check` (con la contraseña
 del operador) dice cuáles quedaron elegidos, qué tiene habilitado la key y qué
 contestó Google.
 
+> Las dos competiciones comparten la misma key de Gemini y de Deepgram. Como
+> corren una después de la otra, no se suman en concurrencia. Si alguna vez se
+> solaparan, hay que medir el rate limit antes.
+
 ### Persistencia
 
 En Vercel el filesystem es de solo lectura fuera de `/tmp` y cada request puede
 caer en otra instancia. Sin las variables de KV las fichas se transmiten por
-Pusher pero **no quedan guardadas de forma durable**: quien abra `/publico`
-después de un pitch puede no ver el historial. Con Vercel KV o Upstash Redis
-configurado, sí.
+Pusher pero **no quedan guardadas de forma durable**: quien abra la vista AI
+Judge después de un pitch puede no ver el historial. Con Vercel KV o Upstash
+Redis configurado, sí.
 
 Sirven los dos pares indistintamente — `KV_REST_API_URL` + `KV_REST_API_TOKEN`
 (Vercel KV) o `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (Upstash
 directo). Lo que no sirve es cargar el token sin la URL: `isDurable()` pide las
 dos y con una sola sigue en modo no durable, en silencio.
 
-Para verificarlo, `GET /api/fichas` devuelve `durable: true|false`. Ojo que
-Vercel no aplica variables nuevas a un deploy ya hecho: hay que redeployar.
+Para verificarlo, `GET /api/fichas?competencia=slug` devuelve `durable: true|false`.
+Ojo que Vercel no aplica variables nuevas a un deploy ya hecho: hay que
+redeployar.
 
 ## Desarrollo
 
@@ -109,14 +167,22 @@ npm install
 npm run dev            # http://localhost:3000
 ```
 
-Para el dashboard solo, sin Next (sirve `public/`):
-
-```bash
-python3 servidor.py    # http://localhost:8080
-```
-
 ## Deploy
 
-Vercel, framework Next.js. `/` se sirve mediante un rewrite `beforeFiles` hacia
-`public/index.html`; **no agregues un `app/page.tsx`**, porque el routing por
-filesystem le gana al rewrite y la home vuelve a quedar en blanco.
+Vercel, framework Next.js.
+
+El dashboard es `public/index.html`: HTML plano sin bundler, servido mediante
+rewrites `beforeFiles` en `/{competencia}` y `/{competencia}/ai`. Lee el slug de
+su propio `location.pathname` y pide el resto a `/api/config`. **No agregues un
+`app/{competencia}/page.tsx`**, porque el routing por filesystem le gana al
+rewrite y el dashboard vuelve a quedar en blanco.
+
+Las URLs viejas (`/ai`, `/copiloto`, `/publico`) redirigen a la primera
+competición del registro.
+
+### Limitación conocida: la vista previa al compartir
+
+Como las dos competiciones son el mismo archivo HTML y los scrapers de WhatsApp
+y LinkedIn no ejecutan JS, la vista previa muestra siempre los metadatos
+genéricos del evento. Es a propósito: mejor un título del evento que el link de
+una competición previsualizándose con el nombre de la otra.

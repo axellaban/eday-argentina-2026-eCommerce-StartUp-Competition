@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { broadcast } from "@/lib/pusher";
 import { MAX_TRANSCRIPT_EVENTO, PUSHER_EVENTS } from "@/lib/pusher-config";
 import { loadSessions, saveSessions, isDurable, TeamSession } from "@/lib/store";
+import { competenciaOrDefault } from "@/lib/competencias";
 
 // El estado cambia en cada pitch: nunca cachear esta ruta.
 export const dynamic = "force-dynamic";
@@ -9,7 +10,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const team = searchParams.get("team");
-  const data = await loadSessions();
+  const comp = competenciaOrDefault(searchParams.get("competencia"));
+  const data = await loadSessions(comp.slug);
 
   if (team) {
     const session = data.sessions[team];
@@ -43,6 +45,7 @@ export async function GET(req: Request) {
       activeSession,
       finishedSessions: finishedList,
       allSessions: data.sessions,
+      competencia: comp.slug,
       durable: isDurable(),
     },
     { headers: { "Cache-Control": "public, max-age=0, s-maxage=3, stale-while-revalidate=10" } }
@@ -58,7 +61,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Falta el nombre del equipo" }, { status: 400 });
     }
 
-    const data = await loadSessions();
+    const comp = competenciaOrDefault(body.competencia);
+    const data = await loadSessions(comp.slug);
 
     if (!data.sessions[team]) {
       const nueva: TeamSession = {
@@ -142,7 +146,7 @@ export async function POST(req: Request) {
       session.updatedAt = Date.now();
       data.activeTeam = null;
 
-      const result = await broadcast(PUSHER_EVENTS.finish, {
+      const result = await broadcast(comp.slug, PUSHER_EVENTS.finish, {
         team: session.team,
         project: session.project,
         // Sólo la cola: el evento entero no puede pasar los 10 KB de Pusher.
@@ -174,11 +178,12 @@ export async function POST(req: Request) {
       data.activeTeam = team;
     }
 
-    await saveSessions(data);
+    await saveSessions(comp.slug, data);
 
     return NextResponse.json({
       success: true,
       team,
+      competencia: comp.slug,
       session,
       durable: isDurable(),
       broadcastError,
@@ -199,8 +204,11 @@ export async function POST(req: Request) {
  * veces el mismo equipo. Antes de que empiece el evento hay que poder dejar la
  * base limpia sin entrar a Upstash a mano.
  *
- *   DELETE /api/fichas?team=Nombre  → borra esa sesión
- *   DELETE /api/fichas?all=1        → borra todas
+ *   DELETE /api/fichas?competencia=slug&team=Nombre  → borra esa sesión
+ *   DELETE /api/fichas?competencia=slug&all=1        → borra todas
+ *
+ * Sin `competencia` se asume la primera del registro. Cada competición tiene
+ * su propia clave, así que limpiar una nunca toca a la otra.
  *
  * Sólo el operador puede llamarlo: el middleware deja pasar sin contraseña
  * únicamente el GET de esta ruta. La pantalla pública y el AI Judge del home
@@ -211,6 +219,7 @@ export async function DELETE(req: Request) {
     const { searchParams } = new URL(req.url);
     const team = searchParams.get("team");
     const todas = searchParams.get("all") === "1";
+    const comp = competenciaOrDefault(searchParams.get("competencia"));
 
     if (!team && !todas) {
       return NextResponse.json(
@@ -219,13 +228,13 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const data = await loadSessions();
+    const data = await loadSessions(comp.slug);
 
     if (todas) {
       const borradas = Object.keys(data.sessions).length;
       data.sessions = {};
       data.activeTeam = null;
-      await saveSessions(data);
+      await saveSessions(comp.slug, data);
       return NextResponse.json({ success: true, borradas, durable: isDurable() });
     }
 
@@ -238,7 +247,7 @@ export async function DELETE(req: Request) {
     // queda mostrando "presentando ahora" un equipo que ya no existe.
     if (data.activeTeam === team) data.activeTeam = null;
 
-    await saveSessions(data);
+    await saveSessions(comp.slug, data);
     return NextResponse.json({ success: true, borradas: 1, team, durable: isDurable() });
   } catch (e: any) {
     return NextResponse.json(

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { INDICATORS } from "@/lib/criteria";
+import { Competencia, competenciaOrDefault } from "@/lib/competencias";
 import { motivoGemini } from "@/lib/gemini-error";
 import { urlGemini, olvidarModelo } from "@/lib/gemini";
 
@@ -21,10 +21,12 @@ const TIMEOUT_MS = 45_000;
  * dibujar cada sección, y el veredicto se renderiza destacado.
  */
 
-const FICHA_PROMPT = `Sos el jurado evaluador de la eCommerce StartUp Competition Argentina 2026 (eCommerce Institute). Acabás de escuchar el pitch completo de un equipo y tenés que escribir su FICHA DE EVALUACIÓN.
+function fichaPrompt(comp: Competencia): string {
+  const total = comp.indicadores.length;
+  return `Sos el jurado evaluador de la ${comp.nombre} (${comp.evento}, ${comp.organizador}). Acabás de escuchar el pitch completo de un equipo y tenés que escribir su FICHA DE EVALUACIÓN.
 
-## Los 6 indicadores oficiales
-${INDICATORS.map((i, n) => `${n + 1}. ${i.icon} ${i.label}: ${i.description}`).join("\n")}
+## Los ${total} indicadores oficiales
+${comp.indicadores.map((i, n) => `${n + 1}. ${i.icon} ${i.label}: ${i.description}`).join("\n")}
 
 ## Cómo tenés que escribir
 Estás escribiendo para un jurado experto que NO tomó notas. La ficha tiene que servir para decidir un puntaje sin volver a escuchar el pitch.
@@ -43,12 +45,7 @@ Respondé ÚNICAMENTE con el texto de la ficha, sin preámbulo, sin explicacione
 Un párrafo: quién presenta, a qué se dedica, qué construyó y cuál es el dolor concreto que resuelve. Incluí una cita textual del dolor si la hay.
 
 **FORTALEZAS**
-• **🌍 Potencial de Mercado:** …
-• **🧲 Producto y Adopción:** …
-• **🧱 Innovación y Tecnología:** …
-• **🏃 Ejecución y Avance:** …
-• **👥 Perfil del Equipo y Visión:** …
-• **👁️ Percepción Personal:** …
+${comp.indicadores.map((i) => `• **${i.icon} ${i.label}:** …`).join("\n")}
 
 **ÁREAS DE MEJORA**
 • Primera mejora concreta.
@@ -56,6 +53,7 @@ Un párrafo: quién presenta, a qué se dedica, qué construyó y cuál es el do
 
 **VEREDICTO**
 Dos a cuatro oraciones de síntesis: qué es lo más fuerte, qué es lo más flojo y qué tan sólido es el caso en conjunto.`;
+}
 
 export async function POST(req: Request) {
   try {
@@ -68,6 +66,7 @@ export async function POST(req: Request) {
       );
     }
 
+    const comp = competenciaOrDefault(body.competencia);
     const team = body.team || "Equipo";
     const project = body.project || "";
     const transcript = (body.transcript || "").trim();
@@ -92,7 +91,7 @@ export async function POST(req: Request) {
     const bloqueMedicion =
       metrics && lecturas > 0
         ? `\nMEDICIÓN EN VIVO AL CIERRE (0-100, 50 = neutro; ${lecturas} lecturas durante el pitch):
-${INDICATORS.map((i) => `- ${i.label}: ${metrics[i.key] ?? 50}`).join("\n")}
+${comp.indicadores.map((i) => `- ${i.label}: ${metrics[i.key] ?? 50}`).join("\n")}
 
 Esta medición se proyectó en pantalla durante el pitch. Tu ficha tiene que ser COHERENTE con ella: no elogies un indicador que quedó bajo ni castigues uno que quedó alto. Si creés que la medición se equivocó en algún punto, decilo explícitamente en ÁREAS DE MEJORA en vez de contradecirla en silencio.\n`
         : "";
@@ -122,7 +121,7 @@ ${transcript}`;
         headers: { "Content-Type": "application/json" },
         signal: controlador.signal,
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: `${FICHA_PROMPT}\n\n${userPrompt}` }] }],
+          contents: [{ role: "user", parts: [{ text: `${fichaPrompt(comp)}\n\n${userPrompt}` }] }],
           generationConfig: {
             // Baja para que se pegue a los datos del transcript en vez de adornar.
             temperature: 0.4,
@@ -179,7 +178,7 @@ ${transcript}`;
       );
     }
 
-    return NextResponse.json({ raw, team, project });
+    return NextResponse.json({ raw, team, project, competencia: comp.slug });
   } catch (e: any) {
     return NextResponse.json(
       { error: e.message || "Error generando la ficha." },

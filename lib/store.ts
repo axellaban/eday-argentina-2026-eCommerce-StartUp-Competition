@@ -32,9 +32,11 @@ import path from "path";
  * siguiente. Lo peor que pasa es que un dato quede desactualizado unos
  * segundos.
  *
- * Si alguna vez esto tiene que soportar dos operadores a la vez, hay que pasar
- * a escrituras atómicas (JSON.SET de Redis o un script Lua) en vez de guardar
- * el blob completo.
+ * Con la separación por competición, dos operadores trabajando en
+ * competiciones distintas ya no se pisan: cada uno escribe su propia clave.
+ * Lo que sigue sin estar resuelto es DOS OPERADORES SOBRE LA MISMA
+ * competición al mismo tiempo; para eso hay que pasar a escrituras atómicas
+ * (JSON.SET de Redis o un script Lua) en vez de guardar el blob completo.
  */
 
 export interface TeamSession {
@@ -74,8 +76,33 @@ export interface SessionsData {
   activeTeam: string | null;
 }
 
-const EMPTY: SessionsData = { sessions: {}, activeTeam: null };
-const KV_KEY = "eday:sessions";
+/**
+ * Estado vacío, SIEMPRE recién construido.
+ *
+ * Antes era un objeto de módulo del que se devolvía una copia con spread. Ese
+ * spread es superficial: copia `activeTeam` pero comparte el MISMO objeto
+ * `sessions`. Con una sola competición no se notaba. Con dos es una fuga
+ * directa: la primera guarda un pitch, muta ese objeto compartido, y la
+ * segunda —que arranca vacía y recibe la misma referencia— abre el día
+ * mostrando los equipos de la otra competición.
+ *
+ * Por eso es una función y no una constante.
+ */
+function vacio(): SessionsData {
+  return { sessions: {}, activeTeam: null };
+}
+
+/**
+ * Una clave por competición.
+ *
+ * Antes era la constante "eday:sessions", global. Con dos competiciones eso
+ * significa un solo `activeTeam` y un solo historial compartido: la segunda
+ * competición del día le pisaba las fichas a la primera, y a la noche quedaba
+ * una sola lista mezclada en vez de las dos completas.
+ */
+function kvKey(slug: string): string {
+  return `eday:sessions:${slug}`;
+}
 
 const KV_URL = (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "").replace(/\/$/, "");
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
@@ -84,22 +111,22 @@ export function isDurable(): boolean {
   return Boolean(KV_URL && KV_TOKEN);
 }
 
-/** En Vercel el único directorio escribible es /tmp. */
-function fsFile(): string {
+/** En Vercel el único directorio escribible es /tmp. Un archivo por competición. */
+function fsFile(slug: string): string {
   const dir = process.env.VERCEL ? "/tmp/eday-data" : path.join(process.cwd(), "data");
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, "sessions.json");
+  return path.join(dir, `sessions-${slug.replace(/[^a-z0-9-]/gi, "_")}.json`);
 }
 
-async function kvGet(): Promise<SessionsData> {
-  const res = await fetch(`${KV_URL}/get/${encodeURIComponent(KV_KEY)}`, {
+async function kvGet(slug: string): Promise<SessionsData> {
+  const res = await fetch(`${KV_URL}/get/${encodeURIComponent(kvKey(slug))}`, {
     headers: { Authorization: `Bearer ${KV_TOKEN}` },
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`KV GET ${res.status}`);
   const body = await res.json();
   // Upstash devuelve { result: "<string>" | null }
-  if (!body || body.result == null) return { ...EMPTY };
+  if (!body || body.result == null) return vacio();
   const raw = typeof body.result === "string" ? body.result : JSON.stringify(body.result);
   const parsed = JSON.parse(raw);
   return {
@@ -108,8 +135,8 @@ async function kvGet(): Promise<SessionsData> {
   };
 }
 
-async function kvSet(data: SessionsData): Promise<void> {
-  const res = await fetch(`${KV_URL}/set/${encodeURIComponent(KV_KEY)}`, {
+async function kvSet(slug: string, data: SessionsData): Promise<void> {
+  const res = await fetch(`${KV_URL}/set/${encodeURIComponent(kvKey(slug))}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${KV_TOKEN}`,
@@ -121,35 +148,35 @@ async function kvSet(data: SessionsData): Promise<void> {
   if (!res.ok) throw new Error(`KV SET ${res.status}`);
 }
 
-export async function loadSessions(): Promise<SessionsData> {
+export async function loadSessions(slug: string): Promise<SessionsData> {
   if (isDurable()) {
     try {
-      return await kvGet();
+      return await kvGet(slug);
     } catch (e) {
       console.error("[store] Falló la lectura de KV, uso filesystem:", e);
     }
   }
   try {
-    const file = fsFile();
-    if (!fs.existsSync(file)) return { ...EMPTY };
+    const file = fsFile(slug);
+    if (!fs.existsSync(file)) return vacio();
     const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
     return { sessions: parsed.sessions || {}, activeTeam: parsed.activeTeam ?? null };
   } catch {
-    return { ...EMPTY };
+    return vacio();
   }
 }
 
-export async function saveSessions(data: SessionsData): Promise<void> {
+export async function saveSessions(slug: string, data: SessionsData): Promise<void> {
   if (isDurable()) {
     try {
-      await kvSet(data);
+      await kvSet(slug, data);
       return;
     } catch (e) {
       console.error("[store] Falló la escritura en KV, uso filesystem:", e);
     }
   }
   try {
-    fs.writeFileSync(fsFile(), JSON.stringify(data, null, 2));
+    fs.writeFileSync(fsFile(slug), JSON.stringify(data, null, 2));
   } catch (e) {
     // En serverless sin KV esto es esperable: la sesión sigue viva en memoria
     // del request y Pusher ya transmitió el evento a la pantalla pública.

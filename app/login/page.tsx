@@ -22,9 +22,17 @@ export default function LoginPage() {
         setError(data.error || "No se pudo iniciar sesión.");
         return;
       }
-      const next = new URLSearchParams(window.location.search).get("next") || "/copiloto";
+      /**
+       * Sin `next`, la home y no un copiloto.
+       *
+       * Antes había un solo copiloto y mandarlo ahí era obvio. Ahora hay dos:
+       * elegir uno por default sería mandar al operador a la competición
+       * equivocada la mitad de las veces. Si vino redirigido desde un
+       * copiloto, `next` ya trae la correcta.
+       */
+      const next = new URLSearchParams(window.location.search).get("next") || "/";
       // Sólo rutas relativas, para no permitir redirecciones a otro dominio.
-      window.location.href = next.startsWith("/") && !next.startsWith("//") ? next : "/copiloto";
+      window.location.href = next.startsWith("/") && !next.startsWith("//") ? next : "/";
     } catch {
       setError("Error de red al iniciar sesión.");
     } finally {
@@ -46,7 +54,7 @@ export default function LoginPage() {
           </a>
           <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 800 }}>Acceso al Copiloto</h1>
           <p className="soft" style={{ fontSize: "var(--fs-xs)", marginTop: 6 }}>
-            Panel del operador · eCommerce StartUp Competition Argentina 2026
+            Panel del operador · eCommerce DAY Argentina 2026
           </p>
         </div>
 

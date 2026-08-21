@@ -14,15 +14,21 @@ import "./globals.css";
  */
 const SITIO = process.env.NEXT_PUBLIC_SITE_URL
   || (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`)
-  || "https://eday-2026-argentina-ecommerce-startup-competition-demo-day.vercel.app";
+  || "https://eday-2026-argentina-demo-day.vercel.app";
 
-const TITULO = "Demo Day · eCommerce StartUp Competition Argentina 2026";
+/**
+ * Metadatos genéricos del sitio, no de una competición.
+ *
+ * Acá viven las dos, así que el título no puede nombrar a ninguna: cada
+ * página pone el suyo con generateMetadata.
+ */
+const TITULO = "Demo Day · eCommerce DAY Argentina 2026";
 const DESCRIPCION =
-  "Evaluación en vivo con IA. Los 6 indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta.";
+  "Evaluación en vivo con IA: los indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITIO),
-  title: "Copiloto – eCommerce StartUp Competition | eCommerce DAY Argentina",
+  title: { default: TITULO, template: "%s · eCommerce DAY Argentina" },
   description: DESCRIPCION,
   icons: {
     icon: [

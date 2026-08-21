@@ -1,5 +1,5 @@
 import PusherServer from "pusher";
-import { PUSHER_CHANNEL, PUSHER_CLUSTER } from "./pusher-config";
+import { canalDe, PUSHER_CLUSTER } from "./pusher-config";
 
 /**
  * Cliente de Pusher del lado servidor.
@@ -34,11 +34,17 @@ export function getPusherServer(): PusherServer | null {
 }
 
 /**
- * Emite un evento al canal de la competencia.
+ * Emite un evento al canal de UNA competición.
+ *
+ * El slug es obligatorio y va primero a propósito: si fuera opcional, un
+ * endpoint que se olvide de pasarlo transmitiría al canal equivocado sin que
+ * nadie lo note hasta que la sala vea los subtítulos de la otra competición.
+ *
  * Devuelve un resultado en vez de tirar, así los endpoints deciden si el fallo
  * de transmisión es fatal (transcripción en vivo) o tolerable (fin de pitch).
  */
 export async function broadcast(
+  slug: string,
   event: string,
   payload: unknown
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -51,7 +57,7 @@ export async function broadcast(
     };
   }
   try {
-    await pusher.trigger(PUSHER_CHANNEL, event, payload);
+    await pusher.trigger(canalDe(slug), event, payload);
     return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Error transmitiendo por Pusher." };

@@ -1,25 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import FichaTexto from "../components/FichaTexto";
-import TranscriptMarcado, { LeyendaMarcas, Marca, TipoMarca } from "../components/TranscriptMarcado";
+import FichaTexto from "@/app/components/FichaTexto";
+import TranscriptMarcado, { LeyendaMarcas, Marca, TipoMarca } from "@/app/components/TranscriptMarcado";
+import type { Competencia } from "@/lib/competencias";
 
-const TEAMS_DEFAULT = [
-  { name: "Ceci Escudero", project: "Pipeline de 4 Agentes para Generación de Contenido LinkedIn (GIT)" },
-  { name: "Maria Cecilia", project: "Asesor Financiero Agéntico con Reportes Semanales por Telegram" },
-  { name: "Maru Portela", project: "GrowthThing — Sistema Multi-Agente de Prospecting B2B (NanoThing)" },
-  { name: "Debora Menigali", project: "Colaboratech — Gestión del Conocimiento con IA (Droguería del Sur)" },
-  { name: "Oscar", project: "Marketing Studio — Plataforma Agéntica Multimarca (Agencia de Marketing)" },
-  { name: "Valentin", project: "Agente Postventa 24/7 por WhatsApp — Sueño Dorado Colchones" },
-  { name: "Carol Lamoza", project: "Evaluador Inteligente de Licitaciones Públicas — Mercado Público (Chile)" },
-  { name: "Agus Vidal", project: "CacheViti 2.0 — Consolidación Agéntica de Carteras Multi-Banco" },
-  { name: "Alessandra", project: "Sistema Editorial de 2 Agentes — Libro de Bitex (Content Lab eCI)" },
-  { name: "Domenico", project: "" },
-];
 
 /** Cada cuánto el LLM re-evalúa los indicadores mientras la persona habla.
  *  12s da unas 50 lecturas en un pitch de 10 minutos: suficiente para que la
- *  pantalla pública tenga siempre un tramo nuevo que recorrer. */
+ *  vista en vivo tenga siempre un tramo nuevo que recorrer. */
 const INTERVALO_ANALISIS_MS = 12_000;
 /** Cada cuánto se reenvía el transcript completo para corregir texto perdido. */
 const INTERVALO_SYNC_MS = 12_000;
@@ -34,7 +23,9 @@ const MAX_REINTENTOS_MIC = 4;
 /** Un borrador por equipo: antes había una sola clave y arrancar el equipo
  *  siguiente pisaba el borrador del anterior a los 5 segundos. */
 const BORRADOR_KEY = "eday.copiloto.borrador";
-const borradorKey = (equipo: string) => `${BORRADOR_KEY}.${equipo}`;
+/** La competición entra en la clave: dos competiciones pueden tener un equipo
+ *  con el mismo nombre y el borrador de una no debe aparecer en la otra. */
+const borradorKey = (slug: string, equipo: string) => `${BORRADOR_KEY}.${slug}.${equipo}`;
 
 type Health = { tone: "ok" | "warn" | "bad"; msg: string } | null;
 
@@ -49,11 +40,14 @@ type SesionGuardada = {
   esActiva: boolean;
 };
 
-export default function CopilotoPage() {
+export default function Copiloto({ comp }: { comp: Competencia }) {
+  /** Equipos de ESTA competición. Vienen del registro, vía el server component. */
+  const EQUIPOS = comp.equipos;
+
   const [step, setStep] = useState<"setup" | "live" | "session">("setup");
-  const [selectedTeam, setSelectedTeam] = useState(TEAMS_DEFAULT[0].name);
+  const [selectedTeam, setSelectedTeam] = useState(EQUIPOS[0]?.name || "");
   const [customTeam, setCustomTeam] = useState("");
-  const [projectName, setProjectName] = useState(TEAMS_DEFAULT[0].project);
+  const [projectName, setProjectName] = useState(EQUIPOS[0]?.project || "");
 
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
@@ -107,9 +101,9 @@ export default function CopilotoPage() {
   const activeTeamName = customTeam.trim() || selectedTeam;
 
   useEffect(() => {
-    const found = TEAMS_DEFAULT.find((t) => t.name === selectedTeam);
+    const found = EQUIPOS.find((t) => t.name === selectedTeam);
     if (found) setProjectName(found.project);
-  }, [selectedTeam]);
+  }, [EQUIPOS, selectedTeam]);
 
   useEffect(() => {
     teamRef.current = activeTeamName;
@@ -129,7 +123,7 @@ export default function CopilotoPage() {
    *
    *   1. El sync mandaba "…frase a med" y un segundo después llegaba el chunk
    *      final "frase a medias completa", que se AGREGA. La frase quedaba
-   *      duplicada en el transcript de la pantalla pública y del AI Judge.
+   *      duplicada en el transcript de la vista AI Judge.
    *   2. El marcado citaba tramos del interim, que después cambiaban al
    *      cerrarse la frase. Esa cita ya no existía literal en el texto y la
    *      marca se descartaba sola: justo las frases más recientes, que son las
@@ -166,7 +160,7 @@ export default function CopilotoPage() {
       try {
         if (!teamRef.current || !textoRef.current) return;
         localStorage.setItem(
-          borradorKey(teamRef.current),
+          borradorKey(comp.slug, teamRef.current),
           JSON.stringify({ team: teamRef.current, project: projectRef.current, texto: textoRef.current })
         );
       } catch {}
@@ -177,7 +171,7 @@ export default function CopilotoPage() {
   useEffect(() => {
     try {
       const pendientes = Object.keys(localStorage)
-        .filter((k) => k.startsWith(BORRADOR_KEY + "."))
+        .filter((k) => k.startsWith(`${BORRADOR_KEY}.${comp.slug}.`))
         .map((k) => {
           try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch { return null; }
         })
@@ -215,14 +209,14 @@ export default function CopilotoPage() {
       const res = await fetch("/api/stream-transcript", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ team: teamRef.current, project: projectRef.current, ...payload }),
+        body: JSON.stringify({ competencia: comp.slug, team: teamRef.current, project: projectRef.current, ...payload }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setHealth({ tone: "bad", msg: data.error || `La pantalla pública no recibe (HTTP ${res.status}).` });
+        setHealth({ tone: "bad", msg: data.error || `La vista en vivo no recibe (HTTP ${res.status}).` });
         return false;
       }
-      setHealth({ tone: "ok", msg: "Transmitiendo a la pantalla pública" });
+      setHealth({ tone: "ok", msg: "Transmitiendo a la vista en vivo" });
       return true;
     } catch (e: any) {
       setHealth({ tone: "bad", msg: e?.message || "Error de red al transmitir." });
@@ -231,7 +225,7 @@ export default function CopilotoPage() {
   }, []);
 
   /**
-   * Recalcula los 6 indicadores y los empuja a la pantalla pública.
+   * Recalcula los indicadores de la competición y los empuja al canal en vivo.
    *
    * El guard de "en vuelo" importa: si una lectura tarda más que el intervalo,
    * se encimarían dos llamadas y la respuesta vieja podría pisar a la nueva,
@@ -245,6 +239,7 @@ export default function CopilotoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          competencia: comp.slug,
           team: teamRef.current,
           project: projectRef.current,
           transcript: texto,
@@ -283,7 +278,7 @@ export default function CopilotoPage() {
 
   /**
    * Marca el transcript para el jurado y propone preguntas de cierre.
-   * Vive sólo acá: nunca se transmite a la pantalla pública.
+   * Vive sólo acá: nunca se transmite al canal en vivo.
    */
   const marcarTranscript = useCallback(async (texto: string) => {
     if (texto.length < 200 || marcasEnVueloRef.current) return;
@@ -293,6 +288,7 @@ export default function CopilotoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          competencia: comp.slug,
           team: teamRef.current,
           project: projectRef.current,
           transcript: texto,
@@ -354,7 +350,7 @@ export default function CopilotoPage() {
     return () => clearInterval(t);
   }, [isRecording, autoAnalisis, marcarTranscript]);
 
-  // 3) Reenvío del transcript completo, para que la pantalla pública se
+  // 3) Reenvío del transcript completo, para que la vista en vivo se
   //    corrija sola si perdió algún evento.
   useEffect(() => {
     if (!isRecording) return;
@@ -367,6 +363,7 @@ export default function CopilotoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          competencia: comp.slug,
           team: teamRef.current,
           project: projectRef.current,
           fullText: textoFinalRef.current,
@@ -374,12 +371,11 @@ export default function CopilotoPage() {
           /**
            * Los indicadores en curso.
            *
-           * Iban sólo por Pusher, que le llega a /publico pero no queda
+           * Iban sólo por Pusher, que llega al canal en vivo pero no queda
            * guardado en ningún lado: el servidor recién los veía en el POST
-           * de finalizar. Así, el AI Judge del home —que lee del servidor,
-           * no del canal— mostraba los seis medidores clavados en 50
-           * durante todo el pitch y recién saltaban al valor real cuando el
-           * equipo cerraba.
+           * de finalizar. Así, quien abriera el AI Judge a mitad de pitch
+           * —que lee del servidor, no del canal— veía los medidores clavados
+           * en 50 y recién saltaban al valor real cuando el equipo cerraba.
            */
           metrics: metricsRef.current,
           // Viajan de arrimo en el sync que ya existía: el home las muestra en
@@ -423,7 +419,7 @@ export default function CopilotoPage() {
     // Recuperar borrador si es el mismo equipo
     let recuperado: string[] = [];
     try {
-      const raw = localStorage.getItem(borradorKey(activeTeamName));
+      const raw = localStorage.getItem(borradorKey(comp.slug, activeTeamName));
       if (raw) {
         const b = JSON.parse(raw);
         if (b?.texto) {
@@ -496,6 +492,7 @@ export default function CopilotoPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              competencia: comp.slug,
               team: teamRef.current,
               project: projectRef.current,
               textChunk: texto,
@@ -568,6 +565,7 @@ export default function CopilotoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          competencia: comp.slug,
           team: activeTeamName,
           project: projectName,
           transcript: texto,
@@ -603,6 +601,7 @@ export default function CopilotoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          competencia: comp.slug,
           team: activeTeamName,
           project: projectName,
           transcript: texto,
@@ -634,12 +633,13 @@ export default function CopilotoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          competencia: comp.slug,
           action: "finish",
           team: activeTeamName,
           project: projectName,
           textChunk: interimText,
           analysis: ficha,
-          // Si no salió la ficha, el motivo viaja hasta la pantalla pública:
+          // Si no salió la ficha, el motivo viaja hasta el dashboard:
           // vale más un aviso visible que un hueco silencioso.
           analysisError: ficha ? "" : fichaError,
           metrics: metricsRef.current,
@@ -658,7 +658,7 @@ export default function CopilotoPage() {
       setHealth({ tone: "bad", msg: "No se pudo registrar la ficha." });
     }
 
-    try { localStorage.removeItem(borradorKey(activeTeamName)); } catch {}
+    try { localStorage.removeItem(borradorKey(comp.slug, activeTeamName)); } catch {}
     setIsFinishing(false);
     setStep("session");
   };
@@ -674,7 +674,7 @@ export default function CopilotoPage() {
     try {
       // Con `?t=` para saltear el cache del CDN: después de borrar una sesión
       // el operador tiene que ver el estado real, no uno de hace tres segundos.
-      const res = await fetch(`/api/fichas?t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`/api/fichas?competencia=${comp.slug}&t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const todas: Record<string, any> = data.allSessions || {};
@@ -707,8 +707,12 @@ export default function CopilotoPage() {
 
   const borrar = useCallback(
     async (equipo: string | "TODAS") => {
+      // La competición es obligatoria acá: sin ella el endpoint cae en la
+      // primera del registro, y "borrar todas" limpiaría la base de la OTRA
+      // competición en vez de la que el operador tiene abierta.
+      const base = `/api/fichas?competencia=${encodeURIComponent(comp.slug)}`;
       const url =
-        equipo === "TODAS" ? "/api/fichas?all=1" : `/api/fichas?team=${encodeURIComponent(equipo)}`;
+        equipo === "TODAS" ? `${base}&all=1` : `${base}&team=${encodeURIComponent(equipo)}`;
       try {
         const res = await fetch(url, { method: "DELETE" });
         const data = await res.json().catch(() => ({}));
@@ -738,20 +742,32 @@ export default function CopilotoPage() {
     <div className="shell">
       <header className="topbar">
         <div className="topbar__brand">
-          {/* El logo siempre vuelve al dashboard */}
-          <a href="/" aria-label="Ir al dashboard">
+          {/* El logo siempre vuelve al dashboard de ESTA competición */}
+          <a href={`/${comp.slug}`} aria-label="Ir al dashboard">
             <img className="topbar__logo" src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" />
           </a>
           <div className="topbar__divider" />
           <div>
             <div className="topbar__title">Copiloto de Evaluación</div>
-            <div className="topbar__sub">eCommerce StartUp Competition · Argentina 2026</div>
+            {/*
+              El nombre de la competición va grande y con su color propio.
+              No es decoración: el mismo operador maneja las dos el mismo día
+              y el error más caro es abrir el copiloto de la equivocada y
+              grabar un pitch contra la base que no era.
+            */}
+            <div className="topbar__sub">
+              <span className="topbar__competencia" style={{ color: comp.acento }}>
+                {comp.nombre}
+              </span>
+              {" · "}
+              {comp.evento}
+            </div>
           </div>
         </div>
         <div className="topbar__actions">
           {health && <span className={chipClass} title={health.msg}>{health.msg}</span>}
-          <a className="btn btn--ghost btn--sm" href="/publico" target="_blank" rel="noreferrer">
-            Pantalla pública ↗
+          <a className="btn btn--ghost btn--sm" href={`/${comp.slug}/ai`} target="_blank" rel="noreferrer">
+            Vista AI Judge ↗
           </a>
         </div>
       </header>
@@ -761,7 +777,7 @@ export default function CopilotoPage() {
           <span>▲</span>
           <span>
             Este panel está sin contraseña. Definí <strong>ADMIN_PASSWORD</strong> en Vercel para que
-            sólo el operador pueda escribir en la pantalla pública.
+            sólo el operador pueda escribir en la pantalla del evento.
           </span>
         </div>
       )}
@@ -782,7 +798,7 @@ export default function CopilotoPage() {
                 value={selectedTeam}
                 onChange={(e) => { setSelectedTeam(e.target.value); setCustomTeam(""); }}
               >
-                {TEAMS_DEFAULT.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+                {EQUIPOS.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
               </select>
               <input
                 className="input"
@@ -821,7 +837,7 @@ export default function CopilotoPage() {
                 <div className="soft" style={{ fontSize: "var(--fs-xs)", marginTop: 2 }}>
                   {durable === false
                     ? "Sin base configurada: esto no sobrevive a un redeploy."
-                    : "Lo que borrás acá desaparece del dashboard y de la pantalla pública."}
+                    : `Lo que borrás acá desaparece del dashboard de ${comp.nombreCorto}. La otra competición no se toca.`}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -986,7 +1002,7 @@ export default function CopilotoPage() {
               </label>
             </div>
 
-            {/* Los 6 indicadores viven en la pantalla pública, que es donde se
+            {/* Los indicadores viven en la vista AI Judge, que es donde se
                 miran. Repetirlos acá era ruido: al operador le alcanza con
                 saber que el análisis está corriendo. */}
             <div style={{ fontSize: "var(--fs-micro)" }} className="muted mono">
@@ -1028,7 +1044,7 @@ export default function CopilotoPage() {
                 </>
               ) : (
                 <div className="transcript__empty" style={{ padding: "8% 0" }}>
-                  Los 6 indicadores se mueven solos en la pantalla pública.
+                  Los {comp.indicadores.length} indicadores se mueven solos en la vista AI Judge.
                   <br />
                   Tocá &laquo;Analizar pitch&raquo; para el veredicto escrito.
                 </div>
@@ -1046,7 +1062,7 @@ export default function CopilotoPage() {
               Pitch finalizado y ficha registrada
             </h2>
             <p className="soft" style={{ fontSize: "var(--fs-sm)", marginTop: 8 }}>
-              El transcript de {activeTeamName} quedó transmitido a la pantalla pública.
+              El transcript de {activeTeamName} quedó registrado en {comp.nombreCorto}.
             </p>
           </div>
           <div>

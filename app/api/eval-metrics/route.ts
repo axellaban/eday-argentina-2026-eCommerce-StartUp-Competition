@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { broadcast } from "@/lib/pusher";
 import { PUSHER_EVENTS } from "@/lib/pusher-config";
-import { INDICATORS, neutralMetrics } from "@/lib/criteria";
+import { competenciaOrDefault, neutralMetrics } from "@/lib/competencias";
 import { motivoGemini } from "@/lib/gemini-error";
 import { urlGemini, olvidarModelo } from "@/lib/gemini";
 
@@ -9,7 +9,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 /**
- * Medición en vivo de los 6 indicadores mientras el equipo presenta.
+ * Medición en vivo de los indicadores mientras el equipo presenta.
+ *
+ * Cuáles y cuántos son sale del registro de la competición: seis en la
+ * StartUp Competition, ocho en AI Unified Commerce.
  *
  * Lo que hace distinto a una simple llamada al LLM:
  *
@@ -25,7 +28,7 @@ export const maxDuration = 30;
  *    un salto de 40 puntos en pantalla no le resulta creíble a nadie.
  * 5. NUNCA VUELVE A NEUTRO POR ERROR. Si el modelo falla o tarda, se
  *    conservan los valores anteriores. Antes un JSON mal formado mandaba las
- *    seis barras a 50 de golpe delante de la sala.
+ *    barras a 50 de golpe delante de la sala.
  */
 
 /** Cuánto puede moverse un indicador entre dos lecturas consecutivas. */
@@ -70,29 +73,38 @@ function recortar(t: string): string {
   return `${cabeza}\n\n[…tramo intermedio omitido por longitud…]\n\n${cola}`;
 }
 
-/** Estructura fija de salida: el modelo no puede devolver otra cosa. */
-const RESPONSE_SCHEMA = {
-  type: "OBJECT",
-  properties: Object.fromEntries(
-    INDICATORS.map((i) => [i.key, { type: "INTEGER", description: i.label }])
-  ),
-  required: INDICATORS.map((i) => i.key),
-};
+/**
+ * Estructura fija de salida: el modelo no puede devolver otra cosa.
+ *
+ * Se arma por competición porque las claves y la cantidad de indicadores
+ * cambian entre una y otra.
+ */
+function responseSchema(indicadores: { key: string; label: string }[]) {
+  return {
+    type: "OBJECT",
+    properties: Object.fromEntries(
+      indicadores.map((i) => [i.key, { type: "INTEGER", description: i.label }])
+    ),
+    required: indicadores.map((i) => i.key),
+  };
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const apiKey = (process.env.GEMINI_API_KEY || "").trim();
     const { team, project, transcript } = body;
+    const comp = competenciaOrDefault(body.competencia);
+    const INDICADORES = comp.indicadores;
 
     // Valores de los que parte esta lectura.
     const previas: Record<string, number> = Object.fromEntries(
-      INDICATORS.map((i) => [i.key, clamp(body.previas?.[i.key], 50)])
+      INDICADORES.map((i) => [i.key, clamp(body.previas?.[i.key], 50)])
     );
 
     if (!transcript || transcript.length < 5) {
-      const iniciales = neutralMetrics();
-      const result = await broadcast(PUSHER_EVENTS.metrics, {
+      const iniciales = neutralMetrics(comp);
+      const result = await broadcast(comp.slug, PUSHER_EVENTS.metrics, {
         team: team || "Equipo",
         metrics: iniciales,
       });
@@ -110,17 +122,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const prompt = `Sos el analista en vivo de la eCommerce StartUp Competition Argentina 2026. Vas midiendo 6 indicadores mientras el equipo presenta, y tu medición se proyecta en pantalla para el público y el jurado.
+    const total = INDICADORES.length;
+    const prompt = `Sos el analista en vivo de la ${comp.nombre} (${comp.evento}). Vas midiendo ${total} indicadores mientras el equipo presenta, y tu medición se proyecta en pantalla para el público y el jurado.
 
-## Los 6 indicadores
-${INDICATORS.map((i, n) => `${n + 1}. ${i.key} (${i.label}): ${i.description}`).join("\n")}
+## Los ${total} indicadores
+${INDICADORES.map((i, n) => `${n + 1}. ${i.key} (${i.label}): ${i.description}`).join("\n")}
 
 ${ESCALA}
 
 ${REGLAS}
 
 ## Estado actual de la medición
-${INDICATORS.map((i) => `- ${i.key}: ${previas[i.key]}`).join("\n")}
+${INDICADORES.map((i) => `- ${i.key}: ${previas[i.key]}`).join("\n")}
 
 ## Equipo
 ${team || "Equipo"}${project ? ` — ${project}` : ""}
@@ -128,7 +141,7 @@ ${team || "Equipo"}${project ? ` — ${project}` : ""}
 ## Transcripción acumulada del pitch
 ${recortar(transcript)}
 
-Devolvé el nuevo estado de los 6 indicadores.`;
+Devolvé el nuevo estado de los ${total} indicadores.`;
 
     const controlador = new AbortController();
     const corte = setTimeout(() => controlador.abort(), TIMEOUT_MS);
@@ -145,7 +158,7 @@ Devolvé el nuevo estado de los 6 indicadores.`;
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
               responseMimeType: "application/json",
-              responseSchema: RESPONSE_SCHEMA,
+              responseSchema: responseSchema(INDICADORES),
               // Baja: esto es una medición, no un texto creativo.
               temperature: 0.15,
               // Sin cadena de razonamiento: acá importa la latencia, y la
@@ -186,7 +199,7 @@ Devolvé el nuevo estado de los 6 indicadores.`;
     try {
       const parsed = JSON.parse(rawText);
       crudas = Object.fromEntries(
-        INDICATORS.map((i) => [i.key, clamp(parsed[i.key], previas[i.key])])
+        INDICADORES.map((i) => [i.key, clamp(parsed[i.key], previas[i.key])])
       );
     } catch {
       // Formato inesperado: mejor no mover nada que tirar todo a 50.
@@ -198,7 +211,7 @@ Devolvé el nuevo estado de los 6 indicadores.`;
 
     // Freno de salto: la medición evoluciona, no pega volantazos.
     const metrics = Object.fromEntries(
-      INDICATORS.map((i) => {
+      INDICADORES.map((i) => {
         const antes = previas[i.key];
         const propuesto = crudas[i.key];
         const delta = Math.max(-MAX_SALTO, Math.min(MAX_SALTO, propuesto - antes));
@@ -206,7 +219,7 @@ Devolvé el nuevo estado de los 6 indicadores.`;
       })
     );
 
-    const result = await broadcast(PUSHER_EVENTS.metrics, { team: team || "Equipo", metrics });
+    const result = await broadcast(comp.slug, PUSHER_EVENTS.metrics, { team: team || "Equipo", metrics });
 
     return NextResponse.json({
       success: true,

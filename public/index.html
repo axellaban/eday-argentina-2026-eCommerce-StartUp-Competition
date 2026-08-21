@@ -3,8 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Demo Day – eCommerce StartUp Competition | eCommerce DAY Argentina</title>
-  <meta name="description" content="Evaluación en vivo del Demo Day de la eCommerce StartUp Competition Argentina 2026. Los 6 indicadores oficiales, medidos por IA mientras cada equipo presenta." />
+  <!-- Este archivo sirve a TODAS las competiciones: el mismo HTML se monta en
+       /{competencia} y /{competencia}/ai. Por eso los metadatos son del
+       evento y no de una competición — el <title> se reemplaza por el de la
+       que corresponda apenas carga /api/config.
+
+       Los scrapers de WhatsApp y LinkedIn NO ejecutan JS, así que la vista
+       previa al compartir muestra siempre estos valores genéricos. Es a
+       propósito: es preferible un título del evento a que el link de una
+       competición se previsualice con el nombre de la otra. -->
+  <title>Demo Day · eCommerce DAY Argentina 2026</title>
+  <meta name="description" content="Evaluación en vivo con IA: los indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta." />
   <meta name="theme-color" content="#031A2B" />
 
   <!-- Íconos. El isotipo va sobre blanco y no sobre el azul del dashboard: la
@@ -23,18 +32,18 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="eCommerce DAY Argentina" />
   <meta property="og:locale" content="es_AR" />
-  <meta property="og:title" content="Demo Day · eCommerce StartUp Competition Argentina 2026" />
-  <meta property="og:description" content="Evaluación en vivo con IA. Los 6 indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta." />
-  <meta property="og:url" content="https://eday-2026-argentina-ecommerce-startup-competition-demo-day.vercel.app/" />
-  <meta property="og:image" content="https://eday-2026-argentina-ecommerce-startup-competition-demo-day.vercel.app/og-image.png" />
+  <meta property="og:title" content="Demo Day · eCommerce DAY Argentina 2026" />
+  <meta property="og:description" content="Evaluación en vivo con IA: los indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta." />
+  <meta property="og:url" content="https://eday-2026-argentina-demo-day.vercel.app/" />
+  <meta property="og:image" content="https://eday-2026-argentina-demo-day.vercel.app/og-image.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Demo Day · eCommerce StartUp Competition Argentina 2026" />
+  <meta property="og:image:alt" content="Demo Day · eCommerce DAY Argentina 2026" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Demo Day · eCommerce StartUp Competition Argentina 2026" />
-  <meta name="twitter:description" content="Evaluación en vivo con IA. Los 6 indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta." />
-  <meta name="twitter:image" content="https://eday-2026-argentina-ecommerce-startup-competition-demo-day.vercel.app/og-image.png" />
+  <meta name="twitter:title" content="Demo Day · eCommerce DAY Argentina 2026" />
+  <meta name="twitter:description" content="Evaluación en vivo con IA: los indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta." />
+  <meta name="twitter:image" content="https://eday-2026-argentina-demo-day.vercel.app/og-image.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1209,7 +1218,10 @@
       <img src="logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" class="header-logo" />
       <div style="border-left:1px solid var(--border);padding-left:16px;">
         <div class="header-title">Demo Day</div>
-        <div class="header-sub">eCommerce StartUp Competition · Argentina · Live Evaluation</div>
+        <!-- Se reemplaza por el nombre real de la competición en cuanto carga
+             la config. El texto de arranque es neutro para que no haya un
+             parpadeo con el nombre de la competición equivocada. -->
+        <div class="header-sub">eCommerce DAY Argentina · Live Evaluation</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
@@ -1295,7 +1307,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             Análisis Multidimensional
           </div>
-          <div class="card-sub">6 indicadores de evaluación por equipo</div>
+          <div class="card-sub" id="cardSubIndicadores">Indicadores de evaluación por equipo</div>
         </div>
         <div style="display:flex;gap:8px;">
           <button class="btn btn-active" id="btnAll"  onclick="setMode('all')">Todos</button>
@@ -1358,18 +1370,12 @@
       </div>
       <div class="tbl-wrap">
         <table>
+          <!-- Los encabezados los arma pintarEncabezadosTabla() con los criterios
+               de la competición. Estaban escritos a mano con los seis
+               originales, y en una competición de ocho el cuerpo dibujaba once
+               celdas contra nueve encabezados: la tabla entera salía corrida. -->
           <thead>
-            <tr>
-              <th>#</th>
-              <th>Equipo</th>
-              <th>🌍 Mercado</th>
-              <th>🧲 Producto</th>
-              <th>🧱 Innovación</th>
-              <th>🏃 Ejecución</th>
-              <th>👥 Equipo</th>
-              <th>👁️ Percepción</th>
-              <th>Prom. ★</th>
-            </tr>
+            <tr id="scoreThead"></tr>
           </thead>
           <tbody id="scoreTbody"></tbody>
         </table>
@@ -1528,39 +1534,103 @@
 
 <script>
 // ═══════════════════════════════════════════════
-// CONFIG — Google Sheets
+// CONFIG — de dónde sale, y por qué ya no está acá
 // ═══════════════════════════════════════════════
-const SHEET_ID  = '1Ust7i7HhsPrJdQxJ3v-GvhulQjfC_eCJxXCHuFxDvbc';
-// gviz/tq respeta el nombre de hoja correctamente (export?format=csv trae siempre la primera hoja).
-// El nombre lleva tilde ("Análisis") y hay que encodearlo, si no Google devuelve la primera hoja.
-const SHEET_NAME = 'Análisis';
-// Variantes por si la tilde no resuelve del lado de Google: se prueban en orden
-// y gana la primera que devuelva filas con puntajes válidos.
-const SHEET_NAME_CANDIDATES = [SHEET_NAME, 'Analisis', 'análisis', 'analisis'];
+/**
+ * Este archivo servía a UNA competición y tenía todo clavado adentro: el id de
+ * la planilla, el nombre de la hoja y los seis criterios, duplicados de
+ * lib/criteria.ts con un comentario pidiendo acordarse de tocar los dos.
+ *
+ * Ahora sirve a todas. El slug sale del path —/{competencia} y
+ * /{competencia}/ai— y el resto se pide a /api/config, que lee el mismo
+ * registro que usa la app. La cantidad de criterios cambia entre
+ * competiciones (seis en una, ocho en la otra), así que nada de esto puede
+ * estar hardcodeado: se usa `CRITERIA.length`, nunca un 6.
+ *
+ * Es HTML plano sin bundler: no hay forma de inyectar constantes en build.
+ */
+
+/** Primer segmento del path. `/ai` es un sufijo de vista, no una competición. */
+const SLUG = (() => {
+  const partes = location.pathname.split('/').filter(Boolean);
+  return partes[0] && partes[0] !== 'ai' ? partes[0] : '';
+})();
+
+/** ¿La URL pide la vista AI Judge? Es el último segmento. */
+function pideVistaAI() {
+  const partes = location.pathname.split('/').filter(Boolean);
+  return partes[partes.length - 1] === 'ai';
+}
+
+// Se llenan desde /api/config antes de dibujar nada.
+let COMPETENCIA = null;
+let CONFIG_VIVO = null;
+let SHEET_ID = '';
+let SHEET_NAME = 'Análisis';
+let SHEET_NAME_CANDIDATES = [];
+let LAYOUT = { colEquipo: 0, colNombre: 1, primerIndicador: 2, ultimoIndicador: 7, colMediaTotal: 8 };
+let CRITERIA = [];
+let CRITERIA_SHORT = [];
+
 const csvUrl = (nombre) =>
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nombre)}`;
 
-// Los 6 indicadores oficiales, en el mismo orden que las columnas C-H de la hoja.
-// Si cambiás esto, actualizá también lib/criteria.ts (misma lista, del lado de la app).
-const CRITERIA = [
-  '🌍 Potencial de Mercado',
-  '🧲 Producto y Adopción',
-  '🧱 Innovación y Tecnología',
-  '🏃 Ejecución y Avance',
-  '👥 Perfil del Equipo y Visión',
-  '👁️ Percepción Personal'
-];
+/**
+ * Trae la competición de esta URL. Sin esto no se puede dibujar nada, así que
+ * es lo primero que corre y todo lo demás espera.
+ */
+async function cargarConfig() {
+  const q = SLUG ? `?competencia=${encodeURIComponent(SLUG)}` : '';
+  const res = await fetch(`/api/config${q}`);
+  if (!res.ok) throw new Error(`No se pudo leer la configuración (HTTP ${res.status}).`);
+  const cfg = await res.json();
 
-// En el radar los nombres largos se pisan entre sí y se salen del canvas en
-// pantallas chicas: ahí se usan estos.
-const CRITERIA_SHORT = [
-  '🌍 Mercado',
-  '🧲 Producto',
-  '🧱 Innovación',
-  '🏃 Ejecución',
-  '👥 Equipo',
-  '👁️ Percepción'
-];
+  COMPETENCIA = cfg.competencia;
+  CONFIG_VIVO = cfg.pusher;
+  SHEET_ID = COMPETENCIA.sheetId;
+  SHEET_NAME = COMPETENCIA.sheetName;
+  // Variantes por si la tilde no resuelve del lado de Google: se prueban en
+  // orden y gana la primera que devuelva filas con puntajes válidos.
+  SHEET_NAME_CANDIDATES = [SHEET_NAME, 'Analisis', 'análisis', 'analisis'];
+  LAYOUT = COMPETENCIA.layout;
+  CRITERIA = COMPETENCIA.indicadores.map(i => `${i.icon} ${i.label}`);
+  // En el radar los nombres largos se pisan entre sí y se salen del canvas en
+  // pantallas chicas: ahí se usan estos.
+  CRITERIA_SHORT = COMPETENCIA.indicadores.map(i => `${i.icon} ${i.short}`);
+
+  pintarIdentidad();
+}
+
+/** Pone el nombre de la competición donde se lo ve: título, header y color. */
+function pintarIdentidad() {
+  if (!COMPETENCIA) return;
+  document.title = `Demo Day · ${COMPETENCIA.nombre} | ${COMPETENCIA.evento}`;
+  const sub = document.querySelector('.header-sub');
+  if (sub) sub.textContent = `${COMPETENCIA.nombre} · ${COMPETENCIA.evento} · Live Evaluation`;
+  // El acento propio, el mismo que lleva la topbar del copiloto: en un evento
+  // con dos competiciones, saber cuál se está mirando tiene que ser inmediato.
+  document.documentElement.style.setProperty('--competencia', COMPETENCIA.acento);
+  const msg = document.getElementById('loadingMsg');
+  if (msg) msg.textContent = `Cargando ${COMPETENCIA.nombre}`;
+  const cardSub = document.getElementById('cardSubIndicadores');
+  if (cardSub) cardSub.textContent = `${COMPETENCIA.indicadores.length} indicadores de evaluación por equipo`;
+  pintarEncabezadosTabla();
+}
+
+/**
+ * Encabezados de la tabla de puntajes.
+ *
+ * Dos columnas fijas al principio (posición y equipo), una por criterio y el
+ * promedio al final — exactamente el mismo orden en que renderTable arma cada
+ * fila. Se usan los nombres cortos: los largos ensanchan la tabla hasta
+ * obligar a scroll horizontal.
+ */
+function pintarEncabezadosTabla() {
+  const fila = document.getElementById('scoreThead');
+  if (!fila || !COMPETENCIA) return;
+  const cols = ['#', 'Equipo', ...CRITERIA_SHORT, 'Prom. ★'];
+  fila.innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+}
 
 const PALETTE = [
   { border:'#a78bfa', bg:'rgba(167,139,250,.08)' },
@@ -1611,26 +1681,41 @@ function parseNum(v) {
   return parseFloat(String(v).replace(',', '.').trim());
 }
 
+/**
+ * Lee la planilla del jurado.
+ *
+ * Las dos competiciones tienen la MISMA forma y sólo cambia el ancho:
+ *   col A = Equipo N° · col B = Nombre · un indicador por columna · Media Total
+ * Con 6 indicadores la media cae en la columna I; con 8, en la K. Por eso los
+ * límites salen de LAYOUT y no hay ningún 7 ni ningún 8 escrito acá: si
+ * mañana aparece una competición con nueve criterios, esto ya funciona.
+ *
+ * La fila se acepta con que tenga NOMBRE o número de equipo. Antes exigía que
+ * la columna A fuera un entero, y una planilla sin esa columna cargada dejaba
+ * el dashboard en datos demo sin decir por qué.
+ */
 function parseCSV(text) {
   const lines = text.trim().split('\n').filter(l => l.trim().length > 0);
   const results = [];
+  const { colEquipo, colNombre, primerIndicador, ultimoIndicador, colMediaTotal } = LAYOUT;
+
   // row 0 = header; rows 1..N = datos
-  // col 0 = Equipo N° (Col A), col 1 = Nombre (Col B),
-  // cols 2-7 = los 6 indicadores (Cols C-H), col 8 = Media Total (Col I)
   for (let i = 1; i < lines.length; i++) {
     const cols  = parseCSVLine(lines[i]);
-    const first = (cols[0] || '').trim();
-    const nombre = (cols[1] || '').trim();
+    const first = (cols[colEquipo] || '').trim();
+    const nombre = (cols[colNombre] || '').trim();
     const equipoNum = parseInt(first, 10);
-    
-    if (!nombre && (isNaN(equipoNum) || equipoNum < 1)) continue;
-    const team = nombre || ('Equipo ' + equipoNum);
 
-    // Parsear los 6 indicadores (cols 2-7)
-    // Si alguno está vacío o no es número → skip fila (equipo sin votos aún)
+    if (!nombre && (isNaN(equipoNum) || equipoNum < 1)) continue;
+    // Sin número de equipo se usa la posición en la planilla, que es el orden
+    // en que presentan: nunca queda un "Equipo NaN" en pantalla.
+    const team = nombre || ('Equipo ' + (isNaN(equipoNum) ? i : equipoNum));
+
+    // Si algún indicador está vacío o no es número → se saltea la fila
+    // (equipo que el jurado todavía no votó).
     const scores = [];
     let valid = true;
-    for (let j = 2; j <= 7; j++) {
+    for (let j = primerIndicador; j <= ultimoIndicador; j++) {
       const raw = (cols[j] || '').trim();
       if (raw === '' || raw.startsWith('#')) { valid = false; break; }
       const n = parseNum(raw);
@@ -1638,8 +1723,9 @@ function parseCSV(text) {
       scores.push(n);
     }
     if (!valid) continue;
-    // Media Total: usar col 8 (Col I) si es un número válido, sino calcular
-    const mediaRaw = (cols[8] || '').trim();
+
+    // Media Total: la de la planilla si es un número válido, sino se calcula.
+    const mediaRaw = (cols[colMediaTotal] || '').trim();
     const mediaSheet = (mediaRaw === '' || mediaRaw.startsWith('#')) ? NaN : parseNum(mediaRaw);
     const media = !isNaN(mediaSheet)
       ? Math.round(mediaSheet * 100) / 100
@@ -1811,24 +1897,22 @@ async function loadData(showLoader = false) {
   }
 }
 
+/**
+ * Datos de relleno para cuando la planilla todavía no tiene votos.
+ *
+ * Antes era una tabla con seis puntajes escritos a mano por fila. Con una
+ * competición de ocho criterios eso dibujaba un radar de seis puntas y una
+ * tabla desalineada. Ahora la fila se arma con `CRITERIA.length`.
+ */
 function DEMO_DATA() {
-  return [
-    { team:'Marcos',    scores:[1.0,1.0,1.0,1.0,1.0,1.0], media:1.00 },
-    { team:'Pablo',     scores:[2.0,2.0,2.0,2.0,2.0,2.0], media:2.00 },
-    { team:'Juan',      scores:[3.0,3.0,3.0,3.0,3.0,3.0], media:3.00 },
-    { team:'Patricio',  scores:[4.0,4.0,4.0,4.0,4.0,4.0], media:4.00 },
-    { team:'Marta',     scores:[5.0,5.0,5.0,5.0,5.0,5.0], media:5.00 },
-    { team:'Juana',     scores:[1.0,1.0,1.0,1.0,1.0,1.0], media:1.00 },
-    { team:'Mara',      scores:[2.0,2.0,2.0,2.0,2.0,2.0], media:2.00 },
-    { team:'Monica',    scores:[3.0,3.0,3.0,3.0,3.0,3.0], media:3.00 },
-    { team:'Pedro',     scores:[4.0,4.0,4.0,4.0,4.0,4.0], media:4.00 },
-    { team:'Roberto',   scores:[5.0,5.0,5.0,5.0,5.0,5.0], media:5.00 },
-    { team:'Juanma',    scores:[1.0,1.0,1.0,1.0,1.0,1.0], media:1.00 },
-    { team:'Diego',     scores:[2.0,2.0,2.0,2.0,2.0,2.0], media:2.00 },
-    { team:'Valentina', scores:[3.0,3.0,3.0,3.0,3.0,3.0], media:3.00 },
-    { team:'Valeria',   scores:[4.0,4.0,4.0,4.0,4.0,4.0], media:4.00 },
-    { team:'Karen',     scores:[5.0,5.0,5.0,5.0,5.0,5.0], media:5.00 },
-  ];
+  const nombres = ['Marcos','Pablo','Juan','Patricio','Marta','Juana','Mara',
+                   'Monica','Pedro','Roberto','Juanma','Diego','Valentina',
+                   'Valeria','Karen'];
+  const cuantos = CRITERIA.length || 6;
+  return nombres.map((team, i) => {
+    const v = (i % 5) + 1;
+    return { team, scores: new Array(cuantos).fill(v), media: v };
+  });
 }
 
 // ═══════════════════════════════════════════════
@@ -2160,7 +2244,7 @@ async function fetchFichasEnVivo() {
      * cuánta gente esté mirando. El operador sí usa `?t=`, porque después de
      * borrar una sesión necesita ver el estado real.
      */
-    const res = await fetch('/api/fichas');
+    const res = await fetch(`/api/fichas?competencia=${encodeURIComponent(SLUG)}`);
     if (!res.ok) return [];
     const data = await res.json();
     const sesiones = Array.isArray(data.finishedSessions) ? data.finishedSessions : [];
@@ -2432,13 +2516,14 @@ function setModo(modo, sinTocarUrl) {
    * Antes el modo se guardaba en localStorage, y eso tenía un costo escondido:
    * cualquiera que hubiera tocado AI Judge una vez volvía a entrar en esa
    * vista sin quererlo, abriendo una conexión del canal en vivo sólo para
-   * mirar la planilla. Con la URL, el estado es explícito: / es el jurado
-   * humano, /ai es la IA. Además se puede compartir el link directo y el botón
-   * de atrás del navegador funciona.
+   * mirar la planilla. Con la URL, el estado es explícito: /{competencia} es
+   * el jurado humano, /{competencia}/ai es la IA. Además se puede compartir el
+   * link directo y el botón de atrás del navegador funciona.
    */
   if (!sinTocarUrl) {
-    const destino = esAI ? '/ai' : '/';
-    if (location.pathname !== destino) {
+    const base = SLUG ? `/${SLUG}` : '';
+    const destino = esAI ? `${base}/ai` : (base || '/');
+    if (location.pathname.replace(/\/+$/, '') !== destino) {
       history.pushState({ modo: aiModo }, '', destino);
     }
   }
@@ -2726,21 +2811,20 @@ function repintarEstadoAI() {
  */
 let aiVivo = false;
 let aiPusher = null;
-let aiConfigVivo = null;
 let aiConectando = false;
 /** Ya llegó al menos una medición por el canal para este equipo. */
 let aiMetricsEnVivo = false;
 
+/**
+ * Config del canal en vivo.
+ *
+ * Ya vino dentro de /api/config al arrancar —con el canal de ESTA competición,
+ * no el global de antes—, así que acá no hay red de por medio. Sigue siendo
+ * async porque conectarVivo la espera y cambiar eso movería el candado de
+ * conexión, que está puesto justo donde tiene que estar.
+ */
 async function configVivo() {
-  if (aiConfigVivo) return aiConfigVivo;
-  try {
-    const res = await fetch('/api/pusher-config');
-    if (!res.ok) return null;
-    aiConfigVivo = await res.json();
-    return aiConfigVivo;
-  } catch {
-    return null;
-  }
+  return CONFIG_VIVO;
 }
 
 function reprogramarPoll(ms) {
@@ -2867,7 +2951,7 @@ async function refrescarAI() {
   if (aiModo !== 'ai') return;
   let data;
   try {
-    const res = await fetch('/api/fichas');
+    const res = await fetch(`/api/fichas?competencia=${encodeURIComponent(SLUG)}`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     data = await res.json();
   } catch (e) {
@@ -2954,7 +3038,7 @@ async function refrescarAI() {
  * La ficha completa de un equipo que ya cerró.
  *
  * Tiene que quedar tan completa como la del jurado humano: inicial, equipo,
- * proyecto, puntaje, los 6 indicadores desglosados y el análisis con sus
+ * proyecto, puntaje, los indicadores desglosados y el análisis con sus
  * secciones y veredicto. La diferencia es la escala — la IA mide 0-100
  * durante el pitch, la planilla puntúa 1-5 después.
  */
@@ -3053,20 +3137,45 @@ function escaparAI(t) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Modo inicial según la URL: /ai abre directo en la vista de la IA, y un F5
-// no devuelve la proyección a la planilla.
-if (location.pathname.replace(/\/+$/, '') === '/ai') setModo('ai', true);
-
-// Y el botón de atrás del navegador cambia de vista en vez de salir del sitio.
+// El botón de atrás del navegador cambia de vista en vez de salir del sitio.
 window.addEventListener('popstate', () => {
-  setModo(location.pathname.replace(/\/+$/, '') === '/ai' ? 'ai' : 'humano', true);
+  setModo(pideVistaAI() ? 'ai' : 'humano', true);
 });
 
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-loadData(true);
-setInterval(() => loadData(false), 10000);
+/**
+ * La config va primero y todo lo demás espera.
+ *
+ * Sin ella no se sabe qué planilla leer ni cuántos criterios dibujar, así que
+ * arrancar loadData en paralelo sólo lograría pintar un radar vacío y volver
+ * a pintarlo un segundo después. Si /api/config falla, se dice en pantalla en
+ * vez de dejar la ruedita girando para siempre.
+ */
+(async () => {
+  try {
+    await cargarConfig();
+  } catch (e) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.style.display = 'none';
+    showBanner('error',
+      'No se pudo cargar la configuración de esta competición',
+      SLUG
+        ? `La URL /${SLUG} no corresponde a ninguna competición conocida, o la API no respondió.`
+        : 'Entrá por la URL de una competición, por ejemplo /ecommerce-startup-competition.',
+      e && e.message ? e.message : ''
+    );
+    return;
+  }
+
+  // Modo inicial según la URL: /{competencia}/ai abre directo en la vista de
+  // la IA, y un F5 no devuelve la proyección a la planilla.
+  if (pideVistaAI()) setModo('ai', true);
+
+  loadData(true);
+  setInterval(() => loadData(false), 10000);
+})();
 </script>
 <!-- Vercel Deployment Sync -->
 </body>

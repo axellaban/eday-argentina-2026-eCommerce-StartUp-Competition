@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { motivoGemini } from "@/lib/gemini-error";
 import { urlGemini, olvidarModelo } from "@/lib/gemini";
+import { competenciaOrDefault } from "@/lib/competencias";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -26,7 +27,7 @@ const MAX_TRANSCRIPT = 14_000;
 
 const TIPOS = ["dato", "demo", "flojo"] as const;
 
-const PROMPT = `Sos el asistente del jurado de la eCommerce StartUp Competition Argentina 2026. Estás leyendo la transcripción de un pitch EN CURSO y tenés que marcarla para que el jurado pueda escanearla rápido y preparar sus preguntas.
+const PROMPT = (nombre: string) => `Sos el asistente del jurado de la ${nombre}. Estás leyendo la transcripción de un pitch EN CURSO y tenés que marcarla para que el jurado pueda escanearla rápido y preparar sus preguntas.
 
 ## Qué marcar
 Marcá SÓLO fragmentos que valgan la pena. Tres tipos:
@@ -98,6 +99,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const apiKey = (process.env.GEMINI_API_KEY || "").trim();
+    const comp = competenciaOrDefault(body.competencia);
     const transcript = String(body.transcript || "").trim();
 
     if (!apiKey) {
@@ -113,7 +115,7 @@ export async function POST(req: Request) {
 
     const puedePreguntar = transcript.length >= MINIMO_PARA_PREGUNTAS;
 
-    const prompt = `${PROMPT}
+    const prompt = `${PROMPT(comp.nombre)}
 
 ## Equipo
 ${body.team || "Equipo"}${body.project ? ` — ${body.project}` : ""}

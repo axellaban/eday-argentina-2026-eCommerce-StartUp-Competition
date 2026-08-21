@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { broadcast } from "@/lib/pusher";
 import { MAX_TRANSCRIPT_EVENTO, PUSHER_EVENTS } from "@/lib/pusher-config";
+import { competenciaOrDefault } from "@/lib/competencias";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Empuja texto a la pantalla pública.
+ * Empuja texto al canal en vivo de UNA competición (lo consume la vista AI Judge).
  *
  * mode "append" (default): una frase suelta, para que aparezca al instante.
  * mode "sync": el transcript completo acumulado, que reemplaza lo que haya.
@@ -16,6 +17,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { team, project, textChunk, fullText, isFinal, mode } = body;
+    const comp = competenciaOrDefault(body.competencia);
 
     const esSync = mode === "sync";
     const contenido = esSync ? fullText : textChunk;
@@ -24,7 +26,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Faltan parámetros requeridos" }, { status: 400 });
     }
 
-    const result = await broadcast(esSync ? PUSHER_EVENTS.sync : PUSHER_EVENTS.transcript, {
+    const result = await broadcast(comp.slug, esSync ? PUSHER_EVENTS.sync : PUSHER_EVENTS.transcript, {
       team,
       project,
       ...(esSync

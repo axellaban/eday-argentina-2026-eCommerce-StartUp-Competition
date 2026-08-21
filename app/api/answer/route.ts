@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { urlGemini } from "@/lib/gemini";
-import { INDICATORS_PROMPT_BLOCK } from "@/lib/criteria";
+import { Competencia, competenciaOrDefault, indicadoresPromptBlock } from "@/lib/competencias";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 45;
@@ -8,12 +8,14 @@ export const maxDuration = 45;
 /** Sin esto, si Gemini se cuelga el botón queda en "Analizando…" para siempre. */
 const TIMEOUT_MS = 30_000;
 
-const COMPETITION_PROMPT = `Sos el EVALUADOR COPILOTO Y JURADO ASISTENTE de la eCommerce StartUp Competition Argentina 2026 (eCommerce Institute).
+function competitionPrompt(comp: Competencia): string {
+  const total = comp.indicadores.length;
+  return `Sos el EVALUADOR COPILOTO Y JURADO ASISTENTE de la ${comp.nombre} (${comp.evento}, ${comp.organizador}).
 
 Recibís:
 1. EQUIPO QUE PRESENTA: Nombre del equipo y/o proyecto.
-2. LOS 6 INDICADORES OFICIALES DE EVALUACIÓN (el jurado puntúa cada uno de 1 a 5):
-${INDICATORS_PROMPT_BLOCK}
+2. LOS ${total} INDICADORES OFICIALES DE EVALUACIÓN (el jurado puntúa cada uno de 1 a 5):
+${indicadoresPromptBlock(comp)}
 3. TRANSCRIPCIÓN EN TIEMPO REAL de lo que está exponiendo el equipo o preguntando el jurado.
 
 Tu objetivo:
@@ -24,15 +26,11 @@ Analizar la presentación en vivo y generar feedback conciso, estructurado y dir
 - Una oración directa con la idea central o respuesta a la pregunta del jurado.
 
 **2) Análisis por Indicador**
-- **🌍 Potencial de Mercado:** Tamaño real de la oportunidad.
-- **🧲 Producto y Adopción:** Qué tan usable es y quién lo está usando.
-- **🧱 Innovación y Tecnología:** Calidad del stack agéntico (APIs, agentes, memoria).
-- **🏃 Ejecución y Avance:** Qué tan lejos llegaron y qué mostraron funcionando.
-- **👥 Perfil del Equipo y Visión:** Capacidad de llevarlo adelante.
-- **👁️ Percepción Personal:** Impresión general del pitch.
+${comp.indicadores.map((i) => `- **${i.icon} ${i.label}:** ${i.description}`).join("\n")}
 
 **💡 Veredicto sugerido para la Ficha:**
 Resumen sintético del pitch en 2-3 líneas para la Ficha IA, con una sugerencia de puntaje de 1 a 5 por indicador.`;
+}
 
 export async function POST(req: Request) {
   try {
@@ -45,6 +43,7 @@ export async function POST(req: Request) {
       );
     }
 
+    const comp = competenciaOrDefault(body.competencia);
     const team = body.team || body.company || "Equipo Presentador";
     const project = body.project || body.role || "Proyecto de IA";
     const transcript = body.transcript || "";
@@ -70,7 +69,7 @@ ${question || "(Analizar pitch acumulado)"}`;
           headers: { "Content-Type": "application/json" },
           signal: controlador.signal,
           body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: `${COMPETITION_PROMPT}\n\n${userPrompt}` }] }],
+            contents: [{ role: "user", parts: [{ text: `${competitionPrompt(comp)}\n\n${userPrompt}` }] }],
           }),
         }
       );

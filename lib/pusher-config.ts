@@ -10,7 +10,18 @@
  * "use client".
  */
 
-export const PUSHER_CHANNEL = "eday-pitch-channel";
+/**
+ * Un canal por competición.
+ *
+ * Antes era una constante única. Con dos competiciones el mismo día eso
+ * significa que la pantalla de sala de la primera —que nadie cierra cuando
+ * termina— empieza a mostrar los subtítulos en vivo de la segunda. Separar el
+ * canal elimina esa clase de error entera, aunque las competiciones corran una
+ * después de la otra.
+ */
+export function canalDe(slug: string): string {
+  return `eday-pitch-${slug}`;
+}
 
 export const PUSHER_EVENTS = {
   /** Cada frase cerrada, para que los subtítulos aparezcan al instante. */
