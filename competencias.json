@@ -123,6 +123,60 @@
           "description": "Qué tiene esto que no se copia en un fin de semana: ventaja real y aplicable, no una feature genérica."
         }
       ]
+    },
+    {
+      "slug": "ai-agentic-mvp-competition",
+      "nombre": "AI Agentic MVP Competition",
+      "nombreCorto": "AI Agentic MVP",
+      "evento": "eCommerce DAY Argentina 2026",
+      "organizador": "eCommerce Institute",
+      "acento": "#fb923c",
+      "sheetId": "",
+      "sheetName": "Análisis",
+      "indicadores": [
+        {
+          "key": "mercado",
+          "icon": "🌍",
+          "label": "Potencial de Mercado",
+          "short": "Mercado",
+          "description": "Tamaño y alcance de la oportunidad: a cuántos les sirve y qué tan grande es el dolor."
+        },
+        {
+          "key": "producto",
+          "icon": "🧲",
+          "label": "Producto y Adopción",
+          "short": "Producto",
+          "description": "Qué tan usable y adoptable es la solución: funciona de verdad y alguien la está usando."
+        },
+        {
+          "key": "innovacion",
+          "icon": "🧱",
+          "label": "Innovación y Tecnología",
+          "short": "Innovación",
+          "description": "Calidad de la arquitectura agéntica: orquestación, conectores, prompts, memoria, human-in-the-loop."
+        },
+        {
+          "key": "ejecucion",
+          "icon": "🏃",
+          "label": "Ejecución y Avance",
+          "short": "Ejecución",
+          "description": "Qué tan lejos llegaron: demo en vivo sin fallos, tiempo en producción, impacto medido."
+        },
+        {
+          "key": "equipo",
+          "icon": "👥",
+          "label": "Perfil del Equipo y Visión",
+          "short": "Equipo",
+          "description": "Capacidad del equipo para llevarlo adelante y claridad de hacia dónde va."
+        },
+        {
+          "key": "percepcion",
+          "icon": "👁️",
+          "label": "Percepción Personal",
+          "short": "Percepción",
+          "description": "Impresión general del pitch: claridad, convicción y ganas de robarle la idea."
+        }
+      ]
     }
   ]
 }

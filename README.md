@@ -5,24 +5,29 @@ del eCommerce DAY Argentina 2026 (eCommerce Institute).
 
 ## Dos competiciones, un solo deploy
 
-| | eCommerce StartUp Competition | AI Unified Commerce |
-|---|---|---|
-| Dashboard | `/ecommerce-startup-competition` | `/ai-unified-commerce` |
-| AI Judge | `/ecommerce-startup-competition/ai` | `/ai-unified-commerce/ai` |
-| Copiloto | `/ecommerce-startup-competition/copiloto` | `/ai-unified-commerce/copiloto` |
-| Indicadores | 6 | 8 |
-| Planilla | la suya | la suya |
+| | eCommerce StartUp Competition | AI Unified Commerce | AI Agentic MVP Competition |
+|---|---|---|---|
+| Dashboard | `/ecommerce-startup-competition` | `/ai-unified-commerce` | `/ai-agentic-mvp-competition` |
+| AI Judge | `…/ai` | `…/ai` | `…/ai` |
+| Copiloto | `…/copiloto` | `…/copiloto` | `…/copiloto` |
+| Indicadores | 6 | 8 | 6 (los mismos que la StartUp) |
+| Planilla | la suya | la suya | la suya |
 
-`/` son dos botones para elegir. **No es la puerta del evento**: en la sala se
+Una competición **sin `sheetId`** funciona igual: el dashboard lo dice en
+pantalla y muestra datos demo, y el copiloto queda sin equipos en el
+desplegable. Es el estado normal entre que se da de alta y llega el Sheet.
+
+`/` es un botón por competición. **No es la puerta del evento**: en la sala se
 entra siempre por el link directo, para que nadie tenga que elegir en una
 pantalla proyectada.
 
-Las dos corren el mismo día, una después de la otra, operadas por la misma
+Corren el mismo día, una después de la otra, operadas por la misma
 persona. Están aisladas igual —canal en vivo, historial y planilla propios—
 porque el error caro no es la concurrencia: es la pestaña de la primera que
 nadie cerró y que empieza a mostrar los subtítulos de la segunda.
 
 ## Las dos pantallas y el panel
+
 
 | Ruta | Quién la usa | Qué hace |
 |---|---|---|

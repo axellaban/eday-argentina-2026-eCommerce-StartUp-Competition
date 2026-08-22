@@ -1783,6 +1783,31 @@ async function loadData(showLoader = false) {
     overlay.style.display = 'flex';
   }
 
+  /**
+   * Competición sin planilla todavía.
+   *
+   * Pasa entre que se da de alta una competición y que el organizador manda su
+   * Google Sheet. Sin este corte se armaba una URL con el id vacío, Google
+   * devolvía 404 y en pantalla aparecía "Error al conectar con Google Sheets":
+   * un problema de red que no existe, en vez del estado real, que es que
+   * todavía no hay planilla que leer.
+   */
+  if (COMPETENCIA && !COMPETENCIA.sheetId) {
+    DATA = DEMO_DATA();
+    document.getElementById('syncInfo').textContent = '⚠ Sin planilla configurada';
+    document.getElementById('syncInfo').style.color = 'var(--gold)';
+    showBanner('warning',
+      `${COMPETENCIA.nombre} todavía no tiene planilla del jurado`,
+      'Cargá su Google Sheet en competencias.json (sheetId) y el dashboard toma los puntajes reales.',
+      'Mostrando datos demo'
+    );
+    selectedIdx = DATA.map((_, i) => i);
+    renderAll();
+    overlay.style.display = 'none';
+    isFirstLoad = false;
+    return;
+  }
+
   if (location.protocol === 'file:') {
     DATA = DEMO_DATA();
     document.getElementById('syncInfo').textContent = '⚠ Modo demo (local file)';
