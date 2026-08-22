@@ -883,9 +883,15 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
 
 /* ─────────────────────────────────────────────────────────────
    Home: elegir competición.
-   Dos botones y nada más. No es una pantalla del evento —en la sala
-   se entra por link directo—, así que no compite con el dashboard:
-   sólo tiene que llevar a la competición correcta de un toque.
+
+   Tres destinos y nada más. No es una pantalla del evento —en la sala
+   se entra por link directo—, así que no compite con el dashboard.
+
+   Ojo con los tokens: este proyecto usa --surface / --text-3 / --radius.
+   La primera versión de esta home pedía --panel, --muted y --r-lg, que no
+   existen: las tarjetas quedaban sin fondo y el texto sin jerarquía, y de
+   ahí venía el aspecto pobre. No era una decisión de diseño, era CSS que
+   no resolvía.
    ───────────────────────────────────────────────────────────── */
 .home {
   min-height: 100dvh;
@@ -893,48 +899,136 @@ select.input { appearance: none; cursor: pointer; font-weight: 600; padding-righ
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: 48px 24px;
+  gap: clamp(28px, 5vh, 52px);
+  padding: clamp(32px, 6vh, 72px) var(--pad);
   text-align: center;
 }
-.home__logo { height: 52px; width: auto; margin-bottom: 10px; }
-.home__title { font-size: clamp(30px, 5vw, 46px); font-weight: 900; letter-spacing: -0.02em; }
-.home__sub { color: var(--muted); font-size: var(--fs-sm); margin-bottom: 20px; }
 
-.home__botones {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 14px;
-  width: 100%;
-  max-width: 720px;
+.home__head { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.home__logo { height: clamp(38px, 5vw, 54px); width: auto; margin-bottom: 6px; }
+.home__title {
+  font-size: var(--fs-2xl);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.home__sub {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  letter-spacing: 0.01em;
 }
 
-.home__boton {
+/* Tres columnas iguales en escritorio; una sola apilada abajo de 860px.
+   Con auto-fit quedaban dos arriba y una suelta ocupando todo el ancho: se
+   leía como un error de maquetado más que como una elección. */
+.home__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(12px, 1.6vw, 20px);
+  width: 100%;
+  max-width: 1020px;
+}
+
+.home__card {
   --acento: var(--brand);
-  flex: 1 1 300px;
-  padding: 26px 24px;
-  font-size: var(--fs-lg);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 128px;
+  padding: 22px 20px;
+  text-align: left;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition:
+    transform 0.22s var(--ease-out),
+    border-color 0.22s var(--ease-out),
+    background 0.22s var(--ease-out),
+    box-shadow 0.22s var(--ease-out);
+}
+
+/* La barra de color es la identidad de cada competición: la misma que lleva
+   la topbar de su copiloto y el header de su dashboard. Al pasar el mouse
+   crece, así el color confirma la elección antes del click. */
+.home__card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--acento);
+  transition: height 0.22s var(--ease-out);
+}
+
+.home__card-nombre {
+  /* Más chico que --fs-lg a propósito: con el tamaño grande, el nombre más
+     largo partía en tres líneas y los otros dos en dos, y las tarjetas se
+     veían desparejas aunque midieran igual. `balance` reparte las líneas
+     para que no quede una palabra suelta abajo. */
+  font-size: clamp(1rem, 0.86rem + 0.48vw, 1.3rem);
   font-weight: 800;
   line-height: 1.25;
-  text-decoration: none;
+  letter-spacing: -0.01em;
   color: var(--acento);
-  border: 1px solid var(--line);
-  /* El borde toma el color de la competición: el mismo que lleva la topbar
-     del copiloto y el header de su dashboard. */
-  border-top: 3px solid var(--acento);
-  border-radius: var(--r-lg, 14px);
-  background: var(--panel);
-  transition: transform .15s ease, border-color .15s ease;
+  text-wrap: balance;
 }
-.home__boton:hover { transform: translateY(-2px); border-color: var(--acento); }
 
-/* La etiqueta del selector de equipos lleva a la derecha de dónde salió la
-   lista y el botón para releer la planilla. */
-.label--row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.label__fuente {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: var(--fs-micro); font-weight: 400; color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
+.home__card-flecha {
+  flex: none;
+  font-size: var(--fs-base);
+  line-height: 1;
+  color: var(--text-3);
+  transition: transform 0.22s var(--ease-out), color 0.22s var(--ease-out);
 }
-.btn--xs { padding: 2px 7px; font-size: var(--fs-micro); line-height: 1.4; }
+
+.home__card:hover,
+.home__card:focus-visible {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--acento) 55%, transparent);
+  background: color-mix(in srgb, var(--acento) 7%, var(--surface));
+  box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--acento) 22%, transparent);
+}
+.home__card:hover::before,
+.home__card:focus-visible::before { height: 5px; }
+.home__card:hover .home__card-flecha,
+.home__card:focus-visible .home__card-flecha {
+  transform: translateX(4px);
+  color: var(--acento);
+}
+.home__card:active { transform: translateY(-1px); }
+
+/* Teclado: el foco tiene que verse aunque el hover ya cambie la tarjeta. */
+.home__card:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 3px;
+}
+
+.home__pie {
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+  opacity: 0.75;
+}
+
+/* Responsive al final a propósito: mismo peso de selector que las reglas de
+   arriba, así que tiene que venir después para ganar. Puesto antes, el
+   min-height de escritorio pisaba al de celular y las tarjetas apiladas
+   quedaban con aire de más. */
+@media (max-width: 860px) {
+  .home__grid { grid-template-columns: minmax(0, 1fr); max-width: 460px; }
+  .home__card { min-height: 88px; padding: 18px; }
+}
+
+/* Quien pidió menos movimiento en su sistema no debería ver nada moverse. */
+@media (prefers-reduced-motion: reduce) {
+  .home__card,
+  .home__card::before,
+  .home__card-flecha { transition: none; }
+  .home__card:hover,
+  .home__card:focus-visible { transform: none; }
+  .home__card:hover .home__card-flecha,
+  .home__card:focus-visible .home__card-flecha { transform: none; }
+}
