@@ -131,50 +131,43 @@
       "evento": "eCommerce DAY Argentina 2026",
       "organizador": "eCommerce Institute",
       "acento": "#fb923c",
-      "sheetId": "",
+      "sheetId": "1YIKfLbvBylFZBviab0cTLPv2D7njLOxINY94BFoSDB8",
       "sheetName": "Análisis",
       "indicadores": [
         {
-          "key": "mercado",
-          "icon": "🌍",
-          "label": "Potencial de Mercado",
-          "short": "Mercado",
-          "description": "Tamaño y alcance de la oportunidad: a cuántos les sirve y qué tan grande es el dolor."
+          "key": "vivo",
+          "icon": "⚡",
+          "label": "Funciona en Vivo (Los Fierros)",
+          "short": "Funciona",
+          "description": "Si corrió de verdad delante de todos: demo en vivo que no falló, con el sistema haciendo el trabajo. Un video grabado o una diapositiva no cuentan."
         },
         {
-          "key": "producto",
-          "icon": "🧲",
-          "label": "Producto y Adopción",
-          "short": "Producto",
-          "description": "Qué tan usable y adoptable es la solución: funciona de verdad y alguien la está usando."
+          "key": "arquitectura",
+          "icon": "🧠",
+          "label": "Arquitectura Agéntica (El Cerebro)",
+          "short": "Arquitectura",
+          "description": "Calidad del diseño agéntico: orquestación entre agentes, conectores, prompts, memoria, manejo de errores y human-in-the-loop."
         },
         {
-          "key": "innovacion",
-          "icon": "🧱",
-          "label": "Innovación y Tecnología",
-          "short": "Innovación",
-          "description": "Calidad de la arquitectura agéntica: orquestación, conectores, prompts, memoria, human-in-the-loop."
+          "key": "relevancia",
+          "icon": "🎯",
+          "label": "Relevancia del Caso de Uso (El Dolor)",
+          "short": "Relevancia",
+          "description": "Qué tan real y grande es el dolor que resuelve, y para quién. Un dolor concreto de alguien identificable pesa más que un problema general."
         },
         {
-          "key": "ejecucion",
-          "icon": "🏃",
-          "label": "Ejecución y Avance",
-          "short": "Ejecución",
-          "description": "Qué tan lejos llegaron: demo en vivo sin fallos, tiempo en producción, impacto medido."
+          "key": "impacto",
+          "icon": "📈",
+          "label": "Impacto Medible (La Aguja)",
+          "short": "Impacto",
+          "description": "Números concretos: horas ahorradas, costo, volumen procesado, tiempo en producción, porcentaje de mejora. Los adjetivos no son impacto."
         },
         {
-          "key": "equipo",
-          "icon": "👥",
-          "label": "Perfil del Equipo y Visión",
-          "short": "Equipo",
-          "description": "Capacidad del equipo para llevarlo adelante y claridad de hacia dónde va."
-        },
-        {
-          "key": "percepcion",
-          "icon": "👁️",
-          "label": "Percepción Personal",
-          "short": "Percepción",
-          "description": "Impresión general del pitch: claridad, convicción y ganas de robarle la idea."
+          "key": "envidia",
+          "icon": "🔥",
+          "label": "¿Me lo Robo? (La Envidia Sana)",
+          "short": "¿Me lo robo?",
+          "description": "Cuántas ganas dan de copiarle la idea: originalidad, y qué tan aplicable es a otros negocios más allá del suyo."
         }
       ]
     }

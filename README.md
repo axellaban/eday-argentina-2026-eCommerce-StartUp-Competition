@@ -10,8 +10,12 @@ del eCommerce DAY Argentina 2026 (eCommerce Institute).
 | Dashboard | `/ecommerce-startup-competition` | `/ai-unified-commerce` | `/ai-agentic-mvp-competition` |
 | AI Judge | `…/ai` | `…/ai` | `…/ai` |
 | Copiloto | `…/copiloto` | `…/copiloto` | `…/copiloto` |
-| Indicadores | 6 | 8 | 6 (los mismos que la StartUp) |
+| Indicadores | 6 | 8 | 5 |
 | Planilla | la suya | la suya | la suya |
+
+Cada una con sus propios indicadores: no hay ninguna lista fija en el código.
+La Media Total cae en la columna I, K y H respectivamente, y el dashboard la
+calcula a partir de cuántos indicadores tenga cada una.
 
 Una competición **sin `sheetId`** funciona igual: el dashboard lo dice en
 pantalla y muestra datos demo, y el copiloto queda sin equipos en el
