@@ -1027,8 +1027,14 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
     <div className="shell">
       <header className="topbar">
         <div className="topbar__brand">
-          {/* El logo siempre vuelve al dashboard de ESTA competición */}
-          <a href={`/${comp.slug}`} aria-label="Ir al dashboard">
+          {/*
+            El logo va a la raíz, no al dashboard de esta competición.
+            Es la convención en cualquier sitio y acá conviene que sea igual en
+            las tres pantallas: si en el dashboard el logo lleva a la home y en
+            el copiloto a otro lado, deja de ser un punto fijo.
+            El dashboard propio sigue a un click, en los accesos de la derecha.
+          */}
+          <a href="/" aria-label="Ver todas las competiciones">
             <img className="topbar__logo" src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" />
           </a>
           <div className="topbar__divider" />
@@ -1062,6 +1068,9 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
             </span>
           )}
           {health && <span className={chipClass} title={health.msg}>{health.msg}</span>}
+          <a className="btn btn--ghost btn--sm" href={`/${comp.slug}`} target="_blank" rel="noreferrer">
+            Dashboard ↗
+          </a>
           <a className="btn btn--ghost btn--sm" href={`/${comp.slug}/ai`} target="_blank" rel="noreferrer">
             Vista AI Judge ↗
           </a>

@@ -44,7 +44,7 @@ export default function LoginPage() {
     <div className="center-screen">
       <form className="card stack" style={{ width: "min(420px, 100%)" }} onSubmit={submit}>
         <div>
-          <a href="/" aria-label="Ir al dashboard">
+          <a href="/" aria-label="Ver todas las competiciones">
             <img
               className="topbar__logo"
               src="/logos argentina/PNG/SIN BAJADA/02.png"

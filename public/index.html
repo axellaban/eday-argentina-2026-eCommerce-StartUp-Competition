@@ -217,6 +217,11 @@
       flex-shrink: 0;
       box-shadow: 0 4px 20px var(--brand-glow);
     }
+    /* El logo es un link: que se note al pasar por encima. */
+    .header-logo-link { display: inline-flex; text-decoration: none; transition: opacity .15s ease; }
+    .header-logo-link:hover { opacity: .78; }
+    .header-logo-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; border-radius: 6px; }
+
     .header-logo { height: 38px; width: auto; flex-shrink: 0; filter: drop-shadow(0 2px 8px rgba(0, 170, 255, 0.15)); }
     .header-icon svg { width: 26px; height: 26px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .header-title {
@@ -1234,7 +1239,13 @@
   <!-- ══ HEADER ══ -->
   <header class="header">
     <div class="header-brand">
-      <img src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" class="header-logo" />
+      <!-- El logo arriba a la izquierda vuelve a la raíz, como en cualquier
+           sitio. Acá además es la ÚNICA navegación global que hay: sin esto,
+           quien abre /{competencia} no tiene forma de llegar a las otras salvo
+           editando la URL a mano. -->
+      <a href="/" class="header-logo-link" aria-label="Ver todas las competiciones">
+        <img src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" class="header-logo" />
+      </a>
       <div style="border-left:1px solid var(--border);padding-left:16px;">
         <div class="header-title">Demo Day</div>
         <!-- Se reemplaza por el nombre real de la competición en cuanto carga
@@ -1544,7 +1555,9 @@
 
   <footer style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px 0 24px;margin-top:20px;border-top:1px solid var(--border);">
     <div style="display:flex;align-items:center;gap:16px;">
-      <img src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" style="height:24px;width:auto;opacity:.5;" />
+      <a href="/" class="header-logo-link" aria-label="Ver todas las competiciones">
+        <img src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" style="height:24px;width:auto;opacity:.5;display:block;" />
+      </a>
       <span style="font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-weight:600;opacity:.5;">eCommerce DAY Argentina · 2026</span>
     </div>
     <div style="text-align:center;opacity:.35;">
