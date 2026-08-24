@@ -170,8 +170,10 @@
           "description": "Cuántas ganas dan de copiarle la idea: originalidad, y qué tan aplicable es a otros negocios más allá del suyo."
         }
       ],
-      "sheetGid": "1552301266"
+      "sheetGid": "1552301266",
+      "layoutAI": "columnas"
     }
   ],
-  "_comment_hoja": "sheetGid es el número que aparece en la URL de la pestaña (#gid=…). Si está, se usa ese y no el nombre: el nombre puede llevar tilde, cambiar o no resolver, y cuando no resuelve Google devuelve LA PRIMERA HOJA del libro —la de respuestas del formulario— sin avisar. Poner el gid es la forma segura."
+  "_comment_hoja": "sheetGid es el número que aparece en la URL de la pestaña (#gid=…). Si está, se usa ese y no el nombre: el nombre puede llevar tilde, cambiar o no resolver, y cuando no resuelve Google devuelve LA PRIMERA HOJA del libro —la de respuestas del formulario— sin avisar. Poner el gid es la forma segura.",
+  "_comment_layout": "layoutAI cambia la disposición de la vista /ai. Sin valor: todo apilado a lo largo (el de siempre). \"columnas\": transcript a la izquierda y radar + indicadores a la derecha, con preguntas y fichas a lo ancho abajo. Se puso en una sola competición para probarlo en vivo sin tocar las otras dos."
 }

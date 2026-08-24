@@ -60,6 +60,19 @@ Reglas que importan:
   está midiendo. Cuanto más concreta, mejor puntúa.
 - El **orden** tiene que ser el mismo que el de las columnas de la planilla.
 
+### `layoutAI`: la disposición de la vista `/ai`
+
+Sin valor, la vista va apilada a lo largo: pitch, indicadores, preguntas,
+fichas. Con `"columnas"`, el pitch queda a la izquierda y el radar con los
+indicadores a la derecha, y preguntas y fichas siguen a lo ancho abajo.
+
+La diferencia importa en una pantalla de sala: apilado hay que scrollear para
+ver si los medidores se movieron, justo mientras la persona habla. En dos
+columnas se ven a la vez.
+
+Es por competición a propósito, para poder probar una variante en una sola sin
+tocar las que ya están andando. Abajo de 1100px vuelve a una columna.
+
 ## Aislamiento entre competiciones
 
 | Qué | Cómo | Qué pasaría sin esto |

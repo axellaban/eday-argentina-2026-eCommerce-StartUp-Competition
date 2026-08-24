@@ -1000,6 +1000,50 @@
     }
     .ai-proyecto { color: rgba(200,245,218,.6); font-size: .82rem; margin-top: 4px; }
 
+    /* ─────────────────────────────────────────────────────────────
+       Layout "columnas" de la vista /ai — opt-in por competición.
+
+       Apilado, el transcript ocupa todo el ancho y los indicadores quedan
+       abajo de todo: en una pantalla de sala hay que hacer scroll para ver
+       si los medidores se movieron, justo mientras la persona habla.
+
+       Acá el pitch va a la izquierda y el radar con los indicadores a la
+       derecha, los dos a la vista al mismo tiempo. Preguntas y fichas siguen
+       a lo ancho abajo, que es donde se leen sin competir con lo de arriba.
+
+       Se activa con data-layout-ai en el <html>, que sale del registro.
+       Sin el atributo, todo queda exactamente como estaba.
+       ───────────────────────────────────────────────────────────── */
+    [data-layout-ai="columnas"] .ai-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+      align-items: start;
+    }
+    /* Prompt, estado y los bloques de abajo cruzan las dos columnas. */
+    [data-layout-ai="columnas"] .ai-prompt,
+    [data-layout-ai="columnas"] .ai-status,
+    [data-layout-ai="columnas"] .ai-card--preguntas,
+    [data-layout-ai="columnas"] .ai-card--fichas { grid-column: 1 / -1; }
+
+    /* La columna derecha es angosta: el radar va arriba y los medidores
+       abajo, como en el boceto. Gana por especificidad sobre el
+       grid-template-columns de .ai-split de más arriba. */
+    [data-layout-ai="columnas"] .ai-split { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    [data-layout-ai="columnas"] .ai-radar-box { height: clamp(240px, 22vw, 340px); }
+
+    /* El transcript crece para emparejar la altura de la columna derecha:
+       si no, la izquierda queda corta y la fila se ve descalzada. */
+    [data-layout-ai="columnas"] .ai-transcript {
+      min-height: clamp(320px, 46vh, 620px);
+      max-height: 62vh;
+    }
+
+    /* Una sola columna cuando no hay ancho para dos. */
+    @media (max-width: 1100px) {
+      [data-layout-ai="columnas"] .ai-shell { grid-template-columns: minmax(0, 1fr); }
+      [data-layout-ai="columnas"] .ai-transcript { min-height: clamp(180px, 30vh, 380px); max-height: 46vh; }
+    }
+
     .ai-transcript {
       margin-top: 18px;
       min-height: clamp(180px, 30vh, 380px);
@@ -1505,7 +1549,7 @@
     </div>
 
     <!-- Pitch en curso -->
-    <section class="ai-card">
+    <section class="ai-card ai-card--pitch">
       <div class="ai-card__head">
         <span class="ai-tag">presentando_ahora</span>
         <span class="ai-meta" id="aiLecturas"></span>
@@ -1519,7 +1563,7 @@
     </section>
 
     <!-- Indicadores -->
-    <section class="ai-card">
+    <section class="ai-card ai-card--indicadores">
       <div class="ai-card__head">
         <span class="ai-tag">indicadores · 0-100 · 50 = neutro</span>
       </div>
@@ -1533,7 +1577,7 @@
          Se arman solas en el copiloto mientras el orador habla: acá sólo se
          leen del mismo poll, sin botón y sin llamar nunca al modelo. La
          tarjeta aparece únicamente si hay preguntas. -->
-    <section class="ai-card" id="aiPreguntasCard" hidden>
+    <section class="ai-card ai-card--preguntas" id="aiPreguntasCard" hidden>
       <div class="ai-card__head">
         <span class="ai-tag">preguntas_para_el_cierre</span>
         <span class="ai-meta">generadas en vivo</span>
@@ -1542,7 +1586,7 @@
     </section>
 
     <!-- Fichas -->
-    <section class="ai-card">
+    <section class="ai-card ai-card--fichas">
       <div class="ai-card__head">
         <span class="ai-tag">fichas_generadas</span>
         <span class="ai-meta" id="aiFichasCount">0</span>
@@ -1672,6 +1716,9 @@ function pintarIdentidad() {
   const sub = document.querySelector('.header-sub');
   if (sub) sub.textContent = `${COMPETENCIA.nombre} · ${COMPETENCIA.evento} · Live Evaluation`;
   document.documentElement.style.setProperty('--competencia', COMPETENCIA.acento);
+  // Sin layoutAI el atributo no existe y la vista queda apilada, como siempre.
+  if (COMPETENCIA.layoutAI) document.documentElement.dataset.layoutAi = COMPETENCIA.layoutAI;
+  else delete document.documentElement.dataset.layoutAi;
   const msg = document.getElementById('loadingMsg');
   if (msg) msg.textContent = `Cargando ${COMPETENCIA.nombre}`;
   const cardSub = document.getElementById('cardSubIndicadores');

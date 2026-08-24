@@ -56,6 +56,15 @@ export interface Competencia {
    * como si fueran los equipos.
    */
   sheetGid?: string;
+  /**
+   * Disposición de la vista /ai.
+   *
+   * Vacío = apilado, el de siempre. "columnas" = transcript a la izquierda,
+   * radar e indicadores a la derecha, preguntas y fichas a lo ancho abajo.
+   * Es por competición para poder probar una variante en una sola sin tocar
+   * las que ya están andando.
+   */
+  layoutAI?: string;
   indicadores: Indicator[];
 }
 

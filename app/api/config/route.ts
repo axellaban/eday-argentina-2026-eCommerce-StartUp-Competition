@@ -40,6 +40,7 @@ export async function GET(req: Request) {
         evento: comp.evento,
         organizador: comp.organizador,
         acento: comp.acento,
+        layoutAI: comp.layoutAI || null,
         sheetId: comp.sheetId,
         sheetName: comp.sheetName,
         sheetGid: comp.sheetGid || null,
