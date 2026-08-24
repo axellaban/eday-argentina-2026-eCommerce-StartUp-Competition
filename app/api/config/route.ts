@@ -42,6 +42,7 @@ export async function GET(req: Request) {
         acento: comp.acento,
         sheetId: comp.sheetId,
         sheetName: comp.sheetName,
+        sheetGid: comp.sheetGid || null,
         indicadores: comp.indicadores,
         layout: layoutPlanilla(comp),
       },

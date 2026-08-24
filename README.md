@@ -111,6 +111,22 @@ que una competición con nueve criterios ya funciona sin tocar código.
 
 El Sheet tiene que estar compartido como "cualquiera con el enlace puede ver".
 
+### Poné el `gid`, no confíes en el nombre de la hoja
+
+`sheetGid` es el número que aparece en la URL de la pestaña (`#gid=…`). Si está,
+se usa ese y se ignora el nombre.
+
+Importa más de lo que parece: cuando el nombre de hoja no resuelve —la pestaña
+se llama `Analisis` y se pide `Análisis`, por ejemplo— Google **no da error**.
+Devuelve la primera hoja del libro, que en estas planillas es la de respuestas
+del formulario. El dashboard mostraba ahí a los jurados como si fueran los
+equipos que presentan, con sus puntajes y todo.
+
+Como red de seguridad, ahora se verifica que la columna B del encabezado diga
+`Nombre` antes de aceptar una hoja. Si no, se descarta y se avisa en pantalla
+con el motivo real, en vez de un "error de conexión" que manda a revisar el
+lugar equivocado.
+
 **La columna B es también la lista de equipos del copiloto.** Estaba escrita a
 mano en el código, y el día que el jurado corrigió un nombre en la planilla el
 desplegable siguió mostrando el viejo. Eso no es cosmético: el dashboard cruza

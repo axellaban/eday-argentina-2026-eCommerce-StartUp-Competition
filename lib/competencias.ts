@@ -46,6 +46,16 @@ export interface Competencia {
   acento: string;
   sheetId: string;
   sheetName: string;
+  /**
+   * El número que aparece en la URL de la pestaña (#gid=…).
+   *
+   * Si está, se usa en vez del nombre. El nombre es frágil: puede llevar
+   * tilde o no, y cuando no resuelve Google NO da error — devuelve la primera
+   * hoja del libro, que en estas planillas es la de respuestas del
+   * formulario. El dashboard la tomaba por buena y mostraba a los jurados
+   * como si fueran los equipos.
+   */
+  sheetGid?: string;
   indicadores: Indicator[];
 }
 

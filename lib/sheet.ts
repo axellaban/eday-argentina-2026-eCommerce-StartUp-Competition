@@ -36,6 +36,30 @@ export function nombresDeHoja(sheetName: string): string[] {
 export const csvUrl = (sheetId: string, hoja: string) =>
   `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(hoja)}`;
 
+/** Por gid no hay ambigüedad posible: es el identificador de la pestaña. */
+export const csvUrlGid = (sheetId: string, gid: string) =>
+  `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${encodeURIComponent(gid)}`;
+
+/**
+ * ¿Esto es la hoja del jurado, o la de respuestas del formulario?
+ *
+ * Cuando el nombre de hoja no resuelve, Google devuelve la primera del libro
+ * SIN marcar error. En estas planillas esa es la del formulario, donde la
+ * columna B son los jurados que votaron. El dashboard los mostraba como si
+ * fueran los equipos que presentan.
+ *
+ * La hoja de análisis siempre tiene "Nombre" en la columna B. Con eso alcanza
+ * para distinguirlas y descartar la equivocada en vez de darla por buena.
+ */
+export function pareceHojaDeAnalisis(filas: string[][]): boolean {
+  const encabezado = filas[0];
+  if (!encabezado || encabezado.length < 3) return false;
+  const colB = String(encabezado[1] || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .trim().toLowerCase();
+  return colB === "nombre";
+}
+
 /**
  * Parser de CSV que respeta las comillas.
  *
@@ -78,17 +102,25 @@ const MAX_EQUIPOS = 20;
  */
 export async function equiposDelSheet(comp: Competencia): Promise<string[]> {
   if (!comp.sheetId) return [];
-  for (const hoja of nombresDeHoja(comp.sheetName)) {
+  // Con gid se pide una sola vez y no hay lugar para la confusión.
+  const urls = comp.sheetGid
+    ? [csvUrlGid(comp.sheetId, comp.sheetGid)]
+    : nombresDeHoja(comp.sheetName).map((h) => csvUrl(comp.sheetId, h));
+
+  for (const base of urls) {
     const corte = new AbortController();
     const reloj = setTimeout(() => corte.abort(), 8000);
     try {
-      const res = await fetch(`${csvUrl(comp.sheetId, hoja)}&cachebust=${Date.now()}`, {
+      const res = await fetch(`${base}&cachebust=${Date.now()}`, {
         cache: "no-store",
         signal: corte.signal,
       });
       if (!res.ok) continue;
 
       const filas = filasCSV(await res.text());
+      // Si no es la hoja del jurado, se descarta: mejor sin equipos que con
+      // los nombres de quienes votaron.
+      if (!pareceHojaDeAnalisis(filas)) continue;
       const nombres = filas
         .slice(1)                                    // fila 1 = encabezado
         .map((f) => String(f[1] ?? "").trim())       // columna B

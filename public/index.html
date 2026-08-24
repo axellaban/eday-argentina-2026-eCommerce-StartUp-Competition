@@ -1603,12 +1603,39 @@ let CONFIG_VIVO = null;
 let SHEET_ID = '';
 let SHEET_NAME = 'Análisis';
 let SHEET_NAME_CANDIDATES = [];
+let SHEET_GID = null;
 let LAYOUT = { colEquipo: 0, colNombre: 1, primerIndicador: 2, ultimoIndicador: 7, colMediaTotal: 8 };
 let CRITERIA = [];
 let CRITERIA_SHORT = [];
 
 const csvUrl = (nombre) =>
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nombre)}`;
+
+/** Por gid no hay ambigüedad: es el identificador de la pestaña. */
+const csvUrlGid = (gid) =>
+  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${encodeURIComponent(gid)}`;
+
+/**
+ * ¿Esto es la hoja del jurado, o la de respuestas del formulario?
+ *
+ * Cuando el nombre de hoja no resuelve, Google devuelve la primera del libro
+ * SIN marcar error. En estas planillas esa es la del formulario, donde la
+ * columna B son los jurados que votaron: el dashboard los mostraba como si
+ * fueran los equipos que presentan, con sus puntajes y todo.
+ *
+ * La hoja de análisis siempre tiene "Nombre" en la columna B. Alcanza para
+ * distinguirlas y seguir probando en vez de dar la equivocada por buena.
+ */
+function pareceHojaDeAnalisis(texto) {
+  const primera = (texto || '').split('\n')[0];
+  if (!primera) return false;
+  const cols = parseCSVLine(primera);
+  if (cols.length < 3) return false;
+  const colB = String(cols[1] || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim().toLowerCase();
+  return colB === 'nombre';
+}
 
 /**
  * Trae la competición de esta URL. Sin esto no se puede dibujar nada, así que
@@ -1627,6 +1654,7 @@ async function cargarConfig() {
   // Variantes por si la tilde no resuelve del lado de Google: se prueban en
   // orden y gana la primera que devuelva filas con puntajes válidos.
   SHEET_NAME_CANDIDATES = [SHEET_NAME, 'Analisis', 'análisis', 'analisis'];
+  SHEET_GID = COMPETENCIA.sheetGid || null;
   LAYOUT = COMPETENCIA.layout;
   CRITERIA = COMPETENCIA.indicadores.map(i => `${i.icon} ${i.label}`);
   // En el radar los nombres largos se pisan entre sí y se salen del canvas en
@@ -1850,8 +1878,14 @@ async function loadData(showLoader = false) {
     let parsed = [];
     let lastError = null;
 
-    for (const nombre of SHEET_NAME_CANDIDATES) {
-      const url = `${csvUrl(nombre)}&cachebust=${Date.now()}`;
+    // Con gid se pide una sola vez; sin gid se prueban las variantes del
+    // nombre, que es lo frágil.
+    const fuentes = SHEET_GID
+      ? [csvUrlGid(SHEET_GID)]
+      : SHEET_NAME_CANDIDATES.map(csvUrl);
+
+    for (const fuente of fuentes) {
+      const url = `${fuente}&cachebust=${Date.now()}`;
       try {
         // Sin corte, si Google se cuelga la promesa nunca resuelve: son cuatro
         // intentos en fila y el overlay de carga se queda tapando la pantalla
@@ -1875,7 +1909,18 @@ async function loadData(showLoader = false) {
         if (isFirstLoad || showLoader) {
           document.getElementById('loadingMsg').textContent = 'Parseando CSV…';
         }
-        const candidato = parseCSV(await res.text());
+        const texto = await res.text();
+        if (!pareceHojaDeAnalisis(texto)) {
+          const eHoja = new Error(
+            SHEET_GID
+              ? `La pestaña gid=${SHEET_GID} no tiene "Nombre" en la columna B. Revisá que el gid sea el de la hoja de análisis.`
+              : `Google devolvió otra hoja al pedir "${SHEET_NAME}" —probablemente la de respuestas del formulario, con los jurados en vez de los equipos—. Poné el gid de la pestaña en competencias.json.`
+          );
+          eHoja.hojaEquivocada = true;
+          lastError = eHoja;
+          continue;
+        }
+        const candidato = parseCSV(texto);
         if (candidato.length > 0) { parsed = candidato; break; }
       } catch (err) {
         if (err?.name === 'AbortError') {
@@ -1926,7 +1971,11 @@ async function loadData(showLoader = false) {
     document.getElementById('syncInfo').textContent = '⚠ Error Sync';
     document.getElementById('syncInfo').style.color = 'var(--red)';
     showBanner('error',
-      'Error al conectar con Google Sheets',
+      // La conexión pudo andar perfecto y aun así traer la hoja que no era:
+      // decirlo "error de conexión" manda a revisar el lugar equivocado.
+      e && e.hojaEquivocada
+        ? 'Google devolvió la hoja equivocada'
+        : 'Error al conectar con Google Sheets',
       e.message || 'Error de red al consultar la hoja.',
       'Usando datos cargados'
     );
