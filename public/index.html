@@ -2890,6 +2890,58 @@ function pintarLeyendaAI(segmentos) {
   }).join('');
 }
 
+/**
+ * Segmentos del texto completo, calculados una sola vez por cambio.
+ *
+ * Antes el resaltado se apagaba mientras el transcript se escribía: segmentar
+ * catorce citas en cada frame de la animación era caro, así que se pintaba
+ * texto plano y los colores volvían recién al frenar. En pantalla se veía como
+ * si el marcado se perdiera justo cuando la persona está hablando, que es
+ * cuando el jurado lo está mirando.
+ *
+ * La segmentación no hace falta por frame: las marcas cambian cada 24 segundos
+ * y el texto objetivo cada frase. Se calcula sobre el texto COMPLETO —no sobre
+ * lo que se lleva escrito— y se cachea contra esos dos; después cada frame
+ * sólo recorta. Recortar es recorrer treinta segmentos, no buscar catorce
+ * citas en diez mil caracteres.
+ *
+ * Sobre el objetivo y no sobre lo mostrado a propósito: una cita que todavía
+ * no terminó de tipearse igual se encuentra, y el resaltado va apareciendo con
+ * las palabras en vez de saltar de golpe al final.
+ */
+let aiSegBase = { marcas: null, texto: null, segmentos: [] };
+
+function segmentosDelObjetivo() {
+  if (aiSegBase.marcas === aiMarcas && aiSegBase.texto === aiTextoObjetivo) {
+    return aiSegBase.segmentos;
+  }
+  aiSegBase = {
+    marcas: aiMarcas,
+    texto: aiTextoObjetivo,
+    segmentos: segmentarAI(aiTextoObjetivo, aiMarcas),
+  };
+  return aiSegBase.segmentos;
+}
+
+/** Los primeros `n` caracteres, cortando el segmento donde caiga. */
+function recortarSegmentos(segmentos, n) {
+  const out = [];
+  let usados = 0;
+  for (const s of segmentos) {
+    if (usados >= n) break;
+    const queda = n - usados;
+    out.push(queda >= s.texto.length ? s : { texto: s.texto.slice(0, queda), tipo: s.tipo });
+    usados += s.texto.length;
+  }
+  return out;
+}
+
+function segmentoAHtml(s) {
+  return s.tipo
+    ? `<mark class="ai-hl ai-hl--${s.tipo}" title="${AI_MARCAS_PUBLICAS[s.tipo].label}">${escaparAI(s.texto)}</mark>`
+    : escaparAI(s.texto);
+}
+
 function pintarTranscriptAI(conCursor) {
   const box = document.getElementById('aiTranscript');
   if (!box) return;
@@ -2900,24 +2952,25 @@ function pintarTranscriptAI(conCursor) {
   }
   const pegadoAbajo = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
 
+  const caret = conCursor ? '<span class="ai-caret"></span>' : '';
+
   /**
-   * Mientras escribe va en texto plano y recién al terminar se resaltan las
-   * marcas. Segmentar contra catorce citas en cada frame de la animación —cada
-   * 32ms sobre un transcript de diez mil caracteres— es trabajo tirado: las
-   * marcas llegan cada 24 segundos y no cambian entre letra y letra.
+   * El resaltado se mantiene mientras escribe.
+   *
+   * Sin marcas todavía no hay nada que resaltar y se pinta plano, que además
+   * es el caso del arranque de cada pitch.
    */
-  if (conCursor || !aiMarcas.length) {
+  if (!aiMarcas.length) {
     box.textContent = aiTextoMostrado;
     if (conCursor) box.insertAdjacentHTML('beforeend', '<span class="ai-caret"></span>');
-    // Mientras escribe no se toca la leyenda: se actualiza al asentarse.
-    if (!aiMarcas.length) pintarLeyendaAI([]);
+    pintarLeyendaAI([]);
   } else {
-    const segmentos = segmentarAI(aiTextoMostrado, aiMarcas);
-    box.innerHTML = segmentos
-      .map((s) => s.tipo
-        ? `<mark class="ai-hl ai-hl--${s.tipo}" title="${AI_MARCAS_PUBLICAS[s.tipo].label}">${escaparAI(s.texto)}</mark>`
-        : escaparAI(s.texto))
-      .join('');
+    // Segmentos ya calculados sobre el texto completo: acá sólo se recorta a
+    // lo que se lleva escrito.
+    const segmentos = recortarSegmentos(segmentosDelObjetivo(), aiTextoMostrado.length);
+    box.innerHTML = segmentos.map(segmentoAHtml).join('') + caret;
+    // La leyenda cuenta lo que se ve resaltado hasta acá, que es justamente lo
+    // que tiene delante quien está mirando.
     pintarLeyendaAI(segmentos);
   }
 
