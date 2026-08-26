@@ -1661,6 +1661,21 @@ let CRITERIA_SHORT = [];
 const csvUrl = (nombre) =>
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nombre)}`;
 
+/**
+ * Variantes del nombre de hoja a probar, derivadas del nombre configurado.
+ *
+ * Antes esta lista estaba escrita a mano —['Análisis', 'Analisis', ...]— de
+ * cuando había una sola competición. Con tres planillas eso significa que si
+ * mañana una pestaña se llama "Evaluación", las variantes que se prueban
+ * siguen siendo las de "Análisis". Ahora salen del nombre real, igual que en
+ * el servidor (lib/sheet.ts), que es la misma lectura hecha dos veces.
+ */
+function nombresDeHoja(nombre) {
+  // \u0300-\u036f son las marcas diacríticas combinantes: "Análisis" → "Analisis".
+  const sinTilde = String(nombre || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return Array.from(new Set([nombre, sinTilde, String(nombre || '').toLowerCase(), sinTilde.toLowerCase()]));
+}
+
 /** Por gid no hay ambigüedad: es el identificador de la pestaña. */
 const csvUrlGid = (gid) =>
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${encodeURIComponent(gid)}`;
@@ -1701,9 +1716,7 @@ async function cargarConfig() {
   CONFIG_VIVO = cfg.pusher;
   SHEET_ID = COMPETENCIA.sheetId;
   SHEET_NAME = COMPETENCIA.sheetName;
-  // Variantes por si la tilde no resuelve del lado de Google: se prueban en
-  // orden y gana la primera que devuelva filas con puntajes válidos.
-  SHEET_NAME_CANDIDATES = [SHEET_NAME, 'Analisis', 'análisis', 'analisis'];
+  SHEET_NAME_CANDIDATES = nombresDeHoja(SHEET_NAME);
   SHEET_GID = COMPETENCIA.sheetGid || null;
   EQUIPOS_ESPERADOS = COMPETENCIA.equiposEsperados || null;
   LAYOUT = COMPETENCIA.layout;
