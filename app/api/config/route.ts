@@ -44,6 +44,10 @@ export async function GET(req: Request) {
         sheetId: comp.sheetId,
         sheetName: comp.sheetName,
         sheetGid: comp.sheetGid || null,
+        // Cuántos equipos debería traer la planilla. El dashboard lo usa para
+        // decir "8 de 16": así, ver menos filas de las esperadas se lee como
+        // "todavía faltan votar" y no como que el dashboard está roto.
+        equiposEsperados: comp.equiposEsperados ?? null,
         indicadores: comp.indicadores,
         layout: layoutPlanilla(comp),
       },

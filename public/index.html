@@ -1649,6 +1649,11 @@ let SHEET_ID = '';
 let SHEET_NAME = 'Análisis';
 let SHEET_NAME_CANDIDATES = [];
 let SHEET_GID = null;
+// Cuántos equipos tiene la competición según el registro. El dashboard sólo
+// muestra las filas ya votadas, así que casi siempre son menos: sirve para
+// decir "8 de 16" y que ver pocas filas se lea como "faltan votar" y no como
+// que la planilla se leyó mal.
+let EQUIPOS_ESPERADOS = null;
 let LAYOUT = { colEquipo: 0, colNombre: 1, primerIndicador: 2, ultimoIndicador: 7, colMediaTotal: 8 };
 let CRITERIA = [];
 let CRITERIA_SHORT = [];
@@ -1700,6 +1705,7 @@ async function cargarConfig() {
   // orden y gana la primera que devuelva filas con puntajes válidos.
   SHEET_NAME_CANDIDATES = [SHEET_NAME, 'Analisis', 'análisis', 'analisis'];
   SHEET_GID = COMPETENCIA.sheetGid || null;
+  EQUIPOS_ESPERADOS = COMPETENCIA.equiposEsperados || null;
   LAYOUT = COMPETENCIA.layout;
   CRITERIA = COMPETENCIA.indicadores.map(i => `${i.icon} ${i.label}`);
   // En el radar los nombres largos se pisan entre sí y se salen del canvas en
@@ -2002,9 +2008,15 @@ async function loadData(showLoader = false) {
       const now = new Date().toLocaleTimeString('es-AR');
       document.getElementById('syncInfo').textContent = `✓ Sync ${now}`;
       document.getElementById('syncInfo').style.color = 'var(--green)';
+      // "8 de 16" en vez de "8 equipos": las filas que faltan son las que el
+      // jurado todavía no votó —parseCSV saltea las que tienen #DIV/0!— y sin
+      // el total no hay forma de distinguir eso de una lectura incompleta.
+      const deCuantos = EQUIPOS_ESPERADOS ? ` de ${EQUIPOS_ESPERADOS}` : '';
+      const faltan = EQUIPOS_ESPERADOS ? Math.max(0, EQUIPOS_ESPERADOS - parsed.length) : 0;
       showBanner('success',
-        `Conectado a Google Sheets · ${parsed.length} equipos cargados`,
-        `Hoja "${SHEET_NAME}" · ${parsed.length} equipos con calificaciones · datos en tiempo real`,
+        `Conectado a Google Sheets · ${parsed.length}${deCuantos} equipos con puntaje`,
+        `Hoja "${SHEET_NAME}" · datos en tiempo real`
+          + (faltan ? ` · faltan ${faltan} por votar` : ''),
         `${ms}ms`
       );
 

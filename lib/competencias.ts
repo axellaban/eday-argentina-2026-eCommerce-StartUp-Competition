@@ -68,6 +68,20 @@ export interface Competencia {
    * proyector de la sala.
    */
   layoutAI?: string;
+  /**
+   * Cuántos equipos tiene que traer la planilla. Es un CONTROL, no la fuente.
+   *
+   * Los nombres salen siempre de la columna B de la hoja de análisis y no hay
+   * ningún rango fijo de filas: si el jurado suma o saca un equipo, la lista
+   * se acomoda sola. Este número existe sólo para que una lectura incompleta
+   * se vea. Cuando la hoja devuelve otra cantidad, el copiloto lo dice en
+   * pantalla en vez de mostrar catorce equipos donde hay dieciséis, que es
+   * algo que nadie nota hasta que falta uno en el escenario.
+   *
+   * Se puede dejar sin poner: sin el número no hay control, y la lista sigue
+   * funcionando igual.
+   */
+  equiposEsperados?: number;
   indicadores: Indicator[];
 }
 

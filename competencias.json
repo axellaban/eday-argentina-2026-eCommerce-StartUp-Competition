@@ -1,6 +1,6 @@
 {
   "_comment": "Registro de competiciones. FUENTE ÚNICA: lo lee lib/competencias.ts (la app) y next.config.mjs (las rutas). Para sumar una competición, agregá una entrada acá y nada más. El orden es el de la home.",
-  "_comment_equipos": "Los equipos NO viven acá: salen de la columna B de la planilla de cada competición, vía GET /api/equipos. Si la hoja no responde el desplegable queda vacío y lo dice — una lista de reemplazo escrita a mano es exactamente el problema que esto vino a resolver, y con dos competiciones serían dos listas desactualizándose en paralelo.",
+  "_comment_equipos": "Los equipos NO viven acá: salen de la columna B de la hoja de análisis de cada competición, vía GET /api/equipos, y se leen TODAS las filas con nombre —no hay rango fijo—, así que sumar o sacar un equipo en la planilla no toca el código. equiposEsperados es sólo un control: si la hoja devuelve otra cantidad, el copiloto lo avisa en pantalla en vez de mostrar una lista incompleta como si estuviera bien. Si la hoja no responde, el desplegable queda vacío y dice por qué — una lista de reemplazo escrita a mano es exactamente el problema que esto vino a resolver, y con tres competiciones serían tres listas desactualizándose en paralelo.",
   "competencias": [
     {
       "slug": "ecommerce-startup-competition",
@@ -11,6 +11,7 @@
       "acento": "#a78bfa",
       "sheetId": "1Ust7i7HhsPrJdQxJ3v-GvhulQjfC_eCJxXCHuFxDvbc",
       "sheetName": "Análisis",
+      "equiposEsperados": 16,
       "indicadores": [
         {
           "key": "mercado",
@@ -65,6 +66,7 @@
       "acento": "#34d399",
       "sheetId": "1KPdZns96oCeZrn_qWyQCoT_lLGQ4j-SL-0uw583hrk8",
       "sheetName": "Análisis",
+      "equiposEsperados": 13,
       "indicadores": [
         {
           "key": "impacto",
@@ -133,6 +135,7 @@
       "acento": "#fb923c",
       "sheetId": "1YIKfLbvBylFZBviab0cTLPv2D7njLOxINY94BFoSDB8",
       "sheetName": "Analisis",
+      "equiposEsperados": 6,
       "indicadores": [
         {
           "key": "vivo",

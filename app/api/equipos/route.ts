@@ -19,20 +19,29 @@ export const maxDuration = 30;
  * Treinta segundos de cache: el jurado no cambia los nombres en medio de un
  * pitch, y si hace falta forzar la relectura está el botón de recargar, que
  * agrega `?t=`.
+ *
+ * Devuelve también cuántos equipos se esperaban y si la cuenta da. No recorta
+ * ni completa nada con ese número: la lista es la que trae la hoja. Sirve para
+ * que el copiloto avise cuando la lectura salió corta, porque una lista con
+ * catorce de dieciséis equipos se ve perfectamente normal hasta que falta uno
+ * en el escenario.
  */
 export async function GET(req: Request) {
   const comp = competenciaOrDefault(new URL(req.url).searchParams.get("competencia"));
-  const equipos = await equiposDelSheet(comp);
+  const { equipos, motivo } = await equiposDelSheet(comp);
+
+  const esperados = comp.equiposEsperados ?? null;
+  const coincide = esperados === null ? null : equipos.length === esperados;
 
   return NextResponse.json(
-    { competencia: comp.slug, equipos, cuantos: equipos.length },
+    { competencia: comp.slug, equipos, cuantos: equipos.length, esperados, coincide, motivo: motivo ?? null },
     {
       headers: {
-        "Cache-Control": equipos.length
+        // Sólo se cachea la lectura buena. Un vacío, o una lista corta, se
+        // vuelven a intentar en la próxima consulta en vez de quedar servidos
+        // desde el CDN durante medio minuto.
+        "Cache-Control": equipos.length && coincide !== false
           ? "public, max-age=0, s-maxage=30, stale-while-revalidate=120"
-          // Si la hoja no contestó, no se cachea el vacío: la próxima consulta
-          // vuelve a intentar en vez de servir "no hay equipos" durante medio
-          // minuto.
           : "no-store",
       },
     }

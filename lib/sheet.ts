@@ -18,7 +18,7 @@
  * ninguna fila.
  */
 
-import { Competencia } from "./competencias";
+import type { Competencia } from "./competencias";
 
 /**
  * Variantes del nombre de la hoja.
@@ -90,22 +90,58 @@ export function filasCSV(texto: string): string[][] {
   return filas;
 }
 
-/** Tope de equipos: son unos diez por competición, con margen por si se suma alguno. */
-const MAX_EQUIPOS = 20;
+/**
+ * Tope duro de filas que se leen de la columna B.
+ *
+ * Es una red contra una planilla con basura abajo (miles de filas vacías con
+ * un espacio suelto), NO un límite de participantes: si alguna vez recorta
+ * equipos de verdad, el número está mal. Estaba en 20 cuando eran "unos diez
+ * por competición"; la StartUp Competition ya trae 16 y ese margen era una
+ * fila de distancia de perder un equipo en silencio, que es la peor forma de
+ * fallar acá.
+ */
+const MAX_EQUIPOS = 100;
+
+/** Por qué la lista vino vacía. Sirve para decirlo en pantalla en vez de un "no hay equipos" a secas. */
+export type MotivoSinEquipos =
+  | "sin-planilla"      // la competición no tiene sheetId cargado
+  | "sin-respuesta"     // Google no contestó, o tardó más de la cuenta
+  | "hoja-equivocada"   // contestó, pero con otra hoja (la del formulario)
+  | "hoja-vacia";       // es la hoja correcta y no tiene nombres cargados
+
+export interface LecturaEquipos {
+  equipos: string[];
+  /** Presente sólo cuando `equipos` está vacío. */
+  motivo?: MotivoSinEquipos;
+}
 
 /**
- * Los nombres de la columna B, salteando el encabezado.
+ * Los nombres de la columna B de la hoja de análisis, salteando el encabezado.
  *
- * Devuelve `[]` si la hoja no responde o viene vacía; quien llame decide qué
- * hacer con eso. Acá no se inventa una lista de reemplazo: una lista inventada
- * es exactamente el problema que esto vino a resolver.
+ * NO hay un rango fijo de filas. Se leen todas las que tengan nombre, así que
+ * cuando el jurado suma o saca equipos de la planilla esto lo toma solo, sin
+ * tocar el código. Un rango escrito a mano —"B2:B11"— habría que actualizarlo
+ * cada vez que cambia la lista, y el día que alguien se olvide el equipo 12
+ * simplemente no aparece.
+ *
+ * Con la lista vacía devuelve el motivo. Antes todos los finales eran el mismo
+ * `[]`: "Google no contestó" y "Google contestó con la hoja del formulario" se
+ * veían igual en pantalla, y son dos problemas con dos soluciones distintas
+ * (esperar vs. cargar el gid de la pestaña).
+ *
+ * Acá no se inventa una lista de reemplazo: una lista inventada es exactamente
+ * el problema que esto vino a resolver.
  */
-export async function equiposDelSheet(comp: Competencia): Promise<string[]> {
-  if (!comp.sheetId) return [];
+export async function equiposDelSheet(comp: Competencia): Promise<LecturaEquipos> {
+  if (!comp.sheetId) return { equipos: [], motivo: "sin-planilla" };
   // Con gid se pide una sola vez y no hay lugar para la confusión.
   const urls = comp.sheetGid
     ? [csvUrlGid(comp.sheetId, comp.sheetGid)]
     : nombresDeHoja(comp.sheetName).map((h) => csvUrl(comp.sheetId, h));
+
+  // El último motivo pisa al anterior: si alguna variante del nombre llegó a
+  // traer la hoja equivocada, eso es más informativo que "no contestó".
+  let motivo: MotivoSinEquipos = "sin-respuesta";
 
   for (const base of urls) {
     const corte = new AbortController();
@@ -120,7 +156,8 @@ export async function equiposDelSheet(comp: Competencia): Promise<string[]> {
       const filas = filasCSV(await res.text());
       // Si no es la hoja del jurado, se descarta: mejor sin equipos que con
       // los nombres de quienes votaron.
-      if (!pareceHojaDeAnalisis(filas)) continue;
+      if (!pareceHojaDeAnalisis(filas)) { motivo = "hoja-equivocada"; continue; }
+
       const nombres = filas
         .slice(1)                                    // fila 1 = encabezado
         .map((f) => String(f[1] ?? "").trim())       // columna B
@@ -130,7 +167,8 @@ export async function equiposDelSheet(comp: Competencia): Promise<string[]> {
 
       // Sin duplicados: el nombre es la clave con la que se guarda la sesión.
       const unicos = Array.from(new Set(nombres)).slice(0, MAX_EQUIPOS);
-      if (unicos.length) return unicos;
+      if (unicos.length) return { equipos: unicos };
+      motivo = "hoja-vacia";
     } catch {
       // Si Google no contesta, no contesta para ninguna variante del nombre:
       // probar las otras tres sólo suma segundos de espera.
@@ -139,5 +177,5 @@ export async function equiposDelSheet(comp: Competencia): Promise<string[]> {
       clearTimeout(reloj);
     }
   }
-  return [];
+  return { equipos: [], motivo };
 }

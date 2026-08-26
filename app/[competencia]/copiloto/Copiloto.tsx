@@ -53,6 +53,30 @@ const BORRADOR_KEY = "eday.copiloto.borrador";
  *  con el mismo nombre y el borrador de una no debe aparecer en la otra. */
 const borradorKey = (slug: string, equipo: string) => `${BORRADOR_KEY}.${slug}.${equipo}`;
 
+/**
+ * Por qué el desplegable quedó vacío, en castellano y accionable.
+ *
+ * Antes decía siempre lo mismo: "no se pudieron leer los equipos". Pero
+ * "Google no contestó" se arregla esperando y volviendo a intentar, mientras
+ * que "Google contestó con la hoja del formulario" no se arregla nunca solo —
+ * hay que cargarle el gid de la pestaña al registro. Con un único mensaje, el
+ * operador reintentaba diez veces un problema que no era de conexión.
+ */
+function porQueVacia(motivo: unknown): string {
+  const aMano = " Mientras tanto escribí el nombre a mano, exactamente como figura en el Sheet.";
+  switch (motivo) {
+    case "hoja-equivocada":
+      return "Google devolvió otra hoja en vez de la de análisis (pasa cuando el nombre de la pestaña no resuelve)."
+        + " Hay que cargarle el gid de la pestaña a la competición." + aMano;
+    case "hoja-vacia":
+      return "La hoja de análisis está, pero no tiene nombres cargados en la columna B." + aMano;
+    case "sin-planilla":
+      return "Esta competición no tiene planilla configurada." + aMano;
+    default:
+      return "La planilla no contestó a tiempo." + aMano;
+  }
+}
+
 type Health = { tone: "ok" | "warn" | "bad"; msg: string } | null;
 
 /**
@@ -87,6 +111,9 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
   const [equipos, setEquipos] = useState<string[]>([]);
   const [cargandoEquipos, setCargandoEquipos] = useState(true);
   const [errorEquipos, setErrorEquipos] = useState("");
+  // Cuenta corta: la hoja contestó, pero con menos equipos de los que
+  // debería. No es un error de conexión, así que va aparte.
+  const [avisoEquipos, setAvisoEquipos] = useState("");
 
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState<string[]>([]);
@@ -166,16 +193,22 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
       const data = await res.json().catch(() => ({}));
       const lista: string[] = Array.isArray(data.equipos) ? data.equipos : [];
       setEquipos(lista);
-      setErrorEquipos(
-        lista.length
-          ? ""
-          : "No se pudieron leer los equipos de la planilla. Escribí el nombre a mano, exactamente como figura en el Sheet."
+      setErrorEquipos(lista.length ? "" : porQueVacia(data.motivo));
+      // La hoja contestó y trajo menos (o más) equipos de los que debería.
+      // Una lista corta se ve igual de normal que una completa: si no se
+      // avisa acá, nadie lo nota hasta que falta un equipo en el escenario.
+      setAvisoEquipos(
+        lista.length && data.coincide === false
+          ? `La planilla trae ${lista.length} equipo${lista.length === 1 ? "" : "s"} y deberían ser ${data.esperados}. `
+            + "Revisá la hoja «" + comp.sheetName + "» antes de arrancar, o escribí el nombre a mano."
+          : ""
       );
       // Sin pisar lo que el operador ya eligió, y sin dejar seleccionado a
       // alguien que el jurado sacó de la lista.
       setSelectedTeam((actual) => (actual && lista.includes(actual) ? actual : lista[0] || ""));
     } catch {
       setEquipos([]);
+      setAvisoEquipos("");
       setErrorEquipos("No se pudo consultar la planilla. Escribí el nombre del equipo a mano.");
     } finally {
       setCargandoEquipos(false);
@@ -1135,11 +1168,13 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
               <div className="soft" style={{ fontSize: "var(--fs-xs)", marginTop: 6 }}>
                 {errorEquipos ? (
                   <span style={{ color: "var(--gold)" }}>▲ {errorEquipos}</span>
+                ) : avisoEquipos ? (
+                  <span style={{ color: "var(--gold)" }}>▲ {avisoEquipos}</span>
                 ) : (
                   <>
                     {equipos.length} equipo{equipos.length === 1 ? "" : "s"} desde la columna B de la hoja
-                    &laquo;Análisis&raquo;. El nombre tiene que coincidir con el del Sheet: el dashboard cruza
-                    las fichas con los puntajes del jurado por ese nombre.
+                    &laquo;{comp.sheetName}&raquo;. El nombre tiene que coincidir con el del Sheet: el dashboard
+                    cruza las fichas con los puntajes del jurado por ese nombre.
                   </>
                 )}
               </div>
