@@ -1001,7 +1001,7 @@
     .ai-proyecto { color: rgba(200,245,218,.6); font-size: .82rem; margin-top: 4px; }
 
     /* ─────────────────────────────────────────────────────────────
-       Layout "columnas" de la vista /ai — opt-in por competición.
+       Layout de la vista /ai: dos columnas. Es el default de las tres.
 
        Apilado, el transcript ocupa todo el ancho y los indicadores quedan
        abajo de todo: en una pantalla de sala hay que hacer scroll para ver
@@ -1011,8 +1011,9 @@
        derecha, los dos a la vista al mismo tiempo. Preguntas y fichas siguen
        a lo ancho abajo, que es donde se leen sin competir con lo de arriba.
 
-       Se activa con data-layout-ai en el <html>, que sale del registro.
-       Sin el atributo, todo queda exactamente como estaba.
+       El <html> lleva data-layout-ai desde el registro. Una competición que
+       declare layoutAI: "apilado" no matchea estas reglas y vuelve al orden
+       vertical: es la salida de emergencia si en la sala algo no se ve bien.
        ───────────────────────────────────────────────────────────── */
     [data-layout-ai="columnas"] .ai-shell {
       display: grid;
@@ -1716,9 +1717,9 @@ function pintarIdentidad() {
   const sub = document.querySelector('.header-sub');
   if (sub) sub.textContent = `${COMPETENCIA.nombre} · ${COMPETENCIA.evento} · Live Evaluation`;
   document.documentElement.style.setProperty('--competencia', COMPETENCIA.acento);
-  // Sin layoutAI el atributo no existe y la vista queda apilada, como siempre.
-  if (COMPETENCIA.layoutAI) document.documentElement.dataset.layoutAi = COMPETENCIA.layoutAI;
-  else delete document.documentElement.dataset.layoutAi;
+  // Dos columnas por defecto. Sólo una competición que declare "apilado"
+  // vuelve al orden vertical de antes.
+  document.documentElement.dataset.layoutAi = COMPETENCIA.layoutAI || 'columnas';
   const msg = document.getElementById('loadingMsg');
   if (msg) msg.textContent = `Cargando ${COMPETENCIA.nombre}`;
   const cardSub = document.getElementById('cardSubIndicadores');

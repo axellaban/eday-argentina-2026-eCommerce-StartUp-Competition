@@ -57,12 +57,15 @@ export interface Competencia {
    */
   sheetGid?: string;
   /**
-   * Disposición de la vista /ai.
+   * Disposición de la vista /ai. Por defecto, dos columnas.
    *
-   * Vacío = apilado, el de siempre. "columnas" = transcript a la izquierda,
-   * radar e indicadores a la derecha, preguntas y fichas a lo ancho abajo.
-   * Es por competición para poder probar una variante en una sola sin tocar
-   * las que ya están andando.
+   * "columnas" (el default): transcript a la izquierda, radar e indicadores a
+   * la derecha, preguntas y fichas a lo ancho abajo.
+   * "apilado": el orden vertical de antes.
+   *
+   * No hace falta declararlo. Existe para poder devolver UNA competición al
+   * apilado sin tocar las otras, si el día del evento algo no se ve bien en el
+   * proyector de la sala.
    */
   layoutAI?: string;
   indicadores: Indicator[];
