@@ -2248,6 +2248,23 @@ function renderBar() {
   if (barChart) barChart.destroy();
   const ctx = document.getElementById('barChart').getContext('2d');
 
+  /**
+   * En un teléfono las etiquetas largas no entran, y no fallan avisando.
+   *
+   * Medido en un iPhone (390px de ancho): el eje de nombres se llevaba 170 de
+   * los 340px del gráfico —la mitad exacta— y aun así la más larga,
+   * "🧩 Integración y Time-to-Value", terminaba justo contra el borde del
+   * canvas. Ahí no hay margen para nada: cualquier diferencia de render entre
+   * un navegador y otro la pasa de largo, y Chart.js no achica ni parte el
+   * texto, lo recorta contra el borde. En la sala eso se ve como indicadores
+   * sin nombre o cortados al medio, que es peor que no poner el nombre.
+   *
+   * Las cortas ya existen y son las que usa el radar por lo mismo:
+   * "📈 Impacto", "🛡️ Gobernanza", "⚔️ Diferencial". Entran con lugar de
+   * sobra y le devuelven al gráfico el ancho que se llevaban los nombres.
+   */
+  const isMobile = window.innerWidth < 768;
+
   const avgs = CRITERIA.map((_, ci) =>
     Math.round(DATA.reduce((sum, d) => sum + d.scores[ci], 0) / DATA.length * 100) / 100
   );
@@ -2264,7 +2281,7 @@ function renderBar() {
   barChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: CRITERIA,
+      labels: isMobile ? CRITERIA_SHORT : CRITERIA,
       datasets: [{
         label: 'Promedio general',
         data: avgs,
@@ -2275,9 +2292,37 @@ function renderBar() {
         borderSkipped: false,
       }]
     },
+    /**
+     * El puntaje escrito al final de cada barra, sólo en teléfono.
+     *
+     * En una pantalla táctil no hay hover: el tooltip, que es donde vive el
+     * número, no aparece nunca. Sin esto el gráfico en el celular sólo dice
+     * "esta barra es más larga que aquella", y el valor hay que ir a buscarlo
+     * a la tabla de abajo. En desktop se deja como está: ahí el tooltip anda.
+     */
+    plugins: isMobile ? [{
+      id: 'valorAlFinal',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        ctx.save();
+        ctx.font = "700 11px 'JetBrains Mono', monospace";
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        chart.getDatasetMeta(0).data.forEach((barra, i) => {
+          const v = chart.data.datasets[0].data[i];
+          if (v == null) return;
+          ctx.fillStyle = barBorders[i];
+          ctx.fillText(v.toFixed(2), barra.x + 8, barra.y);
+        });
+        ctx.restore();
+      }
+    }] : [],
     options: {
       responsive: true, maintainAspectRatio: false,
       indexAxis: 'y',
+      // Lugar a la derecha para el número: sin esto, una barra de 5.00 lo
+      // empuja contra el borde y queda cortado.
+      layout: { padding: { right: isMobile ? 42 : 0 } },
       scales: {
         x: {
           min: 0, max: 5,
@@ -2286,7 +2331,7 @@ function renderBar() {
         },
         y: {
           grid: { display: false },
-          ticks: { font: { size: 11, weight: '700', family: "'Poppins', sans-serif" }, color: '#a1a1aa' }
+          ticks: { font: { size: isMobile ? 10 : 11, weight: '700', family: "'Poppins', sans-serif" }, color: '#a1a1aa' }
         }
       },
       plugins: {
