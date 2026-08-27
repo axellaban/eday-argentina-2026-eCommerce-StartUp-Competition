@@ -117,6 +117,30 @@ function kvKey(slug: string): string {
  */
 const KV_KEY_LEGADO = "eday:sessions";
 
+/**
+ * Marca de que esta competición ya tiene estado propio.
+ *
+ * Existe por un bug que hacía imposible borrar. La migración del legado se
+ * disparaba con "la clave nueva no tiene sesiones", usando el vacío como
+ * sinónimo de "todavía no migré". Pero un vacío también es el resultado de que
+ * el operador apriete «Borrar todas»: se guardaba la lista vacía y la lectura
+ * siguiente la leía como "nunca migré" y volvía a copiar el historial viejo
+ * encima. Borrar de a uno tenía el mismo final: andaba hasta el último equipo,
+ * y al borrar ése —el que dejaba la clave vacía— reaparecían todos.
+ *
+ * El marcador separa las dos cosas que el vacío confundía: "no hay nada
+ * todavía" y "no hay nada porque lo borraron". Se pone al migrar y al guardar
+ * un vacío, y desde entonces el legado no se vuelve a mirar.
+ */
+function kvKeyMigrado(slug: string): string {
+  return `eday:migrado:${slug}`;
+}
+
+/** Sólo la primera del registro heredó la clave global; es la única que puede migrar. */
+function heredaElLegado(slug: string): boolean {
+  return slug === SLUG_DEFAULT;
+}
+
 const KV_URL = (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "").replace(/\/$/, "");
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
 
@@ -181,6 +205,43 @@ async function kvSetClave(clave: string, data: SessionsData): Promise<void> {
   if (!res.ok) throw new Error(`KV SET ${res.status}`);
 }
 
+/**
+ * ¿Esta competición ya tiene estado propio?
+ *
+ * Si la consulta falla se responde `true`, o sea "no migres". Migrar de más
+ * resucita fichas que el operador borró, en vivo y sin manera de volver a
+ * borrarlas hasta el próximo deploy. Migrar de menos deja el historial viejo
+ * quieto donde está, y la próxima lectura que sí conteste lo trae. Entre las
+ * dos formas de equivocarse, ésta se arregla sola.
+ */
+async function yaTieneEstadoPropio(slug: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${KV_URL}/get/${encodeURIComponent(kvKeyMigrado(slug))}`, {
+      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return true;
+    const body = await res.json();
+    return body?.result != null;
+  } catch {
+    return true;
+  }
+}
+
+/** Deja la marca. Si falla, no se cae nada: lo peor es que se revise de nuevo. */
+async function marcarEstadoPropio(slug: string): Promise<void> {
+  try {
+    await fetch(`${KV_URL}/set/${encodeURIComponent(kvKeyMigrado(slug))}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ migrado: new Date().toISOString() }),
+      cache: "no-store",
+    });
+  } catch (e) {
+    console.error("[store] No se pudo marcar la migración:", e);
+  }
+}
+
 export async function loadSessions(slug: string): Promise<SessionsData> {
   if (isDurable()) {
     try {
@@ -189,14 +250,20 @@ export async function loadSessions(slug: string): Promise<SessionsData> {
       /**
        * Rescate de lo grabado antes de que hubiera competiciones.
        *
-       * Si la clave nueva está vacía y ésta es la competición que ya existía,
-       * se lee la clave global vieja y se copia a la nueva. Pasa una sola vez:
-       * a partir de la copia, la clave nueva deja de estar vacía.
+       * Se lee la clave global vieja y se copia a la nueva. Pasa UNA sola vez,
+       * y quien decide eso es el marcador, no el hecho de que la lista esté
+       * vacía: una lista vacía puede ser "todavía no hay nada" o "el operador
+       * borró todo", y tratarlas igual era exactamente lo que hacía que borrar
+       * no sirviera para nada.
        *
-       * La vieja NO se borra. Es el respaldo de un historial que no se puede
-       * volver a grabar, y no ocupa nada.
+       * La clave vieja NO se borra. Es el respaldo de un historial que no se
+       * puede volver a grabar, y no ocupa nada. Simplemente deja de mirarse.
        */
-      if (!Object.keys(data.sessions).length && slug === SLUG_DEFAULT) {
+      if (
+        !Object.keys(data.sessions).length &&
+        heredaElLegado(slug) &&
+        !(await yaTieneEstadoPropio(slug))
+      ) {
         const legado = await kvGetClave(KV_KEY_LEGADO);
         if (Object.keys(legado.sessions).length) {
           console.log(
@@ -205,6 +272,9 @@ export async function loadSessions(slug: string): Promise<SessionsData> {
           await kvSetClave(kvKey(slug), legado);
           data = legado;
         }
+        // Se marca haya habido algo que copiar o no: la pregunta que contesta
+        // el marcador es "¿ya revisé el legado?", y la respuesta ya es sí.
+        await marcarEstadoPropio(slug);
       }
 
       ultimaFuente = "kv";
@@ -233,6 +303,17 @@ export async function saveSessions(slug: string, data: SessionsData): Promise<vo
   if (isDurable()) {
     try {
       await kvSetClave(kvKey(slug), data);
+      /**
+       * Guardar una lista vacía es una decisión, no una ausencia.
+       *
+       * Es el estado en el que queda la base cuando el operador borra todo, o
+       * cuando borra el último equipo que quedaba. Sin dejar constancia, la
+       * lectura siguiente lo lee como "acá nunca hubo nada" y devuelve el
+       * historial viejo, y el borrado no se puede completar nunca.
+       */
+      if (!Object.keys(data.sessions).length && heredaElLegado(slug)) {
+        await marcarEstadoPropio(slug);
+      }
       return;
     } catch (e) {
       console.error("[store] Falló la escritura en KV, uso filesystem:", e);
