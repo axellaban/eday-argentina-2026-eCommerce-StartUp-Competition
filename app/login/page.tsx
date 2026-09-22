@@ -47,14 +47,14 @@ export default function LoginPage() {
           <a href="/" aria-label="Ver todas las competiciones">
             <img
               className="topbar__logo"
-              src="/logos argentina/PNG/SIN BAJADA/02.png"
-              alt="eCommerce DAY Argentina"
+              src="/logos/eday-latam-02.png"
+              alt="eCommerce DAY"
               style={{ marginBottom: 18 }}
             />
           </a>
           <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 800 }}>Acceso al Copiloto</h1>
           <p className="soft" style={{ fontSize: "var(--fs-xs)", marginTop: 6 }}>
-            Panel del operador · eCommerce DAY Argentina 2026
+            Panel del operador · eCommerce DAY 2026
           </p>
         </div>
 

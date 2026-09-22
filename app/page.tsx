@@ -15,7 +15,7 @@ import { COMPETENCIAS } from "@/lib/competencias";
  * extra acá es una decisión más antes de llegar a lo que vino a ver.
  */
 export const metadata = {
-  title: "Demo Day · eCommerce DAY Argentina 2026",
+  title: "Demo Day · eCommerce DAY 2026",
 };
 
 export default function Home() {
@@ -24,8 +24,8 @@ export default function Home() {
       <header className="home__head">
         <img
           className="home__logo"
-          src="/logos argentina/PNG/SIN BAJADA/02.png"
-          alt="eCommerce DAY Argentina"
+          src="/logos/eday-latam-02.png"
+          alt="eCommerce DAY"
         />
         <h1 className="home__title">Demo Day 2026</h1>
         <p className="home__sub">Elegí la competición</p>
@@ -47,7 +47,7 @@ export default function Home() {
         ))}
       </nav>
 
-      <p className="home__pie">eCommerce Institute · eCommerce DAY Argentina 2026</p>
+      <p className="home__pie">eCommerce Institute · eCommerce DAY 2026</p>
     </main>
   );
 }

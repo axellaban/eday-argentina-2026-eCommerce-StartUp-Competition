@@ -1,12 +1,12 @@
 {
-  "name": "Demo Day · eCommerce DAY Argentina 2026",
+  "name": "Demo Day · eCommerce DAY 2026",
   "short_name": "Demo Day",
-  "description": "Evaluación en vivo con IA de las competiciones del eCommerce DAY Argentina 2026.",
+  "description": "Evaluación en vivo con IA de las competiciones del eCommerce DAY 2026.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#031A2B",
   "theme_color": "#031A2B",
-  "lang": "es-AR",
+  "lang": "es",
   "icons": [
     {
       "src": "/icon-192.png",

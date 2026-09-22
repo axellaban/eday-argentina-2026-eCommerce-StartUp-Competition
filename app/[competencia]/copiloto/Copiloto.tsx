@@ -1068,7 +1068,7 @@ export default function Copiloto({ comp }: { comp: Competencia }) {
             El dashboard propio sigue a un click, en los accesos de la derecha.
           */}
           <a href="/" aria-label="Ver todas las competiciones">
-            <img className="topbar__logo" src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" />
+            <img className="topbar__logo" src="/logos/eday-latam-02.png" alt="eCommerce DAY" />
           </a>
           <div className="topbar__divider" />
           <div>

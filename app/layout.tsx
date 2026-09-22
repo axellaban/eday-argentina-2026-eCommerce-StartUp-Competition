@@ -14,7 +14,7 @@ import "./globals.css";
  */
 const SITIO = process.env.NEXT_PUBLIC_SITE_URL
   || (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`)
-  || "https://eday-2026-argentina-demo-day.vercel.app";
+  || "https://eday-2026-demo-day.vercel.app";
 
 /**
  * Metadatos genéricos del sitio, no de una competición.
@@ -22,13 +22,13 @@ const SITIO = process.env.NEXT_PUBLIC_SITE_URL
  * Acá viven las dos, así que el título no puede nombrar a ninguna: cada
  * página pone el suyo con generateMetadata.
  */
-const TITULO = "Demo Day · eCommerce DAY Argentina 2026";
+const TITULO = "Demo Day · eCommerce DAY 2026";
 const DESCRIPCION =
   "Evaluación en vivo con IA: los indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITIO),
-  title: { default: TITULO, template: "%s · eCommerce DAY Argentina" },
+  title: { default: TITULO, template: "%s · eCommerce DAY" },
   description: DESCRIPCION,
   icons: {
     icon: [
@@ -41,8 +41,8 @@ export const metadata: Metadata = {
   manifest: "/site.webmanifest",
   openGraph: {
     type: "website",
-    siteName: "eCommerce DAY Argentina",
-    locale: "es_AR",
+    siteName: "eCommerce DAY",
+    locale: "es_419",
     title: TITULO,
     description: DESCRIPCION,
     url: SITIO,

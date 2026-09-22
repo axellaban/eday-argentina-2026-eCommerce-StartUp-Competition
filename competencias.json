@@ -6,7 +6,7 @@
       "slug": "ecommerce-startup-competition",
       "nombre": "eCommerce StartUp Competition",
       "nombreCorto": "StartUp Competition",
-      "evento": "eCommerce DAY Argentina 2026",
+      "evento": "eCommerce DAY 2026",
       "organizador": "eCommerce Institute",
       "acento": "#a78bfa",
       "sheetId": "1Ust7i7HhsPrJdQxJ3v-GvhulQjfC_eCJxXCHuFxDvbc",
@@ -50,7 +50,7 @@
         },
         {
           "key": "percepcion",
-          "icon": "👁️",
+          "icon": "👁",
           "label": "Percepción Personal",
           "short": "Percepción",
           "description": "Impresión general del pitch: claridad, convicción y ganas de robarle la idea."
@@ -61,7 +61,7 @@
       "slug": "ai-unified-commerce",
       "nombre": "AI Unified Commerce",
       "nombreCorto": "AI Unified Commerce",
-      "evento": "eCommerce DAY Argentina 2026",
+      "evento": "eCommerce DAY 2026",
       "organizador": "eCommerce Institute",
       "acento": "#34d399",
       "sheetId": "1KPdZns96oCeZrn_qWyQCoT_lLGQ4j-SL-0uw583hrk8",
@@ -91,14 +91,14 @@
         },
         {
           "key": "gobernanza",
-          "icon": "🛡️",
+          "icon": "🛡",
           "label": "Gobernanza y Seguridad",
           "short": "Gobernanza",
           "description": "Control sobre lo que el sistema hace: permisos, datos sensibles, trazabilidad, human-in-the-loop, cumplimiento."
         },
         {
           "key": "robustez",
-          "icon": "🏗️",
+          "icon": "🏗",
           "label": "Robustez y Resiliencia",
           "short": "Robustez",
           "description": "Qué pasa cuando algo falla: manejo de errores, reintentos, degradación elegante, tiempo en producción sin caerse."
@@ -119,7 +119,7 @@
         },
         {
           "key": "diferencial",
-          "icon": "⚔️",
+          "icon": "⚔",
           "label": "Diferenciación Aplicable",
           "short": "Diferencial",
           "description": "Qué tiene esto que no se copia en un fin de semana: ventaja real y aplicable, no una feature genérica."
@@ -130,7 +130,7 @@
       "slug": "ai-agentic-mvp-competition",
       "nombre": "AI Agentic MVP Competition",
       "nombreCorto": "AI Agentic MVP",
-      "evento": "eCommerce DAY Argentina 2026",
+      "evento": "eCommerce DAY 2026",
       "organizador": "eCommerce Institute",
       "acento": "#fb923c",
       "sheetId": "1YIKfLbvBylFZBviab0cTLPv2D7njLOxINY94BFoSDB8",

@@ -12,7 +12,7 @@
        previa al compartir muestra siempre estos valores genéricos. Es a
        propósito: es preferible un título del evento a que el link de una
        competición se previsualice con el nombre de la otra. -->
-  <title>Demo Day · eCommerce DAY Argentina 2026</title>
+  <title>Demo Day · eCommerce DAY 2026</title>
   <meta name="description" content="Evaluación en vivo con IA: los indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta." />
   <meta name="theme-color" content="#031A2B" />
 
@@ -30,20 +30,20 @@
        resuelven rutas relativas de forma confiable. Si algún día se le pone un
        dominio propio, hay que cambiar el dominio acá y en app/layout.tsx. -->
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="eCommerce DAY Argentina" />
-  <meta property="og:locale" content="es_AR" />
-  <meta property="og:title" content="Demo Day · eCommerce DAY Argentina 2026" />
+  <meta property="og:site_name" content="eCommerce DAY" />
+  <meta property="og:locale" content="es_419" />
+  <meta property="og:title" content="Demo Day · eCommerce DAY 2026" />
   <meta property="og:description" content="Evaluación en vivo con IA: los indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta." />
-  <meta property="og:url" content="https://eday-2026-argentina-demo-day.vercel.app/" />
-  <meta property="og:image" content="https://eday-2026-argentina-demo-day.vercel.app/og-image.png" />
+  <meta property="og:url" content="https://eday-2026-demo-day.vercel.app/" />
+  <meta property="og:image" content="https://eday-2026-demo-day.vercel.app/og-image.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Demo Day · eCommerce DAY Argentina 2026" />
+  <meta property="og:image:alt" content="Demo Day · eCommerce DAY 2026" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Demo Day · eCommerce DAY Argentina 2026" />
+  <meta name="twitter:title" content="Demo Day · eCommerce DAY 2026" />
   <meta name="twitter:description" content="Evaluación en vivo con IA: los indicadores oficiales moviéndose en tiempo real mientras cada equipo presenta." />
-  <meta name="twitter:image" content="https://eday-2026-argentina-demo-day.vercel.app/og-image.png" />
+  <meta name="twitter:image" content="https://eday-2026-demo-day.vercel.app/og-image.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -376,10 +376,16 @@
 
     /* ── Podium ── */
     .podium-wrap {
+      --podium-h1: 130px;
+      --podium-h2: 90px;
+      --podium-h3: 55px;
       display: flex; align-items: flex-end; justify-content: center;
       gap: 12px; height: 260px; padding: 0 8px;
     }
-    .podium-col { display: flex; flex-direction: column; align-items: center; flex: 1; max-width: 110px; }
+    .podium-col {
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      height: 100%; flex: 1; max-width: 110px;
+    }
     .podium-info { text-align: center; margin-bottom: 8px; }
     .podium-medal {
       font-size: 1.6rem; line-height: 1;
@@ -397,6 +403,7 @@
       width: 100%; border-radius: 10px 10px 0 0;
       display: flex; align-items: flex-start; justify-content: center;
       padding-top: 14px;
+      box-sizing: border-box;
     }
     .podium-num {
       width: 32px; height: 32px; border-radius: 50%;
@@ -810,11 +817,19 @@
 
       /* Chart canvas containers */
       .radar-canvas-wrap { height: 420px !important; }
-      .bar-canvas-wrap { height: 260px !important; }
+      .bar-canvas-wrap { height: 280px !important; }
 
       /* Podium mobile */
-      .podium-wrap { height: 200px; gap: 6px; padding: 0; }
-      .podium-col { max-width: 90px; }
+      .podium-wrap {
+        --podium-h1: 85px;
+        --podium-h2: 58px;
+        --podium-h3: 38px;
+        height: 200px;
+        gap: 6px;
+        padding: 0;
+      }
+      .podium-col { max-width: 90px; height: 100%; justify-content: flex-end; }
+      .podium-block { padding-top: 6px; }
       .podium-team { font-size: 0.72rem; word-break: break-word; }
       .podium-score { font-size: 1.2rem; }
       .podium-medal { font-size: 1.2rem; }
@@ -877,8 +892,11 @@
        TOGGLE HUMAN / AI JUDGE + VISTA AI
        ══════════════════════════════════════════════════════════ */
 
+    /* ── TOGGLE HUMAN / AI JUDGE ──
+       Oculto a pedido en todos los dashboards.
+       Para volver a activarlo en el futuro, cambiar 'display: none !important;' por 'display: flex;'. */
     .judge-switch {
-      display: flex;
+      display: none !important;
       gap: 4px;
       padding: 5px;
       margin: 0 auto 4px;
@@ -1272,7 +1290,7 @@
 <!-- Loading overlay -->
 <div id="loadingOverlay">
   <div class="loading-card">
-    <img src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY" style="height:40px;width:auto;" />
+    <img src="/logos/eday-latam-02.png" alt="eCommerce DAY" style="height:40px;width:auto;" />
     <div class="spinner"></div>
     <h3>Conectando a Google Sheets…</h3>
     <p id="loadingMsg">Cargando datos de la hoja "Análisis"</p>
@@ -1289,14 +1307,14 @@
            quien abre /{competencia} no tiene forma de llegar a las otras salvo
            editando la URL a mano. -->
       <a href="/" class="header-logo-link" aria-label="Ver todas las competiciones">
-        <img src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" class="header-logo" />
+        <img src="/logos/eday-latam-02.png" alt="eCommerce DAY" class="header-logo" />
       </a>
       <div style="border-left:1px solid var(--border);padding-left:16px;">
         <div class="header-title">Demo Day</div>
         <!-- Se reemplaza por el nombre real de la competición en cuanto carga
              la config. El texto de arranque es neutro para que no haya un
              parpadeo con el nombre de la competición equivocada. -->
-        <div class="header-sub">eCommerce DAY Argentina · Live Evaluation</div>
+        <div class="header-sub">eCommerce DAY · Live Evaluation</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
@@ -1601,9 +1619,9 @@
   <footer style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px 0 24px;margin-top:20px;border-top:1px solid var(--border);">
     <div style="display:flex;align-items:center;gap:16px;">
       <a href="/" class="header-logo-link" aria-label="Ver todas las competiciones">
-        <img src="/logos argentina/PNG/SIN BAJADA/02.png" alt="eCommerce DAY Argentina" style="height:24px;width:auto;opacity:.5;display:block;" />
+        <img src="/logos/eday-latam-02.png" alt="eCommerce DAY" style="height:24px;width:auto;opacity:.5;display:block;" />
       </a>
-      <span style="font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-weight:600;opacity:.5;">eCommerce DAY Argentina · 2026</span>
+      <span style="font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;font-weight:600;opacity:.5;">eCommerce DAY · 2026</span>
     </div>
     <div style="text-align:center;opacity:.35;">
       <span style="font-size:.62rem;color:var(--muted);font-family:'Poppins',sans-serif;font-weight:400;letter-spacing:.03em;">Dashboard made by</span><br>
@@ -1719,11 +1737,11 @@ async function cargarConfig() {
   SHEET_NAME_CANDIDATES = nombresDeHoja(SHEET_NAME);
   SHEET_GID = COMPETENCIA.sheetGid || null;
   EQUIPOS_ESPERADOS = COMPETENCIA.equiposEsperados || null;
-  LAYOUT = COMPETENCIA.layout;
-  CRITERIA = COMPETENCIA.indicadores.map(i => `${i.icon} ${i.label}`);
-  // En el radar los nombres largos se pisan entre sí y se salen del canvas en
-  // pantallas chicas: ahí se usan estos.
-  CRITERIA_SHORT = COMPETENCIA.indicadores.map(i => `${i.icon} ${i.short}`);
+  const cleanLabel = (s) => (s || '').replace(/[\uFE00-\uFE0F]/g, '');
+  CRITERIA = COMPETENCIA.indicadores.map(i => cleanLabel(`${i.icon} ${i.label}`));
+  // En el radar y gráfico de barras en móvil los nombres largos se pisan entre sí
+  // y se salen del canvas en pantallas chicas: ahí se usan estos.
+  CRITERIA_SHORT = COMPETENCIA.indicadores.map(i => cleanLabel(`${i.icon} ${i.short}`));
   AI_KEYS = COMPETENCIA.indicadores.map(i => i.key);
 
   pintarIdentidad();
@@ -2322,7 +2340,7 @@ function renderBar() {
       indexAxis: 'y',
       // Lugar a la derecha para el número: sin esto, una barra de 5.00 lo
       // empuja contra el borde y queda cortado.
-      layout: { padding: { right: isMobile ? 42 : 0 } },
+      layout: { padding: { right: isMobile ? 48 : 0 } },
       scales: {
         x: {
           min: 0, max: 5,
@@ -2331,7 +2349,7 @@ function renderBar() {
         },
         y: {
           grid: { display: false },
-          ticks: { font: { size: isMobile ? 10 : 11, weight: '700', family: "'Poppins', sans-serif" }, color: '#a1a1aa' }
+          ticks: { font: { size: isMobile ? 10 : 11, weight: '700', family: "'Poppins', -apple-system, sans-serif" }, color: '#a1a1aa' }
         }
       },
       plugins: {
@@ -2365,10 +2383,27 @@ function renderPodium() {
     `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="#fb923c" opacity=".2"/><path d="M12 3l2.09 4.26L19 8.27l-3.5 3.41.83 4.82L12 14.77l-4.33 2.73.83-4.82L5 8.27l4.91-.01L12 3z" fill="#fb923c"/></svg>`,
   ];
 
+  const s0 = sorted[0];
+  const s1 = sorted[1];
+  const s2 = sorted[2];
+
+  // Alturas escalonadas según puntaje:
+  // Si empatan en promedio, comparten el mismo escalón físico.
+  const tie01 = s0 && s1 && Math.abs(s0.media - s1.media) < 0.001;
+  const tie12 = s1 && s2 && Math.abs(s1.media - s2.media) < 0.001;
+
+  const h0 = 'var(--podium-h1)';
+  const h1 = tie01 ? 'var(--podium-h1)' : 'var(--podium-h2)';
+  const h2 = (s1 && tie12) ? h1 : 'var(--podium-h3)';
+
+  const r1 = 1;
+  const r2 = tie01 ? 1 : 2;
+  const r3 = tie12 ? r2 : (r2 === 1 ? 2 : 3);
+
   const order = [
-    sorted[1] ? { rank:2, data:sorted[1], blk:'p2', num:'n2', medalIdx:1, col:'#94a3b8', h:'68%' } : null,
-    sorted[0] ? { rank:1, data:sorted[0], blk:'p1', num:'n1', medalIdx:0, col:'#d97706', h:'100%' } : null,
-    sorted[2] ? { rank:3, data:sorted[2], blk:'p3', num:'n3', medalIdx:2, col:'#c2410c', h:'48%' } : null,
+    s1 ? { rank: r2, data: s1, blk: 'p2', num: 'n2', medalIdx: 1, col: '#94a3b8', h: h1 } : null,
+    s0 ? { rank: r1, data: s0, blk: 'p1', num: 'n1', medalIdx: 0, col: '#d97706', h: h0 } : null,
+    s2 ? { rank: r3, data: s2, blk: 'p3', num: 'n3', medalIdx: 2, col: '#c2410c', h: h2 } : null,
   ].filter(Boolean);
 
   wrap.innerHTML = order.map(it => `
@@ -2423,7 +2458,7 @@ const DEMO_FICHAS = [
   {
     "group": "Maru Portela",
     "proyecto": "GrowthThing — Sistema Multi-Agente de Prospecting B2B (NanoThing)",
-    "raw": "**RESUMEN DEL PROYECTO**\nMaru es socia de NanoThing, consultora de Customer Experience. El dolor: prospección B2B manual, dispersa, con criterio inconsistente, mensajes genéricos y fríos, fuga en el pipeline. Tomaba 3-4 horas semanales por lead. Ella misma reconoce: \"me metí con un tema complejo\". Diseñó GrowthThing, un sistema de 3 agentes con metodología propia de madurez CX.\n\n**FORTALEZAS**\n• **Funciona en Vivo:** Dejó corriendo el rastreador mientras presentaba. Mostró resultados reales de escaneos previos: empresa identificada, industria, nivel de madurez CX, evidencia de señales (ej: \"tiene el objetivo público de replicar Share en Argentina\"), puntos de dolor concretos, score de predisposición de compra, contactos clave con LinkedIn, y mensajes de outreach personalizados que ya no suenan a copy-paste.\n• **Arquitectura Agéntica:** 3 agentes con cadencia operativa: (1) Rastreador (lunes) — escrapea LinkedIn, webs, noticias vía Firecrawl, califica madurez CX en 4 niveles según metodología propia de NanoThing; (2) Detector (semanal) — monitorea pipeline, detecta cambios de puesto de decisores y contrataciones clave; (3) Nutridor (2x/semana) — rediseña secuencias personalizadas. Decisión deliberada de NO automatizar el envío para evitar baneo y mantener control humano.\n• **Relevancia del Caso de Uso:** NanoThing focaliza clientes en niveles 2-3 de madurez CX. El rastreador validó contra pipeline existente: \"lo mapié con empresas con las que nos habíamos contactado y anda muy bien\". Axel destacó: \"El research lo tenés cocinado. Lo más difícil es sonar humano y no sonar spam\".\n• **Impacto Medible:** Ahorro del 77% en tiempo (de 6.5h a 1.5h semanales). Reducción del 80% en research. Mejora de capacidad del 150%. Costo: $1.300 USD/mes. Ahorro anual: $11.400 USD. ROI: 2.500% anual.\n• **¿Me lo Robo?:** Sistema de prospección B2B de altísimo nivel técnico. Maru: \"Me acuerdo la primera charla con Axel donde no podía avanzar nada. Hoy me siento en otro lado\".\n\n**ÁREAS DE MEJORA**\n• Los agentes 2 (Detector) y 3 (Nutridor) están aún en construcción. Solo el Rastreador está completamente operativo.\n• Pendiente: conexión con Apollo para enriquecimiento de emails directo. Los mensajes iniciales \"eran tipo un copy-paste de todo\"; mejoró pero es un work in progress.\n\n**VEREDICTO**\nProyecto ambicioso con la parte más difícil (el rastreador) resuelta y validada contra datos reales. La metodología propia de madurez CX es un diferencial potente. Faltan los otros 2 agentes, pero la base está sólida."
+    "raw": "**RESUMEN DEL PROYECTO**\nMaru es socia de NanoThing, consultora de Customer Experience. El dolor: prospección B2B manual, dispersa, con criterio inconsistente, mensajes genéricos y fríos, fuga en el pipeline. Tomaba 3-4 horas semanales por lead. Ella misma reconoce: \"me metí con un tema complejo\". Diseñó GrowthThing, un sistema de 3 agentes con metodología propia de madurez CX.\n\n**FORTALEZAS**\n• **Funciona en Vivo:** Dejó corriendo el rastreador mientras presentaba. Mostró resultados reales de escaneos previos: empresa identificada, industria, nivel de madurez CX, evidencia de señales (ej: \"tiene el objetivo público de replicar Share en la región\"), puntos de dolor concretos, score de predisposición de compra, contactos clave con LinkedIn, y mensajes de outreach personalizados que ya no suenan a copy-paste.\n• **Arquitectura Agéntica:** 3 agentes con cadencia operativa: (1) Rastreador (lunes) — escrapea LinkedIn, webs, noticias vía Firecrawl, califica madurez CX en 4 niveles según metodología propia de NanoThing; (2) Detector (semanal) — monitorea pipeline, detecta cambios de puesto de decisores y contrataciones clave; (3) Nutridor (2x/semana) — rediseña secuencias personalizadas. Decisión deliberada de NO automatizar el envío para evitar baneo y mantener control humano.\n• **Relevancia del Caso de Uso:** NanoThing focaliza clientes en niveles 2-3 de madurez CX. El rastreador validó contra pipeline existente: \"lo mapié con empresas con las que nos habíamos contactado y anda muy bien\". Axel destacó: \"El research lo tenés cocinado. Lo más difícil es sonar humano y no sonar spam\".\n• **Impacto Medible:** Ahorro del 77% en tiempo (de 6.5h a 1.5h semanales). Reducción del 80% en research. Mejora de capacidad del 150%. Costo: $1.300 USD/mes. Ahorro anual: $11.400 USD. ROI: 2.500% anual.\n• **¿Me lo Robo?:** Sistema de prospección B2B de altísimo nivel técnico. Maru: \"Me acuerdo la primera charla con Axel donde no podía avanzar nada. Hoy me siento en otro lado\".\n\n**ÁREAS DE MEJORA**\n• Los agentes 2 (Detector) y 3 (Nutridor) están aún en construcción. Solo el Rastreador está completamente operativo.\n• Pendiente: conexión con Apollo para enriquecimiento de emails directo. Los mensajes iniciales \"eran tipo un copy-paste de todo\"; mejoró pero es un work in progress.\n\n**VEREDICTO**\nProyecto ambicioso con la parte más difícil (el rastreador) resuelta y validada contra datos reales. La metodología propia de madurez CX es un diferencial potente. Faltan los otros 2 agentes, pero la base está sólida."
   },
   {
     "group": "Debora Menigali",

@@ -1,7 +1,7 @@
-# Demo Day · eCommerce DAY Argentina 2026
+# Demo Day · eCommerce DAY 2026
 
 Dashboard del jurado + copiloto de evaluación en vivo para las competiciones
-del eCommerce DAY Argentina 2026 (eCommerce Institute).
+del eCommerce DAY 2026 (eCommerce Institute).
 
 ## Dos competiciones, un solo deploy
 

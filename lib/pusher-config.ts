@@ -51,7 +51,7 @@ export const PUSHER_EVENTS = {
  */
 export const MAX_TRANSCRIPT_EVENTO = 5000;
 
-/** Cluster por defecto: sa1 (São Paulo), el más cercano para Argentina. */
+/** Cluster por defecto: sa1 (São Paulo), el más cercano para la región. */
 export const PUSHER_CLUSTER = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "sa1";
 
 /** La key de Pusher es pública por diseño (viaja al navegador). */
