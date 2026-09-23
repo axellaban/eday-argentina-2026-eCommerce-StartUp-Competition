@@ -557,7 +557,35 @@ html_content = f"""<!DOCTYPE html>
 </html>
 """
 
-with open('/tmp/og_template_v3.html', 'w') as f:
+with open('/tmp/og_template.html', 'w') as f:
     f.write(html_content)
 
-print("Template v3 generated successfully")
+print("Template HTML generado en /tmp/og_template.html")
+
+# 1. Renderizar con Google Chrome headless
+raw_png = '/tmp/og_raw.png'
+chrome_cmd = [
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "--headless=new",
+    "--disable-gpu",
+    "--hide-scrollbars",
+    "--window-size=1200,630",
+    f"--screenshot={raw_png}",
+    "file:///tmp/og_template.html"
+]
+subprocess.run(chrome_cmd, check=True)
+print(f"Screenshot capturado: {os.path.getsize(raw_png)} bytes")
+
+# 2. Optimizar con pngquant para < 250 KB (WhatsApp y redes)
+out_png = 'public/og-image.png'
+pngquant_cmd = [
+    "pngquant",
+    "--quality=80-95",
+    "--speed=1",
+    "--force",
+    raw_png,
+    "-o",
+    out_png
+]
+subprocess.run(pngquant_cmd, check=True)
+print(f"OG Image optimizado en {out_png}: {os.path.getsize(out_png)} bytes")
